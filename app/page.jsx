@@ -923,7 +923,7 @@ export default function HomePage() {
             <circle cx="12" cy="12" r="10" stroke="var(--accent)" strokeWidth="2" />
             <path d="M5 14c2-4 7-6 14-5" stroke="var(--primary)" strokeWidth="2" />
           </svg>
-          <span>实时基金估值</span>
+          <span>基估宝</span>
         </div>
         <div className="actions">
           <div className="badge" title="当前刷新频率">
@@ -1301,7 +1301,7 @@ export default function HomePage() {
       <div className="footer">
         <p>数据源：实时估值与重仓直连东方财富，仅供个人学习及参考使用。数据可能存在延迟，不作为任何投资建议
         </p>
-        <p>注：估算数据与真实结算数据会有1%左右误差</p>
+        <p>注：估算数据与真实结算数据会有1%左右误差，非股票型基金误差较大</p>
         <div style={{ marginTop: 12, opacity: 0.8 }}>
           <p>
             遇到任何问题或需求建议可
