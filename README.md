@@ -87,18 +87,23 @@ npm run build
 
 ### Docker运行
 
-1. 构建镜像
-```
+需先配置环境变量（与本地开发一致），否则构建出的镜像中 Supabase 等配置为空。可复制 `env.example` 为 `.env` 并填入实际值；若不用登录/反馈功能可留空。
+
+1. 构建镜像（构建时会读取当前环境或同目录 `.env` 中的变量）
+```bash
 docker build -t real-time-fund .
+# 或通过 --build-arg 传入，例如：
+# docker build -t real-time-fund --build-arg NEXT_PUBLIC_SUPABASE_URL=xxx --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx .
 ```
 
 2. 启动容器
-```
+```bash
 docker run -d -p 3000:3000 --name fund real-time-fund
 ```
 
-#### docker-compose
-```
+#### docker-compose（会读取同目录 `.env` 作为 build-arg 与运行环境）
+```bash
+# 建议先：cp env.example .env 并编辑 .env
 docker compose up -d
 ```
 
