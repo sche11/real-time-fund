@@ -105,19 +105,28 @@ export default function FundIntradayChart({ series = [], referenceNav }) {
     },
     onHover: (event, chartElement, chart) => {
       const target = event?.native?.target;
-      if (target) {
-        target.style.cursor = chartElement[0] ? 'crosshair' : 'default';
-      }
-
       const currentChart = chart || chartRef.current;
       if (!currentChart) return;
+
+      const tooltipActive = currentChart.tooltip?._active ?? [];
+      const activeElements = currentChart.getActiveElements
+        ? currentChart.getActiveElements()
+        : [];
+      const hasActive =
+        (chartElement && chartElement.length > 0) ||
+        (tooltipActive && tooltipActive.length > 0) ||
+        (activeElements && activeElements.length > 0);
+
+      if (target) {
+        target.style.cursor = hasActive ? 'crosshair' : 'default';
+      }
 
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
         hoverTimeoutRef.current = null;
       }
 
-      if (chartElement[0]) {
+      if (hasActive) {
         hoverTimeoutRef.current = setTimeout(() => {
           const c = chartRef.current || currentChart;
           if (!c) return;

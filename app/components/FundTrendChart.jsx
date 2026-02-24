@@ -220,10 +220,25 @@ export default function FundTrendChart({ code, isExpanded, onToggleExpand, trans
       },
       onHover: (event, chartElement, chart) => {
         const target = event?.native?.target;
+        const currentChart = chart || chartRef.current;
+        if (!currentChart) return;
+
+        const tooltipActive = currentChart.tooltip?._active ?? [];
+        const activeElements = currentChart.getActiveElements
+          ? currentChart.getActiveElements()
+          : [];
+        const hasActive =
+          (chartElement && chartElement.length > 0) ||
+          (tooltipActive && tooltipActive.length > 0) ||
+          (activeElements && activeElements.length > 0);
+
         if (target) {
-          target.style.cursor = chartElement[0] ? 'crosshair' : 'default';
+          target.style.cursor = hasActive ? 'crosshair' : 'default';
         }
 
+        // 仅用于桌面端 hover 改变光标，不在这里做 2 秒清除，避免移动端 hover 事件不稳定
+      },
+      onClick: (_event, _elements, chart) => {
         const currentChart = chart || chartRef.current;
         if (!currentChart) return;
 
@@ -232,20 +247,15 @@ export default function FundTrendChart({ code, isExpanded, onToggleExpand, trans
           hoverTimeoutRef.current = null;
         }
 
-        if (chartElement[0]) {
-          hoverTimeoutRef.current = setTimeout(() => {
-            const c = chartRef.current || currentChart;
-            if (!c) return;
-            c.setActiveElements([]);
-            if (c.tooltip) {
-              c.tooltip.setActiveElements([], { x: 0, y: 0 });
-            }
-            c.update();
-            if (target) {
-              target.style.cursor = 'default';
-            }
-          }, 2000);
-        }
+        hoverTimeoutRef.current = setTimeout(() => {
+          const c = chartRef.current || currentChart;
+          if (!c) return;
+          c.setActiveElements([]);
+          if (c.tooltip) {
+            c.tooltip.setActiveElements([], { x: 0, y: 0 });
+          }
+          c.update();
+        }, 2000);
       }
     };
   }, []);
