@@ -146,6 +146,7 @@ function GroupSummary({ funds, holdings, groupName, getProfit, stickyTop }) {
     let totalHoldingReturn = 0;
     let totalCost = 0;
     let hasHolding = false;
+    let hasAnyTodayData = false;
 
     funds.forEach(fund => {
       const holding = holdings[fund.code];
@@ -154,7 +155,10 @@ function GroupSummary({ funds, holdings, groupName, getProfit, stickyTop }) {
       if (profit) {
         hasHolding = true;
         totalAsset += profit.amount;
-        totalProfitToday += profit.profitToday;
+        if (profit.profitToday != null) {
+          totalProfitToday += profit.profitToday;
+          hasAnyTodayData = true;
+        }
         if (profit.profitTotal !== null) {
           totalHoldingReturn += profit.profitTotal;
           if (holding && typeof holding.cost === 'number' && typeof holding.share === 'number') {
@@ -166,7 +170,7 @@ function GroupSummary({ funds, holdings, groupName, getProfit, stickyTop }) {
 
     const returnRate = totalCost > 0 ? (totalHoldingReturn / totalCost) * 100 : 0;
 
-    return { totalAsset, totalProfitToday, totalHoldingReturn, hasHolding, returnRate };
+    return { totalAsset, totalProfitToday, totalHoldingReturn, hasHolding, returnRate, hasAnyTodayData };
   }, [funds, holdings, getProfit]);
 
   useLayoutEffect(() => {
@@ -233,16 +237,18 @@ function GroupSummary({ funds, holdings, groupName, getProfit, stickyTop }) {
           <div style={{ textAlign: 'right' }}>
             <div className="muted" style={{ fontSize: '12px', marginBottom: 4 }}>当日收益</div>
             <div
-              className={summary.totalProfitToday > 0 ? 'up' : summary.totalProfitToday < 0 ? 'down' : ''}
+              className={summary.hasAnyTodayData ? (summary.totalProfitToday > 0 ? 'up' : summary.totalProfitToday < 0 ? 'down' : '') : 'muted'}
               style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}
             >
               {isMasked ? (
                 <span style={{ fontSize: metricSize }}>******</span>
-              ) : (
+              ) : summary.hasAnyTodayData ? (
                 <>
                   <span style={{ marginRight: 1 }}>{summary.totalProfitToday > 0 ? '+' : summary.totalProfitToday < 0 ? '-' : ''}</span>
                   <CountUp value={Math.abs(summary.totalProfitToday)} style={{ fontSize: metricSize }} />
                 </>
+              ) : (
+                <span style={{ fontSize: metricSize }}>--</span>
               )}
             </div>
           </div>
@@ -539,14 +545,12 @@ export default function HomePage() {
   const getHoldingProfit = (fund, holding) => {
     if (!holding || typeof holding.share !== 'number') return null;
 
-    const now = nowInTz();
-    const isAfter9 = now.hour() >= 9;
     const hasTodayData = fund.jzrq === todayStr;
     const hasTodayValuation = typeof fund.gztime === 'string' && fund.gztime.startsWith(todayStr);
     const canCalcTodayProfit = hasTodayData || hasTodayValuation;
 
     // 如果是交易日且9点以后，且今日净值未出，则强制使用估值（隐藏涨跌幅列模式）
-    const useValuation = isTradingDay && isAfter9 && !hasTodayData;
+    const useValuation = isTradingDay && !hasTodayData;
 
     let currentNav;
     let profitToday;
@@ -559,7 +563,24 @@ export default function HomePage() {
       if (canCalcTodayProfit) {
         const amount = holding.share * currentNav;
         // 优先用 zzl (真实涨跌幅), 降级用 gszzl
-        const rate = fund.zzl !== undefined ? Number(fund.zzl) : (Number(fund.gszzl) || 0);
+        // 若 gztime 日期 > jzrq，说明估值更新晚于净值日期，优先使用 gszzl 计算当日盈亏
+        const gz = typeof fund.gztime === 'string' ? toTz(fund.gztime) : null;
+        const jz = typeof fund.jzrq === 'string' ? toTz(fund.jzrq) : null;
+        const preferGszzl =
+          !!gz &&
+          !!jz &&
+          gz.isValid() &&
+          jz.isValid() &&
+          gz.startOf('day').isAfter(jz.startOf('day'));
+
+        let rate;
+        if (preferGszzl) {
+          rate = Number(fund.gszzl);
+        } else {
+          const zzl = fund.zzl !== undefined ? Number(fund.zzl) : Number.NaN;
+          rate = Number.isFinite(zzl) ? zzl : Number(fund.gszzl);
+        }
+        if (!Number.isFinite(rate)) rate = 0;
         profitToday = amount - (amount / (1 + rate / 100));
       } else {
         profitToday = null;
@@ -661,7 +682,7 @@ export default function HomePage() {
     if (type !== 'history') {
       setActionModal({ open: false, fund: null });
     }
-    
+
     if (type === 'edit') {
       setHoldingModal({ open: true, fund });
     } else if (type === 'clear') {
@@ -712,14 +733,14 @@ export default function HomePage() {
              const share = netAmount / result.value;
              newShare = current.share + share;
              newCost = (current.cost * current.share + trade.amount) / newShare;
-             
+
              tradeShare = share;
              tradeAmount = trade.amount;
         } else {
              newShare = Math.max(0, current.share - trade.share);
              newCost = current.cost;
              if (newShare === 0) newCost = 0;
-             
+
              tradeShare = trade.share;
              tradeAmount = trade.share * result.value;
         }
@@ -727,7 +748,7 @@ export default function HomePage() {
         tempHoldings[trade.fundCode] = { share: newShare, cost: newCost };
         stateChanged = true;
         processedIds.add(trade.id);
-        
+
         // 记录交易历史
         newTransactions.push({
             id: trade.id,
@@ -969,7 +990,7 @@ export default function HomePage() {
   const handleScanClick = () => {
     setScanModalOpen(true);
   };
-  
+
   const handleScanPick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -996,7 +1017,7 @@ export default function HomePage() {
     setScanModalOpen(false); // 关闭选择弹窗
     abortScanRef.current = false;
     setScanProgress({ stage: 'ocr', current: 0, total: files.length });
-    
+
     try {
       let worker = ocrWorkerRef.current;
       if (!worker) {
@@ -1057,11 +1078,11 @@ export default function HomePage() {
       const allCodes = new Set();
       for (let i = 0; i < files.length; i++) {
         if (abortScanRef.current) break;
-        
+
         const f = files[i];
         // 更新进度：正在处理第 i+1 张
         setScanProgress(prev => ({ ...prev, current: i + 1 }));
-        
+
         let text = '';
         try {
           const res = await recognizeWithTimeout(f, 30000);
@@ -1259,9 +1280,9 @@ export default function HomePage() {
         // 这里为了保险，如果是空的，我们做全量
         // 但通常 dirtyKeysRef 应该被填充了
       }
-      
+
       const payload = collectLocalPayload(dirtyKeys.size > 0 ? dirtyKeys : null);
-      
+
       // 清空脏数据标记
       dirtyKeysRef.current.clear();
 
@@ -1275,7 +1296,7 @@ export default function HomePage() {
         lastSyncedRef.current = next;
         syncUserConfig(userIdRef.current, false, payload, false);
       }
-    }, 2000);
+    }, 1000 * 5); // 往云端同步的防抖时间
   }, []);
 
   const storageHelper = useMemo(() => {
@@ -2326,7 +2347,7 @@ export default function HomePage() {
             ? all.funds.map((f) => f?.code).filter(Boolean)
             : []
         );
-        
+
         const cleanedHoldings = all.holdings && typeof all.holdings === 'object' && !Array.isArray(all.holdings)
           ? Object.entries(all.holdings).reduce((acc, [code, value]) => {
             if (!fundCodes.has(code) || !value || typeof value !== 'object') return acc;
@@ -2367,7 +2388,7 @@ export default function HomePage() {
               codes: Array.isArray(g.codes) ? g.codes.filter(c => fundCodes.has(c)) : []
             }))
           : [];
-        
+
         return {
           funds: all.funds,
           favorites: cleanedFavorites,
@@ -2511,7 +2532,7 @@ export default function HomePage() {
       setIsSyncing(true);
       const dataToSync = payload || collectLocalPayload(); // Fallback to full sync if no payload
       const now = nowInTz().toISOString();
-      
+
       let upsertData = null;
       let updateError = null;
 
@@ -2520,7 +2541,7 @@ export default function HomePage() {
         const { error: rpcError } = await supabase.rpc('update_user_config_partial', {
           payload: dataToSync
         });
-        
+
         if (rpcError) {
           console.error('增量同步失败，尝试全量同步', rpcError);
           // RPC 失败回退到全量更新
@@ -3404,7 +3425,7 @@ export default function HomePage() {
                         <div className="table-header-cell text-right">涨跌幅</div>
                         <div className="table-header-cell text-right">估值时间</div>
                         <div className="table-header-cell text-right">持仓金额</div>
-                        <div className="table-header-cell text-right">当日盈亏</div>
+                        <div className="table-header-cell text-right">当日收益</div>
                         <div className="table-header-cell text-right">持有收益</div>
                         <div className="table-header-cell text-center">操作</div>
                       </div>
@@ -3519,10 +3540,8 @@ export default function HomePage() {
                                   </div>
                                 </div>
                                 {(() => {
-                                  const now = nowInTz();
-                                  const isAfter9 = now.hour() >= 9;
                                   const hasTodayData = f.jzrq === todayStr;
-                                  const shouldHideChange = isTradingDay && isAfter9 && !hasTodayData;
+                                  const shouldHideChange = isTradingDay && !hasTodayData;
 
                                   if (!shouldHideChange) {
                                     // 如果涨跌幅列显示（即非交易时段或今日净值已更新），则显示单位净值和真实涨跌幅
@@ -3736,10 +3755,8 @@ export default function HomePage() {
                                   ) : (
                                     <>
                                       {(() => {
-                                        const now = nowInTz();
-                                        const isAfter9 = now.hour() >= 9;
                                         const hasTodayData = f.jzrq === todayStr;
-                                        const shouldHideChange = isTradingDay && isAfter9 && !hasTodayData;
+                                        const shouldHideChange = isTradingDay && !hasTodayData;
 
                                         if (shouldHideChange) return null;
 
@@ -3794,9 +3811,11 @@ export default function HomePage() {
                                           <span className="value">¥{profit.amount.toFixed(2)}</span>
                                         </div>
                                         <div className="stat" style={{ flexDirection: 'column', gap: 4 }}>
-                                          <span className="label">当日盈亏</span>
-                                          <span className={`value ${profit.profitToday > 0 ? 'up' : profit.profitToday < 0 ? 'down' : ''}`}>
-                                            {profit.profitToday > 0 ? '+' : profit.profitToday < 0 ? '-' : ''}¥{Math.abs(profit.profitToday).toFixed(2)}
+                                          <span className="label">当日收益</span>
+                                          <span className={`value ${profit.profitToday != null ? (profit.profitToday > 0 ? 'up' : profit.profitToday < 0 ? 'down' : '') : 'muted'}`}>
+                                            {profit.profitToday != null
+                                              ? `${profit.profitToday > 0 ? '+' : profit.profitToday < 0 ? '-' : ''}¥${Math.abs(profit.profitToday).toFixed(2)}`
+                                              : '--'}
                                           </span>
                                         </div>
                                         {profit.profitTotal !== null && (
@@ -3887,8 +3906,8 @@ export default function HomePage() {
                                     </motion.div>
                                   )}
                                 </AnimatePresence>
-                                <FundTrendChart 
-                                  code={f.code} 
+                                <FundTrendChart
+                                  code={f.code}
                                   isExpanded={!collapsedTrends.has(f.code)}
                                   onToggleExpand={() => toggleTrendCollapse(f.code)}
                                   transactions={transactions[f.code] || []}
