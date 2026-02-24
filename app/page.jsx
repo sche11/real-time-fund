@@ -984,9 +984,8 @@ export default function HomePage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleFilesUpload = async (event) => {
-    const files = Array.from(event.target.files || []);
-    if (!files.length) return;
+  const processFiles = async (files) => {
+    if (!files?.length) return;
 
     setIsScanning(true);
     setScanModalOpen(false); // 关闭选择弹窗
@@ -1127,6 +1126,14 @@ export default function HomePage() {
       setScanProgress({ stage: 'ocr', current: 0, total: 0 });
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleFilesUpload = (event) => {
+    processFiles(Array.from(event.target.files || []));
+  };
+
+  const handleFilesDrop = (files) => {
+    processFiles(files);
   };
 
   const toggleScannedCode = (code) => {
@@ -4089,6 +4096,7 @@ export default function HomePage() {
           <ScanPickModal
             onClose={() => setScanModalOpen(false)}
             onPick={handleScanPick}
+            onFilesDrop={handleFilesDrop}
             isScanning={isScanning}
           />
         )}
