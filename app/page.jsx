@@ -4281,6 +4281,11 @@ export default function HomePage() {
                                     return null;
                                   }
 
+                                  // 如果 jzrq 等于估值日期或在此之前（意味着净值已经更新到了估值日期，或者是历史数据），则隐藏实时估值分时
+                                  if (f.jzrq && f.gztime && toTz(f.jzrq).startOf('day').isSameOrAfter(toTz(f.gztime).startOf('day'))) {
+                                    return null;
+                                  }
+
                                   return (
                                     <FundIntradayChart
                                       series={valuationSeries[f.code]}
