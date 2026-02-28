@@ -1840,15 +1840,27 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('funds') || '[]');
-      if (Array.isArray(saved) && saved.length) {
-        const deduped = dedupeByCode(saved);
-        setFunds(deduped);
-        storageHelper.setItem('funds', JSON.stringify(deduped));
-        const codes = Array.from(new Set(deduped.map((f) => f.code)));
-        if (codes.length) refreshAll(codes);
-      }
+    let cancelled = false;
+    const init = async () => {
+      try {
+        // 已登录用户：不在此处调用 refreshAll，等 fetchCloudConfig 完成后由 applyCloudConfig 统一刷新
+        let shouldRefreshFromLocal = true;
+        if (isSupabaseConfigured) {
+          const { data, error } = await supabase.auth.getSession();
+          if (!cancelled && !error && data?.session?.user) {
+            shouldRefreshFromLocal = false;
+          }
+        }
+        if (cancelled) return;
+
+        const saved = JSON.parse(localStorage.getItem('funds') || '[]');
+        if (Array.isArray(saved) && saved.length) {
+          const deduped = dedupeByCode(saved);
+          setFunds(deduped);
+          storageHelper.setItem('funds', JSON.stringify(deduped));
+          const codes = Array.from(new Set(deduped.map((f) => f.code)));
+          if (codes.length && shouldRefreshFromLocal) refreshAll(codes);
+        }
       const savedMs = parseInt(localStorage.getItem('refreshMs') || '30000', 10);
       if (Number.isFinite(savedMs) && savedMs >= 5000) {
         setRefreshMs(savedMs);
@@ -1902,8 +1914,11 @@ export default function HomePage() {
       if (savedTheme === 'light' || savedTheme === 'dark') {
         setTheme(savedTheme);
       }
-    } catch { }
-  }, []);
+      } catch { }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, [isSupabaseConfigured]);
 
   // 主题同步到 document 并持久化
   useEffect(() => {
