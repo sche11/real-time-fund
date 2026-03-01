@@ -7,19 +7,18 @@ import ConfirmModal from './ConfirmModal';
 import { CloseIcon, DragIcon, ResetIcon, SettingsIcon } from './Icons';
 
 /**
- * PC 表格个性化设置侧弹框
+ * 移动端表格个性化设置弹框（底部抽屉）
  * @param {Object} props
  * @param {boolean} props.open - 是否打开
  * @param {() => void} props.onClose - 关闭回调
  * @param {Array<{id: string, header: string}>} props.columns - 非冻结列（id + 表头名称）
  * @param {Record<string, boolean>} [props.columnVisibility] - 列显示状态映射（id => 是否显示）
- * @param {(newOrder: string[]) => void} props.onColumnReorder - 列顺序变更回调，参数为新的列 id 顺序
+ * @param {(newOrder: string[]) => void} props.onColumnReorder - 列顺序变更回调
  * @param {(id: string, visible: boolean) => void} props.onToggleColumnVisibility - 列显示/隐藏切换回调
- * @param {() => void} props.onResetColumnOrder - 重置列顺序回调，需二次确认
+ * @param {() => void} props.onResetColumnOrder - 重置列顺序回调
  * @param {() => void} props.onResetColumnVisibility - 重置列显示/隐藏回调
- * @param {() => void} props.onResetSizing - 点击重置列宽时的回调（通常用于打开确认弹框）
  */
-export default function PcTableSettingModal({
+export default function MobileSettingModal({
   open,
   onClose,
   columns = [],
@@ -28,12 +27,11 @@ export default function PcTableSettingModal({
   onToggleColumnVisibility,
   onResetColumnOrder,
   onResetColumnVisibility,
-  onResetSizing,
 }) {
-  const [resetOrderConfirmOpen, setResetOrderConfirmOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   useEffect(() => {
-    if (!open) setResetOrderConfirmOpen(false);
+    if (!open) setResetConfirmOpen(false);
   }, [open]);
 
   useEffect(() => {
@@ -55,8 +53,8 @@ export default function PcTableSettingModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          key="drawer"
-          className="pc-table-setting-overlay"
+          key="mobile-setting-overlay"
+          className="mobile-setting-overlay"
           role="dialog"
           aria-modal="true"
           aria-label="个性化设置"
@@ -67,15 +65,15 @@ export default function PcTableSettingModal({
           onClick={onClose}
           style={{ zIndex: 10001 }}
         >
-          <motion.aside
-            className="pc-table-setting-drawer glass"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+          <motion.div
+            className="mobile-setting-drawer glass"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="pc-table-setting-header">
+            <div className="mobile-setting-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <SettingsIcon width="20" height="20" />
                 <span>个性化设置</span>
@@ -90,8 +88,8 @@ export default function PcTableSettingModal({
               </button>
             </div>
 
-            <div className="pc-table-setting-body">
-              <h3 className="pc-table-setting-subtitle">表头设置</h3>
+            <div className="mobile-setting-body">
+              <h3 className="mobile-setting-subtitle">表头设置</h3>
               <div
                 style={{
                   display: 'flex',
@@ -104,11 +102,11 @@ export default function PcTableSettingModal({
                 <p className="muted" style={{ fontSize: '13px', margin: 0 }}>
                   拖拽调整列顺序
                 </p>
-                {onResetColumnOrder && (
+                {(onResetColumnOrder || onResetColumnVisibility) && (
                   <button
                     className="icon-button"
-                    onClick={() => setResetOrderConfirmOpen(true)}
-                    title="重置列顺序"
+                    onClick={() => setResetConfirmOpen(true)}
+                    title="重置表头设置"
                     style={{
                       border: 'none',
                       width: '28px',
@@ -131,14 +129,14 @@ export default function PcTableSettingModal({
                   axis="y"
                   values={columns}
                   onReorder={handleReorder}
-                  className="pc-table-setting-list"
+                  className="mobile-setting-list"
                 >
                   <AnimatePresence mode="popLayout">
                     {columns.map((item, index) => (
                       <Reorder.Item
                         key={item.id || `col-${index}`}
                         value={item}
-                        className="pc-table-setting-item glass"
+                        className="mobile-setting-item glass"
                         layout
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -196,40 +194,21 @@ export default function PcTableSettingModal({
                   </AnimatePresence>
                 </Reorder.Group>
               )}
-              {onResetSizing && (
-                <button
-                  className="button secondary"
-                  onClick={() => {
-                    onResetSizing();
-                  }}
-                  style={{
-                    width: '100%',
-                    marginTop: 20,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <ResetIcon width="16" height="16" />
-                  重置列宽
-                </button>
-              )}
             </div>
-          </motion.aside>
+          </motion.div>
         </motion.div>
       )}
-      {resetOrderConfirmOpen && (
+      {resetConfirmOpen && (
         <ConfirmModal
-          key="reset-order-confirm"
+          key="mobile-reset-confirm"
           title="重置表头设置"
           message="是否重置表头顺序和显示/隐藏为默认值？"
           onConfirm={() => {
             onResetColumnOrder?.();
             onResetColumnVisibility?.();
-            setResetOrderConfirmOpen(false);
+            setResetConfirmOpen(false);
           }}
-          onCancel={() => setResetOrderConfirmOpen(false)}
+          onCancel={() => setResetConfirmOpen(false)}
           confirmText="重置"
         />
       )}

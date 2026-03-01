@@ -1421,6 +1421,155 @@ input[type="number"] {
     display: none;
   }
 
+  /* 移动端基金表格：横向滚动容器，基金名称与操作列固定 */
+  .mobile-fund-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-fund-table-scroll {
+    min-width: 520px;
+  }
+
+  .mobile-fund-table .table-header-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 1fr 1.2fr 1.2fr;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  .mobile-fund-table .table-header-row .table-header-cell {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .mobile-fund-table .table-row {
+    grid-template-columns: 140px 1fr 1fr 1.2fr 1.2fr;
+    grid-template-areas: unset;
+    gap: 12px;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    /* 长按拖拽时禁止触发文字选择 */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .mobile-fund-table .table-header-row {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+  [data-theme="light"] .mobile-fund-table .table-row,
+  [data-theme="light"] .mobile-fund-table .table-header-row {
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .mobile-fund-table .table-row .table-cell {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  /* 基金名称列固定左侧：右侧阴影突出固定列，覆盖行 border-bottom */
+  .mobile-fund-table .table-header-cell-pin-left,
+  .mobile-fund-table .table-cell-pin-left {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    box-shadow: 4px 0 10px -2px rgba(0, 0, 0, 0.12);
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: none;
+  }
+
+  [data-theme="light"] .mobile-fund-table .table-header-cell-pin-left,
+  [data-theme="light"] .mobile-fund-table .table-cell-pin-left {
+    box-shadow: 4px 0 10px -2px rgba(0, 0, 0, 0.08);
+    border-right-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .mobile-fund-table .table-header-cell-pin-left {
+    background: var(--table-pinned-header-bg);
+  }
+
+  .mobile-fund-table .table-cell-pin-left {
+    background: var(--bg);
+  }
+
+  /* 移动端表格取消行悬停高亮 */
+  .mobile-fund-table .table-row:hover {
+    background: var(--bg);
+  }
+
+  .mobile-fund-table .table-row:hover .table-cell-pin-left {
+    background: var(--bg);
+  }
+
+  /* 固定列右侧：同上，保证竖向分隔连续 */
+  .mobile-fund-table .table-header-cell-pin-right,
+  .mobile-fund-table .table-cell-pin-right {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    box-shadow: -4px 0 24px -4px rgba(0, 0, 0, 0.12);
+    border-left: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  [data-theme="light"] .mobile-fund-table .table-header-cell-pin-right,
+  [data-theme="light"] .mobile-fund-table .table-cell-pin-right {
+    border-left-color: rgba(0, 0, 0, 0.06);
+  }
+
+  .mobile-fund-table .table-header-cell-pin-right {
+    background: var(--table-pinned-header-bg);
+  }
+
+  .mobile-fund-table .table-cell-pin-right {
+    background: var(--bg);
+  }
+
+  .mobile-fund-table .table-row:hover .table-cell-pin-right {
+    background: var(--bg);
+  }
+
+  .mobile-fund-table .name-cell {
+    grid-area: unset;
+    align-self: stretch;
+    padding-left: 12px;
+  }
+
+  .mobile-fund-table .table-header-row .table-header-cell-pin-left {
+    padding-left: 12px;
+  }
+
+  .mobile-fund-table .table-row .name-cell .name-cell-content {
+    min-height: 100%;
+  }
+
+  /* 移动端表格表体基金名称字体缩小 */
+  .mobile-fund-table .table-row .name-cell .name-text {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .mobile-fund-table .table-row .name-cell .code-text {
+    font-size: 10px;
+  }
+
+  .mobile-fund-table .value-cell {
+    grid-area: unset;
+  }
+
+  .mobile-fund-table .change-cell {
+    grid-area: unset;
+  }
+
+  .mobile-fund-table .est-change-cell,
+  .mobile-fund-table .profit-cell,
+  .mobile-fund-table .time-cell {
+    grid-area: unset;
+    justify-content: flex-end;
+  }
+
   .table-row {
     grid-template-columns: 1fr 80px 100px;
     grid-template-areas:
@@ -1463,6 +1612,18 @@ input[type="number"] {
     display: none;
   }
 
+  /* 移动端表格内保留持仓、收益、操作列显示 */
+  .mobile-fund-table .holding-amount-cell,
+  .mobile-fund-table .holding-cell,
+  .mobile-fund-table .action-cell {
+    display: flex;
+  }
+
+  /* 操作列删除按钮在移动端表格内需显示（避免被 .action-cell .danger 隐藏） */
+  .mobile-fund-table .action-cell .icon-button.danger {
+    display: inline-flex;
+  }
+
   .table-cell.time-cell span {
     font-size: 10px !important;
   }
@@ -1473,8 +1634,13 @@ input[type="number"] {
 }
 
 @media (max-width: 768px) {
+  /* 非 mobile-fund-table 下的操作列删除按钮隐藏（如旧列表布局）；mobile-fund-table 内由上面覆盖为显示 */
   .action-cell .danger {
     display: none;
+  }
+
+  .mobile-fund-table .action-cell .danger {
+    display: inline-flex;
   }
 }
 
@@ -1712,6 +1878,85 @@ input[type="number"] {
 }
 
 [data-theme="light"] .pc-table-setting-drawer .dca-toggle-thumb {
+  background: #fff;
+}
+
+/* 移动端表格设置底部抽屉 */
+.mobile-setting-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.mobile-setting-drawer {
+  width: 100%;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 20px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-setting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mobile-setting-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+}
+
+.mobile-setting-subtitle {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mobile-setting-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mobile-setting-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  cursor: grab;
+}
+
+.mobile-setting-item:active {
+  cursor: grabbing;
+}
+
+.mobile-setting-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--primary);
+}
+
+[data-theme="light"] .mobile-setting-drawer .dca-toggle-thumb {
   background: #fff;
 }
 

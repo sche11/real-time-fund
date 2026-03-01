@@ -46,6 +46,7 @@ import { recordValuation, getAllValuationSeries, clearFund } from './lib/valuati
 import { fetchFundData, fetchLatestRelease, fetchShanghaiIndexDate, fetchSmartFundNetValue, searchFunds, extractFundNamesWithLLM } from './api/fund';
 import packageJson from '../package.json';
 import PcFundTable from './components/PcFundTable';
+import MobileFundTable from './components/MobileFundTable';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -3952,285 +3953,59 @@ export default function HomePage() {
                         </div>
                     )}
                     {viewMode === 'list' && isMobile && (
-                      <div className="table-header-row">
-                        <div className="table-header-cell">基金名称</div>
-                        <div className="table-header-cell text-right">净值/估值</div>
-                        <div className="table-header-cell text-right">涨跌幅</div>
-                        <div className="table-header-cell text-right">估值时间</div>
-                        <div className="table-header-cell text-right">持仓金额</div>
-                        <div className="table-header-cell text-right">当日收益</div>
-                        <div className="table-header-cell text-right">持有收益</div>
-                        <div className="table-header-cell text-center">操作</div>
-                      </div>
+                      <MobileFundTable
+                        data={pcFundTableData}
+                        refreshing={refreshing}
+                        currentTab={currentTab}
+                        favorites={favorites}
+                        sortBy={sortBy}
+                        onReorder={handleReorder}
+                        onRemoveFund={(row) => {
+                          if (refreshing) return;
+                          if (!row || !row.code) return;
+                          requestRemoveFund({ code: row.code, name: row.fundName });
+                        }}
+                        onToggleFavorite={(row) => {
+                          if (!row || !row.code) return;
+                          toggleFavorite(row.code);
+                        }}
+                        onRemoveFromGroup={(row) => {
+                          if (!row || !row.code) return;
+                          removeFundFromCurrentGroup(row.code);
+                        }}
+                        onHoldingAmountClick={(row, meta) => {
+                          if (!row || !row.code) return;
+                          const fund = row.rawFund || { code: row.code, name: row.fundName };
+                          if (meta?.hasHolding) {
+                            setActionModal({ open: true, fund });
+                          } else {
+                            setHoldingModal({ open: true, fund });
+                          }
+                        }}
+                        onHoldingProfitClick={(row) => {
+                          if (!row || !row.code) return;
+                          if (row.holdingProfitValue == null) return;
+                          setPercentModes((prev) => ({ ...prev, [row.code]: !prev[row.code] }));
+                        }}
+                      />
                     )}
                     <AnimatePresence mode="popLayout">
-                      {displayFunds.map((f) =>
-                        (viewMode === 'list' && !isMobile) ? null : (
+                      {viewMode === 'card' && displayFunds.map((f) => (
                         <motion.div
                           layout="position"
                           key={f.code}
-                          className={viewMode === 'card' ? 'col-6' : 'table-row-wrapper'}
+                          className="col-6"
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                           transition={{ duration: 0.2 }}
                           style={{ position: 'relative', overflow: 'hidden' }}
                         >
-                          {viewMode === 'list' && isMobile && (
-                            <div
-                              className="swipe-action-bg"
-                              onClick={(e) => {
-                                e.stopPropagation(); // 阻止冒泡，防止触发全局收起导致状态混乱
-                                if (refreshing) return;
-                                requestRemoveFund(f);
-                              }}
-                              style={{ pointerEvents: refreshing ? 'none' : 'auto', opacity: refreshing ? 0.6 : 1 }}
-                            >
-                              <TrashIcon width="18" height="18" />
-                              <span>删除</span>
-                            </div>
-                          )}
                           <motion.div
-                            className={viewMode === 'card' ? 'glass card' : 'table-row'}
-                            drag={viewMode === 'list' && isMobile ? "x" : false}
-                            dragConstraints={{ left: -80, right: 0 }}
-                            dragElastic={0.1}
-                            // 增加 dragDirectionLock 确保在垂直滚动时不会轻易触发水平拖拽
-                            dragDirectionLock={true}
-                            // 调整触发阈值，只有明显的水平拖拽意图才响应
-                            onDragStart={(event, info) => {
-                              // 如果水平移动距离小于垂直移动距离，或者水平速度很小，视为垂直滚动意图，不进行拖拽处理
-                              // framer-motion 的 dragDirectionLock 已经处理了大部分情况，但可以进一步微调体验
-                            }}
-                            // 如果当前行不是被选中的行，强制回到原点 (x: 0)
-                            animate={viewMode === 'list' && isMobile ? { x: swipedFundCode === f.code ? -80 : 0 } : undefined}
-                            onDragEnd={(e, { offset, velocity }) => {
-                              if (viewMode === 'list' && isMobile) {
-                                if (offset.x < -40) {
-                                  setSwipedFundCode(f.code);
-                                } else {
-                                  setSwipedFundCode(null);
-                                }
-                              }
-                            }}
-                            onClick={(e) => {
-                              // 阻止事件冒泡，避免触发全局的 click listener 导致立刻被收起
-                              // 只有在已经展开的情况下点击自身才需要阻止冒泡（或者根据需求调整）
-                              // 这里我们希望：点击任何地方都收起。
-                              // 如果点击的是当前行，且不是拖拽操作，上面的全局 listener 会处理收起。
-                              // 但为了防止点击行内容触发收起后又立即触发行的其他点击逻辑（如果有的话），
-                              // 可以在这里处理。不过当前需求是“点击其他区域收起”，
-                              // 实际上全局 listener 已经覆盖了“点击任何区域（包括其他行）收起”。
-                              // 唯一的问题是：点击当前行的“删除按钮”时，会先触发全局 click 导致收起，然后触发删除吗？
-                              // 删除按钮在底层，通常不会受影响，因为 React 事件和原生事件的顺序。
-                              // 但为了保险，删除按钮的 onClick 应该阻止冒泡。
-
-                              // 如果当前行已展开，点击行内容（非删除按钮）应该收起
-                              if (viewMode === 'list' && isMobile && swipedFundCode === f.code) {
-                                e.stopPropagation(); // 阻止冒泡，自己处理收起，避免触发全局再次处理
-                                setSwipedFundCode(null);
-                              }
-                            }}
-                            style={{
-                              background: viewMode === 'list' ? 'var(--bg)' : undefined,
-                              position: 'relative',
-                              zIndex: 1
-                            }}
+                            className="glass card"
+                            style={{ position: 'relative', zIndex: 1 }}
                           >
-                            {viewMode === 'list' ? (
-                              <>
-                                <div className="table-cell name-cell">
-                                  {currentTab !== 'all' && currentTab !== 'fav' ? (
-                                    <button
-                                      className="icon-button fav-button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeFundFromCurrentGroup(f.code);
-                                      }}
-                                      title="从当前分组移除"
-                                    >
-                                      <ExitIcon width="18" height="18" style={{ transform: 'rotate(180deg)' }} />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      className={`icon-button fav-button ${favorites.has(f.code) ? 'active' : ''}`}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleFavorite(f.code);
-                                      }}
-                                      title={favorites.has(f.code) ? "取消自选" : "添加自选"}
-                                    >
-                                      <StarIcon width="18" height="18" filled={favorites.has(f.code)} />
-                                    </button>
-                                  )}
-                                  <div className="title-text">
-                                    <span
-                                      className="name-text"
-                                    >
-                                      {f.name}
-                                    </span>
-                                    <span
-                                      className="muted code-text"
-                                      title={f.jzrq === todayStr ? "今日净值已更新" : ""}
-                                    >
-                                      {(() => {
-                                        const holding = holdings[f.code];
-                                        const profit = getHoldingProfit(f, holding);
-                                        return profit ? `¥${profit.amount.toFixed(2)}` : `#${f.code}`;
-                                      })()}
-                                      {f.jzrq === todayStr && <span className="updated-indicator">✓</span>}
-                                    </span>
-                                  </div>
-                                </div>
-                                {(() => {
-                                  const hasTodayData = f.jzrq === todayStr;
-                                  const shouldHideChange = isTradingDay && !hasTodayData;
-
-                                  if (!shouldHideChange) {
-                                    // 如果涨跌幅列显示（即非交易时段或今日净值已更新），则显示单位净值和真实涨跌幅
-                                    return (
-                                      <>
-                                        <div className="table-cell text-right value-cell">
-                                          <span style={{ fontWeight: 700 }}>{f.dwjz ?? '—'}</span>
-                                        </div>
-                                        <div className="table-cell text-right change-cell">
-                                          <span className={f.zzl > 0 ? 'up' : f.zzl < 0 ? 'down' : ''} style={{ fontWeight: 700 }}>
-                                            {f.zzl !== undefined ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%` : ''}
-                                          </span>
-                                        </div>
-                                      </>
-                                    );
-                                  } else {
-                                    // 否则显示估值净值和估值涨跌幅
-                                    // 如果是无估值数据的基金，直接显示净值数据
-                                    if (f.noValuation) {
-                                      return (
-                                        <>
-                                          <div className="table-cell text-right value-cell">
-                                            <span style={{ fontWeight: 700 }}>{f.dwjz ?? '—'}</span>
-                                          </div>
-                                          <div className="table-cell text-right change-cell">
-                                            <span className={f.zzl > 0 ? 'up' : f.zzl < 0 ? 'down' : ''} style={{ fontWeight: 700 }}>
-                                              {f.zzl !== undefined && f.zzl !== null ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%` : '—'}
-                                            </span>
-                                          </div>
-                                        </>
-                                      );
-                                    }
-                                    return (
-                                      <>
-                                        <div className="table-cell text-right value-cell">
-                                          <span style={{ fontWeight: 700 }}>{f.estPricedCoverage > 0.05 ? f.estGsz.toFixed(4) : (f.gsz ?? '—')}</span>
-                                        </div>
-                                        <div className="table-cell text-right change-cell">
-                                          <span className={f.estPricedCoverage > 0.05 ? (f.estGszzl > 0 ? 'up' : f.estGszzl < 0 ? 'down' : '') : (Number(f.gszzl) > 0 ? 'up' : Number(f.gszzl) < 0 ? 'down' : '')} style={{ fontWeight: 700 }}>
-                                            {f.estPricedCoverage > 0.05 ? `${f.estGszzl > 0 ? '+' : ''}${f.estGszzl.toFixed(2)}%` : (isNumber(f.gszzl) ? `${f.gszzl > 0 ? '+' : ''}${f.gszzl.toFixed(2)}%` : f.gszzl ?? '—')}
-                                          </span>
-                                        </div>
-                                      </>
-                                    );
-                                  }
-                                })()}
-                                <div className="table-cell text-right time-cell">
-                                  <span className="muted" style={{ fontSize: '12px' }}>{f.noValuation ? (f.jzrq || '-') : (f.gztime || f.time || '-')}</span>
-                                </div>
-                                {!isMobile && (() => {
-                                  const holding = holdings[f.code];
-                                  const profit = getHoldingProfit(f, holding);
-                                  const amount = profit ? profit.amount : null;
-                                  if (amount === null) {
-                                    return (
-                                      <div
-                                        className="table-cell text-right holding-amount-cell"
-                                        title="设置持仓"
-                                        onClick={(e) => { e.stopPropagation(); setHoldingModal({ open: true, fund: f }); }}
-                                      >
-                                        <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', cursor: 'pointer' }}>
-                                          未设置 <SettingsIcon width="12" height="12" />
-                                        </span>
-                                      </div>
-                                    );
-                                  }
-                                  return (
-                                    <div
-                                      className="table-cell text-right holding-amount-cell"
-                                      title="点击设置持仓"
-                                      onClick={(e) => { e.stopPropagation(); setActionModal({ open: true, fund: f }); }}
-                                    >
-                                      <span style={{ fontWeight: 700, marginRight: 6 }}>¥{amount.toFixed(2)}</span>
-                                      <button
-                                        className="icon-button"
-                                        onClick={(e) => { e.stopPropagation(); setActionModal({ open: true, fund: f }); }}
-                                        title="编辑持仓"
-                                        style={{ border: 'none', width: '28px', height: '28px', marginLeft: -6 }}
-                                      >
-                                        <SettingsIcon width="14" height="14" />
-                                      </button>
-                                    </div>
-                                  );
-                                })()}
-                                {(() => {
-                                  const holding = holdings[f.code];
-                                  const profit = getHoldingProfit(f, holding);
-                                  const profitValue = profit ? profit.profitToday : null;
-                                  const hasProfit = profitValue !== null;
-
-                                  return (
-                                    <div className="table-cell text-right profit-cell">
-                                      <span
-                                        className={hasProfit ? (profitValue > 0 ? 'up' : profitValue < 0 ? 'down' : '') : 'muted'}
-                                        style={{ fontWeight: 700 }}
-                                      >
-                                        {hasProfit
-                                          ? `${profitValue > 0 ? '+' : profitValue < 0 ? '-' : ''}¥${Math.abs(profitValue).toFixed(2)}`
-                                          : ''}
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
-                                {!isMobile && (() => {
-                                  const holding = holdings[f.code];
-                                  const profit = getHoldingProfit(f, holding);
-                                  const total = profit ? profit.profitTotal : null;
-                                  const principal = holding && holding.cost && holding.share ? holding.cost * holding.share : 0;
-                                  const asPercent = percentModes[f.code];
-                                  const hasTotal = total !== null;
-                                  const formatted = hasTotal
-                                    ? (asPercent && principal > 0
-                                      ? `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs((total / principal) * 100).toFixed(2)}%`
-                                      : `${total > 0 ? '+' : total < 0 ? '-' : ''}¥${Math.abs(total).toFixed(2)}`)
-                                    : '';
-                                  const cls = hasTotal ? (total > 0 ? 'up' : total < 0 ? 'down' : '') : 'muted';
-                                  return (
-                                    <div
-                                      className="table-cell text-right holding-cell"
-                                      title="点击切换金额/百分比"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (hasTotal) {
-                                          setPercentModes(prev => ({ ...prev, [f.code]: !prev[f.code] }));
-                                        }
-                                      }}
-                                      style={{ cursor: hasTotal ? 'pointer' : 'default' }}
-                                    >
-                                      <span className={cls} style={{ fontWeight: 700 }}>{formatted}</span>
-                                    </div>
-                                  );
-                                })()}
-                                <div className="table-cell text-center action-cell" style={{ gap: 4 }}>
-                                  <button
-                                    className="icon-button danger"
-                                    onClick={() => !refreshing && requestRemoveFund(f)}
-                                    title="删除"
-                                    disabled={refreshing}
-                                    style={{ width: '28px', height: '28px', opacity: refreshing ? 0.6 : 1, cursor: refreshing ? 'not-allowed' : 'pointer' }}
-                                  >
-                                    <TrashIcon width="14" height="14" />
-                                  </button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
+                            <>
                                 <div className="row" style={{ marginBottom: 10 }}>
                                   <div className="title">
                                     {currentTab !== 'all' && currentTab !== 'fav' ? (
@@ -4491,11 +4266,9 @@ export default function HomePage() {
                                   theme={theme}
                                 />
                               </>
-                            )}
                           </motion.div>
                         </motion.div>
-                        )
-                      )}
+                      ))}
                     </AnimatePresence>
                   </div>
                 </motion.div>

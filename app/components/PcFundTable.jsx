@@ -504,7 +504,7 @@ export default function PcFundTable({
                   onHoldingAmountClickRef.current?.(original, { hasHolding: true });
                 }}
                 title="编辑持仓"
-                style={{ border: 'none', width: '28px', height: '28px', marginLeft: -6 }}
+                style={{ border: 'none', width: '28px', height: '28px', marginLeft: -6, backgroundColor: 'transparent' }}
               >
                 <SettingsIcon width="14" height="14" />
               </button>
@@ -606,7 +606,7 @@ export default function PcFundTable({
           };
 
           return (
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div className="row" style={{ justifyContent: 'center', gap: 4 }}>
               <button
                 className="icon-button danger"
                 onClick={handleClick}
