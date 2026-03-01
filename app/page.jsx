@@ -728,14 +728,12 @@ export default function HomePage() {
     () =>
       displayFunds.map((f) => {
         const hasTodayData = f.jzrq === todayStr;
-        const shouldHideChange = isTradingDay && !hasTodayData;
-        const navOrEstimate = !shouldHideChange
-          ? (f.dwjz ?? '—')
-          : (f.noValuation
-            ? (f.dwjz ?? '—')
-            : (f.estPricedCoverage > 0.05
-              ? (f.estGsz != null ? Number(f.estGsz).toFixed(4) : '—')
-              : (f.gsz ?? '—')));
+        const latestNav = f.dwjz != null && f.dwjz !== '' ? (typeof f.dwjz === 'number' ? Number(f.dwjz).toFixed(4) : String(f.dwjz)) : '—';
+        const estimateNav = f.noValuation
+          ? '—'
+          : (f.estPricedCoverage > 0.05
+            ? (f.estGsz != null ? Number(f.estGsz).toFixed(4) : '—')
+            : (f.gsz != null ? (typeof f.gsz === 'number' ? Number(f.gsz).toFixed(4) : String(f.gsz)) : '—'));
 
         const yesterdayChangePercent =
           f.zzl != null && f.zzl !== ''
@@ -794,7 +792,8 @@ export default function HomePage() {
           code: f.code,
           fundName: f.name,
           isUpdated: f.jzrq === todayStr,
-          navOrEstimate,
+          latestNav,
+          estimateNav,
           yesterdayChangePercent,
           yesterdayChangeValue,
           yesterdayDate,

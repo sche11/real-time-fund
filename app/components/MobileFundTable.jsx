@@ -27,12 +27,16 @@ import MobileSettingModal from './MobileSettingModal';
 import { ExitIcon, SettingsIcon, StarIcon } from './Icons';
 
 const MOBILE_NON_FROZEN_COLUMN_IDS = [
+  'latestNav',
+  'estimateNav',
   'yesterdayChangePercent',
   'estimateChangePercent',
   'todayProfit',
   'holdingProfit',
 ];
 const MOBILE_COLUMN_HEADERS = {
+  latestNav: '最新净值',
+  estimateNav: '估算净值',
   yesterdayChangePercent: '昨日涨跌幅',
   estimateChangePercent: '估值涨跌幅',
   todayProfit: '当日收益',
@@ -214,6 +218,48 @@ export default function MobileFundTable({
     return allVisible;
   });
   const [settingModalOpen, setSettingModalOpen] = useState(false);
+  const tableContainerRef = useRef(null);
+  const [tableContainerWidth, setTableContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const el = tableContainerRef.current;
+    if (!el) return;
+    const updateWidth = () => setTableContainerWidth(el.clientWidth || 0);
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const NAME_CELL_WIDTH = 140;
+  const GAP = 12;
+  const LAST_COLUMN_EXTRA = 12;
+  const FALLBACK_WIDTHS = {
+    fundName: 140,
+    latestNav: 64,
+    estimateNav: 64,
+    yesterdayChangePercent: 72,
+    estimateChangePercent: 80,
+    todayProfit: 80,
+    holdingProfit: 80,
+  };
+
+  const columnWidthMap = useMemo(() => {
+    const visibleNonNameIds = mobileColumnOrder.filter((id) => mobileColumnVisibility[id] !== false);
+    const nonNameCount = visibleNonNameIds.length;
+    if (tableContainerWidth > 0 && nonNameCount > 0) {
+      const gapTotal = nonNameCount >= 3 ? 3 * GAP : (nonNameCount) * GAP;
+      const remaining = tableContainerWidth - NAME_CELL_WIDTH - gapTotal - LAST_COLUMN_EXTRA;
+      const divisor = nonNameCount >= 3 ? 3 : nonNameCount;
+      const otherColumnWidth = Math.max(48, Math.floor(remaining / divisor));
+      const map = { fundName: NAME_CELL_WIDTH };
+      MOBILE_NON_FROZEN_COLUMN_IDS.forEach((id) => {
+        map[id] = otherColumnWidth;
+      });
+      return map;
+    }
+    return { ...FALLBACK_WIDTHS };
+  }, [tableContainerWidth, mobileColumnOrder, mobileColumnVisibility]);
 
   const handleResetMobileColumnOrder = () => {
     const defaultOrder = [...MOBILE_NON_FROZEN_COLUMN_IDS];
@@ -356,7 +402,31 @@ export default function MobileFundTable({
           </div>
         ),
         cell: (info) => <MobileFundNameCell info={info} />,
-        meta: { align: 'left', cellClassName: 'name-cell', width: 140 },
+        meta: { align: 'left', cellClassName: 'name-cell', width: columnWidthMap.fundName },
+      },
+      {
+        accessorKey: 'latestNav',
+        header: '最新净值',
+        cell: (info) => (
+          <span style={{ display: 'block', width: '100%', fontWeight: 700 }}>
+            <FitText maxFontSize={14} minFontSize={10}>
+              {info.getValue() ?? '—'}
+            </FitText>
+          </span>
+        ),
+        meta: { align: 'right', cellClassName: 'value-cell', width: columnWidthMap.latestNav },
+      },
+      {
+        accessorKey: 'estimateNav',
+        header: '估算净值',
+        cell: (info) => (
+          <span style={{ display: 'block', width: '100%', fontWeight: 700 }}>
+            <FitText maxFontSize={14} minFontSize={10}>
+              {info.getValue() ?? '—'}
+            </FitText>
+          </span>
+        ),
+        meta: { align: 'right', cellClassName: 'value-cell', width: columnWidthMap.estimateNav },
       },
       {
         accessorKey: 'yesterdayChangePercent',
@@ -375,7 +445,7 @@ export default function MobileFundTable({
             </div>
           );
         },
-        meta: { align: 'right', cellClassName: 'change-cell', width: 72 },
+        meta: { align: 'right', cellClassName: 'change-cell', width: columnWidthMap.yesterdayChangePercent },
       },
       {
         accessorKey: 'estimateChangePercent',
@@ -395,7 +465,7 @@ export default function MobileFundTable({
             </div>
           );
         },
-        meta: { align: 'right', cellClassName: 'est-change-cell', width: 80 },
+        meta: { align: 'right', cellClassName: 'est-change-cell', width: columnWidthMap.estimateChangePercent },
       },
       {
         accessorKey: 'todayProfit',
@@ -413,7 +483,7 @@ export default function MobileFundTable({
             </span>
           );
         },
-        meta: { align: 'right', cellClassName: 'profit-cell', width: 80 },
+        meta: { align: 'right', cellClassName: 'profit-cell', width: columnWidthMap.todayProfit },
       },
       {
         accessorKey: 'holdingProfit',
@@ -441,10 +511,10 @@ export default function MobileFundTable({
             </div>
           );
         },
-        meta: { align: 'right', cellClassName: 'holding-cell', width: 80 },
+        meta: { align: 'right', cellClassName: 'holding-cell', width: columnWidthMap.holdingProfit },
       },
     ],
-    [currentTab, favorites, refreshing]
+    [currentTab, favorites, refreshing, columnWidthMap]
   );
 
   const table = useReactTable({
@@ -482,7 +552,6 @@ export default function MobileFundTable({
 
   const headerGroup = table.getHeaderGroups()[0];
 
-  const LAST_COLUMN_EXTRA = 12;
   const mobileGridLayout = (() => {
     if (!headerGroup?.headers?.length) return { gridTemplateColumns: '', minWidth: undefined };
     const gap = 12;
@@ -501,12 +570,12 @@ export default function MobileFundTable({
 
   const getAlignClass = (columnId) => {
     if (columnId === 'fundName') return '';
-    if (['yesterdayChangePercent', 'estimateChangePercent', 'todayProfit', 'holdingProfit'].includes(columnId)) return 'text-right';
+    if (['latestNav', 'estimateNav', 'yesterdayChangePercent', 'estimateChangePercent', 'todayProfit', 'holdingProfit'].includes(columnId)) return 'text-right';
     return 'text-right';
   };
 
   return (
-    <div className="mobile-fund-table">
+    <div className="mobile-fund-table" ref={tableContainerRef}>
       <div
         className="mobile-fund-table-scroll"
         style={mobileGridLayout.minWidth != null ? { minWidth: mobileGridLayout.minWidth } : undefined}

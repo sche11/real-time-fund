@@ -23,11 +23,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ConfirmModal from './ConfirmModal';
+import FitText from './FitText';
 import PcTableSettingModal from './PcTableSettingModal';
 import { DragIcon, ExitIcon, SettingsIcon, StarIcon, TrashIcon } from './Icons';
 
 const NON_FROZEN_COLUMN_IDS = [
-  'navOrEstimate',
+  'latestNav',
+  'estimateNav',
   'yesterdayChangePercent',
   'estimateChangePercent',
   'holdingAmount',
@@ -35,7 +37,8 @@ const NON_FROZEN_COLUMN_IDS = [
   'holdingProfit',
 ];
 const COLUMN_HEADERS = {
-  navOrEstimate: '净值/估值',
+  latestNav: '最新净值',
+  estimateNav: '估算净值',
   yesterdayChangePercent: '昨日涨跌幅',
   estimateChangePercent: '估值涨跌幅',
   holdingAmount: '持仓金额',
@@ -98,7 +101,8 @@ function SortableRow({ row, children, isTableDragging, disabled }) {
  *   {
  *     fundName: string;             // 基金名称
  *     code?: string;                // 基金代码（可选，只用于展示在名称下方）
- *     navOrEstimate: string|number; // 净值/估值
+ *     latestNav: string|number;     // 最新净值
+ *     estimateNav: string|number;   // 估算净值
  *     yesterdayChangePercent: string|number; // 昨日涨跌幅
  *     estimateChangePercent: string|number;  // 估值涨跌幅
  *     holdingAmount: string|number;         // 持仓金额
@@ -396,12 +400,29 @@ export default function PcFundTable({
         },
       },
       {
-        accessorKey: 'navOrEstimate',
-        header: '净值/估值',
+        accessorKey: 'latestNav',
+        header: '最新净值',
         size: 100,
         minSize: 80,
         cell: (info) => (
-          <span style={{ fontWeight: 700 }}>{info.getValue() ?? '—'}</span>
+          <FitText style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10}>
+            {info.getValue() ?? '—'}
+          </FitText>
+        ),
+        meta: {
+          align: 'right',
+          cellClassName: 'value-cell',
+        },
+      },
+      {
+        accessorKey: 'estimateNav',
+        header: '估算净值',
+        size: 100,
+        minSize: 80,
+        cell: (info) => (
+          <FitText style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10}>
+            {info.getValue() ?? '—'}
+          </FitText>
         ),
         meta: {
           align: 'right',
@@ -420,9 +441,9 @@ export default function PcFundTable({
           const cls = value > 0 ? 'up' : value < 0 ? 'down' : '';
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
-              <span className={cls} style={{ fontWeight: 700 }}>
+              <FitText className={cls} style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10} as="div">
                 {info.getValue() ?? '—'}
-              </span>
+              </FitText>
               <span className="muted" style={{ fontSize: '11px' }}>
                 {date}
               </span>
@@ -447,9 +468,9 @@ export default function PcFundTable({
           const cls = isMuted ? 'muted' : value > 0 ? 'up' : value < 0 ? 'down' : '';
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
-              <span className={cls} style={{ fontWeight: 700 }}>
+              <FitText className={cls} style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10} as="div">
                 {info.getValue() ?? '—'}
-              </span>
+              </FitText>
               <span className="muted" style={{ fontSize: '11px' }}>
                 {time}
               </span>
@@ -494,13 +515,17 @@ export default function PcFundTable({
           return (
             <div
               title="点击设置持仓"
-              style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', width: '100%', minWidth: 0 }}
               onClick={(e) => {
                 e.stopPropagation?.();
                 onHoldingAmountClickRef.current?.(original, { hasHolding: true });
               }}
             >
-              <span style={{ fontWeight: 700, marginRight: 6 }}>{info.getValue() ?? '—'}</span>
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <FitText style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10}>
+                  {info.getValue() ?? '—'}
+                </FitText>
+              </div>
               <button
                 className="icon-button no-hover"
                 onClick={(e) => {
@@ -508,7 +533,7 @@ export default function PcFundTable({
                   onHoldingAmountClickRef.current?.(original, { hasHolding: true });
                 }}
                 title="编辑持仓"
-                style={{ border: 'none', width: '28px', height: '28px', marginLeft: -6, backgroundColor: 'transparent' }}
+                style={{ border: 'none', width: '28px', height: '28px', marginLeft: 4, flexShrink: 0, backgroundColor: 'transparent' }}
               >
                 <SettingsIcon width="14" height="14" />
               </button>
@@ -531,9 +556,9 @@ export default function PcFundTable({
           const hasProfit = value != null;
           const cls = hasProfit ? (value > 0 ? 'up' : value < 0 ? 'down' : '') : 'muted';
           return (
-            <span className={cls} style={{ fontWeight: 700 }}>
+            <FitText className={cls} style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10}>
               {hasProfit ? (info.getValue() ?? '') : ''}
-            </span>
+            </FitText>
           );
         },
         meta: {
@@ -554,16 +579,16 @@ export default function PcFundTable({
           return (
             <div
               title="点击切换金额/百分比"
-              style={{ cursor: hasTotal ? 'pointer' : 'default' }}
+              style={{ cursor: hasTotal ? 'pointer' : 'default', width: '100%' }}
               onClick={(e) => {
                 if (!hasTotal) return;
                 e.stopPropagation?.();
                 onHoldingProfitClickRef.current?.(original);
               }}
             >
-              <span className={cls} style={{ fontWeight: 700 }}>
+              <FitText className={cls} style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10}>
                 {hasTotal ? (info.getValue() ?? '') : ''}
-              </span>
+              </FitText>
             </div>
           );
         },
@@ -836,6 +861,8 @@ export default function PcFundTable({
                     const columnId = cell.column.id || cell.column.columnDef?.accessorKey;
                     const isNameColumn = columnId === 'fundName';
                     const rightAlignedColumns = new Set([
+                      'latestNav',
+                      'estimateNav',
                       'yesterdayChangePercent',
                       'estimateChangePercent',
                       'holdingAmount',
