@@ -945,8 +945,8 @@ export const fetchFundHistory = async (code, range = '1m') => {
 };
 
 const API_KEYS = [
-  'sk-25b8a4a3d88a49e82e87c981d9d8f6b4',
-  'sk-1565f822d5bd745b6529cfdf28b55574'
+  'sk-c5e4a1d4050c439a694f6f9242f163c7',
+  'sk-8b3b21781fdec7008323f8993e81e0d2'
   // 添加更多 API Key 到这里
 ];
 
