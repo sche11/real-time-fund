@@ -33,19 +33,19 @@ import { fetchFundPeriodReturns, fetchRelatedSectors, fetchRelatedSectorLiveQuot
 
 const MOBILE_NON_FROZEN_COLUMN_IDS = [
   'relatedSector',
+  'yesterdayChangePercent',
+  'estimateChangePercent',
+  'todayProfit',
+  'totalChangePercent',
+  'yesterdayProfit',
+  'holdingProfit',
+  'latestNav',
+  'holdingDays',
   'period1w',
   'period1m',
   'period3m',
   'period6m',
   'period1y',
-  'yesterdayChangePercent',
-  'estimateChangePercent',
-  'totalChangePercent',
-  'holdingDays',
-  'todayProfit',
-  'yesterdayProfit',
-  'holdingProfit',
-  'latestNav',
   'estimateNav',
 ];
 const MOBILE_COLUMN_HEADERS = {
@@ -279,15 +279,6 @@ export default function MobileFundTable({
   const defaultVisibility = (() => {
     const o = {};
     MOBILE_NON_FROZEN_COLUMN_IDS.forEach((id) => { o[id] = true; });
-    // 新增列：默认隐藏（用户可在表格设置中开启）
-    o.relatedSector = false;
-    o.holdingDays = false;
-    o.period1w = false;
-    o.period1m = false;
-    o.period3m = false;
-    o.period6m = false;
-    o.period1y = false;
-    o.yesterdayProfit = false;
     return o;
   })();
 
@@ -302,14 +293,9 @@ export default function MobileFundTable({
     const vis = currentGroupMobile?.mobileTableColumnVisibility ?? null;
     if (vis && typeof vis === 'object' && Object.keys(vis).length > 0) {
       const next = { ...vis };
-      if (next.relatedSector === undefined) next.relatedSector = false;
-      if (next.holdingDays === undefined) next.holdingDays = false;
-      if (next.period1w === undefined) next.period1w = false;
-      if (next.period1m === undefined) next.period1m = false;
-      if (next.period3m === undefined) next.period3m = false;
-      if (next.period6m === undefined) next.period6m = false;
-      if (next.period1y === undefined) next.period1y = false;
-      if (next.yesterdayProfit === undefined) next.yesterdayProfit = false;
+      MOBILE_NON_FROZEN_COLUMN_IDS.forEach((id) => {
+        if (next[id] === undefined) next[id] = true;
+      });
       return next;
     }
     return defaultVisibility;
@@ -734,14 +720,6 @@ export default function MobileFundTable({
     MOBILE_NON_FROZEN_COLUMN_IDS.forEach((id) => {
       allVisible[id] = true;
     });
-    allVisible.relatedSector = false;
-    allVisible.holdingDays = false;
-    allVisible.period1w = false;
-    allVisible.period1m = false;
-    allVisible.period3m = false;
-    allVisible.period6m = false;
-    allVisible.period1y = false;
-    allVisible.yesterdayProfit = false;
     setMobileColumnVisibility(allVisible);
   };
   const handleToggleMobileColumnVisibility = (columnId, visible) => {
