@@ -5997,7 +5997,7 @@ export default function HomePage() {
               )}
 
               {displayFunds.length === 0 ? (
-                <div style={{ marginTop: 10 }}>
+                <div className="glass" style={{ marginTop: 10 }}>
                   <Empty className="border-border/60">
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
