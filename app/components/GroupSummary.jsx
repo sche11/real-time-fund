@@ -275,7 +275,7 @@ export default function GroupSummary({
                 fontFamily: 'var(--font-mono)',
               }}
             >
-              <span style={{ fontSize: '16px', marginRight: 2 }}>¥</span>
+              <span style={{ fontSize: '16px', marginRight: 2 }}></span>
               {isMasked ? (
                 <span
                   className="mask-text"

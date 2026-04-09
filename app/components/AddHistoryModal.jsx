@@ -194,7 +194,7 @@ export default function AddHistoryModal({ fund, onClose, onConfirm }) {
 
         <div className="form-group" style={{ marginBottom: 24 }}>
           <label className="label">
-            金额 (¥) <span style={{ color: 'var(--danger)' }}>*</span>
+            金额 <span style={{ color: 'var(--danger)' }}>*</span>
           </label>
           <input
             type="number"

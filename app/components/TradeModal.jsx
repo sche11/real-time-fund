@@ -266,7 +266,7 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">买入金额</span>
-                      <span>¥{Number(amount).toFixed(2)}</span>
+                      <span>{Number(amount).toFixed(2)}</span>
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">买入费率</span>
@@ -274,7 +274,7 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">参考净值</span>
-                      <span>{loadingPrice ? '查询中...' : (price ? `¥${Number(price).toFixed(4)}` : '待查询 (加入队列)')}</span>
+                      <span>{loadingPrice ? '查询中...' : (price ? `${Number(price).toFixed(4)}` : '待查询 (加入队列)')}</span>
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">预估份额</span>
@@ -309,9 +309,9 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                           <div className="trade-preview-card" style={{ flex: 1 }}>
                             <div className="muted" style={{ fontSize: '12px', marginBottom: 4 }}>持有市值 (估)</div>
                             <div style={{ fontSize: '12px' }}>
-                              <span style={{ opacity: 0.7 }}>¥{(holding.share * Number(price)).toFixed(2)}</span>
+                              <span style={{ opacity: 0.7 }}>{(holding.share * Number(price)).toFixed(2)}</span>
                               <span style={{ margin: '0 4px' }}>→</span>
-                              <span style={{ fontWeight: 600 }}>¥{((holding.share + Number(calcShare)) * Number(price)).toFixed(2)}</span>
+                              <span style={{ fontWeight: 600 }}>{((holding.share + Number(calcShare)) * Number(price)).toFixed(2)}</span>
                             </div>
                           </div>
                         ) : null}
@@ -352,15 +352,15 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">预估卖出单价</span>
-                      <span>{loadingPrice ? '查询中...' : (price ? `¥${sellPrice.toFixed(4)}` : '待查询 (加入队列)')}</span>
+                      <span>{loadingPrice ? '查询中...' : (price ? `${sellPrice.toFixed(4)}` : '待查询 (加入队列)')}</span>
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">卖出费率/费用</span>
-                      <span>{feeMode === 'rate' ? `${feeValue}%` : `¥${feeValue}`}</span>
+                      <span>{feeMode === 'rate' ? `${feeValue}%` : `${feeValue}`}</span>
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">预估手续费</span>
-                      <span>{price ? `¥${sellFee.toFixed(2)}` : '待计算'}</span>
+                      <span>{price ? `${sellFee.toFixed(2)}` : '待计算'}</span>
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
                       <span className="muted">卖出日期</span>
@@ -368,7 +368,7 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                     </div>
                     <div className="row trade-confirm-divider" style={{ justifyContent: 'space-between', marginBottom: 8, paddingTop: 8 }}>
                       <span className="muted">预计回款</span>
-                      <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{loadingPrice ? '计算中...' : (price ? `¥${estimatedReturn.toFixed(2)}` : '待计算')}</span>
+                      <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{loadingPrice ? '计算中...' : (price ? `${estimatedReturn.toFixed(2)}` : '待计算')}</span>
                     </div>
                     <div className="muted" style={{ fontSize: '12px', textAlign: 'right', marginTop: 4 }}>
                       {loadingPrice ? '正在获取该日净值...' : `*基于${price === getEstimatePrice() ? '当前净值/估值' : '当日净值'}测算`}
@@ -391,9 +391,9 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                           <div className="trade-preview-card" style={{ flex: 1 }}>
                             <div className="muted" style={{ fontSize: '12px', marginBottom: 4 }}>持有市值 (估)</div>
                             <div style={{ fontSize: '12px' }}>
-                              <span style={{ opacity: 0.7 }}>¥{(holding.share * sellPrice).toFixed(2)}</span>
+                              <span style={{ opacity: 0.7 }}>{(holding.share * sellPrice).toFixed(2)}</span>
                               <span style={{ margin: '0 4px' }}>→</span>
-                              <span style={{ fontWeight: 600 }}>¥{((holding.share - sellShare) * sellPrice).toFixed(2)}</span>
+                              <span style={{ fontWeight: 600 }}>{((holding.share - sellShare) * sellPrice).toFixed(2)}</span>
                             </div>
                           </div>
                         ) : null}
@@ -430,7 +430,7 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                       <div style={{ pointerEvents: loadingBuyMeta ? 'none' : 'auto', opacity: loadingBuyMeta ? 0.55 : 1 }}>
                         <div className="form-group" style={{ marginBottom: 16 }}>
                           <label className="muted" style={{ display: 'block', marginBottom: 8, fontSize: '14px' }}>
-                            加仓金额 (¥) <span style={{ color: 'var(--danger)' }}>*</span>
+                            加仓金额 () <span style={{ color: 'var(--danger)' }}>*</span>
                           </label>
                           <div
                             style={{
@@ -574,7 +574,7 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
                       <div className="form-group" style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                           <label className="muted" style={{ fontSize: '14px' }}>
-                            {feeMode === 'rate' ? '卖出费率 (%)' : '卖出费用 (¥)'}
+                            {feeMode === 'rate' ? '卖出费率 (%)' : '卖出费用 ()'}
                           </label>
                           <button
                             type="button"
@@ -665,7 +665,7 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
           <ConfirmModal
             key="revoke-confirm"
             title="撤销交易"
-            message={`确定要撤销这笔 ${revokeTrade.share ? `${revokeTrade.share}份` : `¥${revokeTrade.amount}`} 的${revokeTrade.type === 'buy' ? '买入' : '卖出'}申请吗？`}
+            message={`确定要撤销这笔 ${revokeTrade.share ? `${revokeTrade.share}份` : `${revokeTrade.amount}`} 的${revokeTrade.type === 'buy' ? '买入' : '卖出'}申请吗？`}
             onConfirm={() => {
               onDeletePending?.(revokeTrade.id);
               setRevokeTrade(null);

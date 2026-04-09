@@ -314,7 +314,7 @@ export default function FundDailyEarnings({ series = [], theme = 'dark', masked 
                   : chartColors.success,
             }}
           >
-            {masked ? '***' : `${totalEarnings >= 0 ? '+' : '-'}¥${Math.abs(totalEarnings).toFixed(2)}`}
+            {masked ? '***' : `${totalEarnings >= 0 ? '+' : '-'}${Math.abs(totalEarnings).toFixed(2)}`}
           </span>
         </span>
       </div>

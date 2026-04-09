@@ -65,7 +65,7 @@ export default function PendingTradesModal({
                 </div>
                 <div className="row" style={{ justifyContent: 'space-between', fontSize: '12px' }}>
                   <span className="muted">份额/金额</span>
-                  <span>{trade.share ? `${trade.share} 份` : `¥${trade.amount}`}</span>
+                  <span>{trade.share ? `${trade.share} 份` : `${trade.amount}`}</span>
                 </div>
                 <div className="row" style={{ justifyContent: 'space-between', fontSize: '12px', marginTop: 4 }}>
                   <span className="muted">状态</span>

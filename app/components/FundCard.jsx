@@ -325,7 +325,7 @@ export default function FundCard({
                 持仓金额 <SettingsIcon width="12" height="12" style={{ opacity: 0.7 }} />
               </span>
               <span className="value">
-                {masked ? '******' : `¥${profit.amount.toFixed(2)}`}
+                {masked ? '******' : `${profit.amount.toFixed(2)}`}
               </span>
             </div>
             {holding?.firstPurchaseDate && !masked && (() => {
@@ -386,7 +386,7 @@ export default function FundCard({
                                 ? (profit.profitToday / (holding.cost * holding.share)) * 100
                                 : 0,
                             ).toFixed(2)}%`
-                          : `¥${Math.abs(profit.profitToday).toFixed(2)}`}
+                          : `${Math.abs(profit.profitToday).toFixed(2)}`}
                       </>
                   : '--'}
               </span>
@@ -423,7 +423,7 @@ export default function FundCard({
                                 ? (profit.profitTotal / (holding.cost * holding.share)) * 100
                                 : 0,
                             ).toFixed(2)}%`
-                          : `¥${Math.abs(profit.profitTotal).toFixed(2)}`}
+                          : `${Math.abs(profit.profitTotal).toFixed(2)}`}
                       </>}
                 </span>
               </div>

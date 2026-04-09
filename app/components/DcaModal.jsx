@@ -247,7 +247,7 @@ export default function DcaModal({ fund, plan, onClose, onConfirm }) {
 
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="muted" style={{ display: 'block', marginBottom: 8, fontSize: '14px' }}>
-                定投金额 (¥) <span style={{ color: 'var(--danger)' }}>*</span>
+                定投金额 <span style={{ color: 'var(--danger)' }}>*</span>
               </label>
               <div style={{ border: (!amount || parseFloat(amount) <= 0) ? '1px solid var(--danger)' : '1px solid var(--border)', borderRadius: 12 }}>
                 <NumericInput

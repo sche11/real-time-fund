@@ -130,13 +130,13 @@ export default function ScanImportConfirmModal({
                       <div style={{ display: 'flex', gap: 16, marginTop: 6, paddingLeft: 0 }}>
                         {holdAmounts !== null && (
                           <span className="muted" style={{ fontSize: 12 }}>
-                            持有金额：<span style={{ color: 'var(--text)', fontWeight: 500 }}>¥{holdAmounts.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            持有金额：<span style={{ color: 'var(--text)', fontWeight: 500 }}>{holdAmounts.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </span>
                         )}
                         {holdGains !== null && (
                           <span className="muted" style={{ fontSize: 12 }}>
                             持有收益：<span style={{ color: holdGains >= 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 500 }}>
-                              {holdGains >= 0 ? '+' : '-'}¥{Math.abs(holdGains).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {holdGains >= 0 ? '+' : '-'}{Math.abs(holdGains).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           </span>
                         )}

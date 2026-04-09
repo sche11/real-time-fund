@@ -888,15 +888,31 @@ export default function HomePage() {
     return out;
   }, [transactions, activeGroupId]);
 
+  const groupById = useMemo(() => {
+    const map = new Map();
+    for (const g of groups || []) {
+      if (!g?.id) continue;
+      map.set(g.id, g);
+    }
+    return map;
+  }, [groups]);
+
+  const activeGroupCodeSet = useMemo(() => {
+    if (currentTab === 'all' || currentTab === 'fav') return null;
+    const group = groupById.get(currentTab);
+    if (!group || !Array.isArray(group.codes)) return null;
+    return new Set(group.codes);
+  }, [currentTab, groupById]);
+
   // 当前 tab 作用域下的基金（不包含“列表搜索”过滤）
   const scopedFunds = useMemo(() => {
     return funds.filter((f) => {
       if (currentTab === 'all') return true;
       if (currentTab === 'fav') return favorites.has(f.code);
-      const group = groups.find((g) => g.id === currentTab);
-      return group ? group.codes.includes(f.code) : true;
+      if (!activeGroupCodeSet) return true;
+      return activeGroupCodeSet.has(f.code);
     });
-  }, [funds, currentTab, favorites, groups]);
+  }, [funds, currentTab, favorites, activeGroupCodeSet]);
 
   // 过滤和排序后的基金列表（包含“列表搜索”过滤）
   const displayFunds = useMemo(
@@ -924,6 +940,11 @@ export default function HomePage() {
           });
         }
       }
+
+      const profitByCode =
+        sortBy === 'holdingAmount' || sortBy === 'todayProfit' || sortBy === 'holding'
+          ? new Map(filtered.map((f) => [f.code, getHoldingProfit(f, holdingsForTab[f.code])]))
+          : null;
 
       return filtered.sort((a, b) => {
         if (sortBy === 'yield') {
@@ -958,8 +979,8 @@ export default function HomePage() {
           return sortOrder === 'asc' ? valA - valB : valB - valA;
         }
         if (sortBy === 'holdingAmount') {
-          const pa = getHoldingProfit(a, holdingsForTab[a.code]);
-          const pb = getHoldingProfit(b, holdingsForTab[b.code]);
+          const pa = profitByCode?.get(a.code);
+          const pb = profitByCode?.get(b.code);
           const amountA = pa?.amount ?? Number.NEGATIVE_INFINITY;
           const amountB = pb?.amount ?? Number.NEGATIVE_INFINITY;
           return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
@@ -978,8 +999,8 @@ export default function HomePage() {
           return sortOrder === 'asc' ? valA - valB : valB - valA;
         }
         if (sortBy === 'todayProfit') {
-          const pa = getHoldingProfit(a, holdingsForTab[a.code]);
-          const pb = getHoldingProfit(b, holdingsForTab[b.code]);
+          const pa = profitByCode?.get(a.code);
+          const pb = profitByCode?.get(b.code);
           const valA = pa?.profitToday;
           const valB = pb?.profitToday;
           const hasA = valA != null && Number.isFinite(valA);
@@ -993,8 +1014,8 @@ export default function HomePage() {
           return sortOrder === 'asc' ? valA - valB : valB - valA;
         }
         if (sortBy === 'holding') {
-          const pa = getHoldingProfit(a, holdingsForTab[a.code]);
-          const pb = getHoldingProfit(b, holdingsForTab[b.code]);
+          const pa = profitByCode?.get(a.code);
+          const pb = profitByCode?.get(b.code);
           const valA = pa?.profitTotal ?? Number.NEGATIVE_INFINITY;
           const valB = pb?.profitTotal ?? Number.NEGATIVE_INFINITY;
           return sortOrder === 'asc' ? valA - valB : valB - valA;
@@ -1007,6 +1028,25 @@ export default function HomePage() {
     },
     [scopedFunds, currentTab, groups, sortBy, sortOrder, holdingsForTab, getHoldingProfit, groupFundSearchTerm, shouldShowGroupFundSearch],
   );
+
+  const latestDailyByCode = useMemo(() => {
+    const out = {};
+    if (!isPlainObject(currentFundDailyEarnings)) return out;
+    for (const f of displayFunds) {
+      const code = f?.code;
+      if (!code) continue;
+      const list = currentFundDailyEarnings[code];
+      if (!Array.isArray(list) || list.length === 0) continue;
+      const byDate = new Map();
+      for (const item of list) {
+        const date = item?.date ? String(item.date) : '';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+        byDate.set(date, item);
+      }
+      out[code] = { byDate, last: list[list.length - 1] };
+    }
+    return out;
+  }, [currentFundDailyEarnings, displayFunds]);
 
   // PC 端表格数据（用于 PcFundTable）
   const pcFundTableData = useMemo(
@@ -1059,7 +1099,7 @@ export default function HomePage() {
         const todayProfit =
           profitToday == null
             ? ''
-            : `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}¥${Math.abs(profitToday).toFixed(2)}`;
+            : `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs(profitToday).toFixed(2)}`;
         const todayProfitValue = profitToday;
 
         const total = profit ? profit.profitTotal : null;
@@ -1072,11 +1112,12 @@ export default function HomePage() {
             ? `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs((profitToday / principal) * 100).toFixed(2)}%`
             : '';
 
-        const dailyList = Array.isArray(currentFundDailyEarnings?.[f.code]) ? currentFundDailyEarnings[f.code] : [];
         const latestNavDateStr = isString(f.jzrq) ? f.jzrq : '';
+        const dailyMeta = latestDailyByCode?.[f.code];
         const matchedDaily =
-          (latestNavDateStr ? dailyList.find((d) => d?.date === latestNavDateStr) : null)
-          || (dailyList.length ? dailyList[dailyList.length - 1] : null);
+          (latestNavDateStr ? (dailyMeta?.byDate?.get(latestNavDateStr) || null) : null)
+          || dailyMeta?.last
+          || null;
         const yesterdayProfitVal =
           matchedDaily && Number.isFinite(Number(matchedDaily.earnings))
             ? Number(matchedDaily.earnings)
@@ -1084,7 +1125,7 @@ export default function HomePage() {
         const yesterdayProfit =
           yesterdayProfitVal == null
             ? ''
-            : `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}¥${Math.abs(yesterdayProfitVal).toFixed(2)}`;
+            : `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}${Math.abs(yesterdayProfitVal).toFixed(2)}`;
         const dailyRate =
           matchedDaily && matchedDaily.rate != null && matchedDaily.rate !== '' && Number.isFinite(Number(matchedDaily.rate))
             ? Number(matchedDaily.rate)
@@ -1103,7 +1144,7 @@ export default function HomePage() {
         const holdingProfit =
           total == null
             ? ''
-            : `${total > 0 ? '+' : total < 0 ? '-' : ''}¥${Math.abs(total).toFixed(2)}`;
+            : `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs(total).toFixed(2)}`;
         const holdingProfitPercent =
           total != null && principal > 0
             ? `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs((total / principal) * 100).toFixed(2)}%`
@@ -1128,7 +1169,7 @@ export default function HomePage() {
         const estimateProfit =
           estimateProfitValue == null
             ? ''
-            : `${estimateProfitValue > 0 ? '+' : estimateProfitValue < 0 ? '-' : ''}¥${Math.abs(estimateProfitValue).toFixed(2)}`;
+            : `${estimateProfitValue > 0 ? '+' : estimateProfitValue < 0 ? '-' : ''}${Math.abs(estimateProfitValue).toFixed(2)}`;
         const estimateProfitPercent =
           estimateProfitPercentValue == null
             ? ''
@@ -1171,7 +1212,7 @@ export default function HomePage() {
           holdingProfitValue,
         };
       }),
-    [displayFunds, holdingsForTab, isTradingDay, todayStr, getHoldingProfit, dcaPlansForTab, currentFundDailyEarnings],
+    [displayFunds, holdingsForTab, isTradingDay, todayStr, getHoldingProfit, dcaPlansForTab, latestDailyByCode],
   );
 
   // 自动滚动选中 Tab 到可视区域
@@ -2286,7 +2327,7 @@ export default function HomePage() {
     storageHelper.setItem('viewMode', mode);
   }, [storageHelper, viewMode]);
 
-  const toggleFavorite = (code) => {
+  const toggleFavorite = useCallback((code) => {
     setFavorites(prev => {
       const next = new Set(prev);
       if (next.has(code)) {
@@ -2298,9 +2339,9 @@ export default function HomePage() {
       if (next.size === 0) setCurrentTab('all');
       return next;
     });
-  };
+  }, [storageHelper]);
 
-  const toggleCollapse = (code) => {
+  const toggleCollapse = useCallback((code) => {
     setCollapsedCodes(prev => {
       const next = new Set(prev);
       if (next.has(code)) {
@@ -2312,9 +2353,9 @@ export default function HomePage() {
       storageHelper.setItem('collapsedCodes', JSON.stringify(Array.from(next)));
       return next;
     });
-  };
+  }, [storageHelper]);
 
-  const toggleTrendCollapse = (code) => {
+  const toggleTrendCollapse = useCallback((code) => {
     setCollapsedTrends(prev => {
       const next = new Set(prev);
       if (next.has(code)) {
@@ -2325,9 +2366,9 @@ export default function HomePage() {
       storageHelper.setItem('collapsedTrends', JSON.stringify(Array.from(next)));
       return next;
     });
-  };
+  }, [storageHelper]);
 
-  const toggleEarningsCollapse = (code) => {
+  const toggleEarningsCollapse = useCallback((code) => {
     setCollapsedEarnings(prev => {
       const next = new Set(prev);
       if (next.has(code)) {
@@ -2338,7 +2379,7 @@ export default function HomePage() {
       storageHelper.setItem('collapsedEarnings', JSON.stringify(Array.from(next)));
       return next;
     });
-  };
+  }, [storageHelper]);
 
   const scheduleDcaTrades = useCallback(async () => {
     if (!isTradingDay) return;
@@ -3343,17 +3384,22 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [userMenuOpen]);
 
+  const refreshCodesRef = useRef([]);
+  useEffect(() => {
+    refreshCodesRef.current = Array.from(new Set((funds || []).map((f) => f.code))).filter(Boolean);
+  }, [funds]);
+
   useEffect(() => {
     refreshCycleStartRef.current = Date.now();
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      const codes = Array.from(new Set(funds.map((f) => f.code)));
+      const codes = refreshCodesRef.current || [];
       if (codes.length) refreshAll(codes);
     }, refreshMs);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [funds, refreshMs]);
+  }, [refreshMs]);
 
   const performSearch = async (val) => {
     if (!val.trim()) {
@@ -5386,6 +5432,106 @@ export default function HomePage() {
     .filter(Boolean)
     .join(' ');
 
+  const handleRemoveFundRow = useCallback((row) => {
+    if (refreshing) return;
+    if (!row || !row.code) return;
+    requestRemoveFund({ code: row.code, name: row.fundName });
+  }, [refreshing, requestRemoveFund]);
+
+  const handleToggleFavoriteRow = useCallback((row) => {
+    if (!row || !row.code) return;
+    toggleFavorite(row.code);
+  }, [toggleFavorite]);
+
+  const handleHoldingAmountClickRow = useCallback((row, meta) => {
+    if (!row || !row.code) return;
+    const fund = row.rawFund || { code: row.code, name: row.fundName };
+    if (meta?.hasHolding) {
+      setActionModal({ open: true, fund });
+    } else {
+      setHoldingModal({ open: true, fund });
+    }
+  }, []);
+
+  const handleHoldingProfitClickRow = useCallback((row) => {
+    if (!row || !row.code) return;
+    if (row.holdingProfitValue == null) return;
+    setPercentModes((prev) => ({ ...prev, [row.code]: !prev[row.code] }));
+  }, []);
+
+  const openHoldingModal = useCallback((fund) => setHoldingModal({ open: true, fund }), []);
+  const openActionModal = useCallback((fund) => setActionModal({ open: true, fund }), []);
+  const togglePercentMode = useCallback((code) => {
+    setPercentModes((prev) => ({ ...prev, [code]: !prev[code] }));
+  }, []);
+  const toggleTodayPercentMode = useCallback((code) => {
+    setTodayPercentModes((prev) => ({ ...prev, [code]: !prev[code] }));
+  }, []);
+
+  const getFundCardPropsForRow = useCallback((row) => {
+    const fund = row?.rawFund || (row ? { code: row.code, name: row.fundName } : null);
+    if (!fund) return {};
+    return {
+      fund,
+      todayStr,
+      currentTab,
+      favorites,
+      dcaPlans: dcaPlansForTab,
+      holdings: holdingsForTab,
+      percentModes,
+      todayPercentModes,
+      fundDailyEarnings: currentFundDailyEarnings,
+      valuationSeries,
+      collapsedCodes,
+      collapsedTrends,
+      collapsedEarnings,
+      transactions: transactionsForTab,
+      theme,
+      isTradingDay,
+      refreshing,
+      getHoldingProfit,
+      onToggleFavorite: toggleFavorite,
+      onRemoveFund: requestRemoveFund,
+      onHoldingClick: openHoldingModal,
+      onActionClick: openActionModal,
+      onPercentModeToggle: togglePercentMode,
+      onTodayPercentModeToggle: toggleTodayPercentMode,
+      onToggleCollapse: toggleCollapse,
+      onToggleTrendCollapse: toggleTrendCollapse,
+      onToggleEarningsCollapse: toggleEarningsCollapse,
+      masked: maskAmounts,
+      layoutMode: 'drawer',
+    };
+  }, [
+    todayStr,
+    currentTab,
+    favorites,
+    dcaPlansForTab,
+    holdingsForTab,
+    percentModes,
+    todayPercentModes,
+    currentFundDailyEarnings,
+    valuationSeries,
+    collapsedCodes,
+    collapsedTrends,
+    collapsedEarnings,
+    transactionsForTab,
+    theme,
+    isTradingDay,
+    refreshing,
+    getHoldingProfit,
+    toggleFavorite,
+    requestRemoveFund,
+    openHoldingModal,
+    openActionModal,
+    togglePercentMode,
+    toggleTodayPercentMode,
+    toggleCollapse,
+    toggleTrendCollapse,
+    toggleEarningsCollapse,
+    maskAmounts,
+  ]);
+
   return (
     <div ref={containerRef} className={containerClassName} style={{ width: containerWidth }}>
       <AnimatePresence>
@@ -6062,72 +6208,17 @@ export default function HomePage() {
                                 favorites={favorites}
                                 sortBy={sortBy}
                                 onReorder={handleReorder}
-                                onRemoveFund={(row) => {
-                                  if (refreshing) return;
-                                  if (!row || !row.code) return;
-                                  requestRemoveFund({ code: row.code, name: row.fundName });
-                                }}
+                                onRemoveFund={handleRemoveFundRow}
                                 onRemoveFunds={(codes) => requestRemoveFundsFromCurrentGroup(codes)}
                                 batchSelectionClearRef={pcBatchClearSelectionRef}
-                                onToggleFavorite={(row) => {
-                                  if (!row || !row.code) return;
-                                  toggleFavorite(row.code);
-                                }}
-                                onHoldingAmountClick={(row, meta) => {
-                                  if (!row || !row.code) return;
-                                  const fund = row.rawFund || { code: row.code, name: row.fundName };
-                                  if (meta?.hasHolding) {
-                                    setActionModal({ open: true, fund });
-                                  } else {
-                                    setHoldingModal({ open: true, fund });
-                                  }
-                                }}
-                                onHoldingProfitClick={(row) => {
-                                  if (!row || !row.code) return;
-                                  if (row.holdingProfitValue == null) return;
-                                  setPercentModes(prev => ({ ...prev, [row.code]: !prev[row.code] }));
-                                }}
+                                onToggleFavorite={handleToggleFavoriteRow}
+                                onHoldingAmountClick={handleHoldingAmountClickRow}
+                                onHoldingProfitClick={handleHoldingProfitClickRow}
                                 onCustomSettingsChange={triggerCustomSettingsSync}
                                 closeDialogRef={fundDetailDialogCloseRef}
                                 blockDialogClose={!!fundDeleteConfirm || !!fundDeleteBulkConfirm}
                                 masked={maskAmounts}
-                                getFundCardProps={(row) => {
-                                  const fund = row?.rawFund || (row ? { code: row.code, name: row.fundName } : null);
-                                  if (!fund) return {};
-                                  return {
-                                    fund,
-                                    todayStr,
-                                    currentTab,
-                                    favorites,
-                                    dcaPlans: dcaPlansForTab,
-                                    holdings: holdingsForTab,
-                                    percentModes,
-                                    todayPercentModes,
-                                    fundDailyEarnings: currentFundDailyEarnings,
-                                    valuationSeries,
-                                    collapsedCodes,
-                                    collapsedTrends,
-                                    collapsedEarnings,
-                                    transactions: transactionsForTab,
-                                    theme,
-                                    isTradingDay,
-                                    refreshing,
-                                    getHoldingProfit,
-                                    onToggleFavorite: toggleFavorite,
-                                    onRemoveFund: requestRemoveFund,
-                                    onHoldingClick: (f) => setHoldingModal({ open: true, fund: f }),
-                                    onActionClick: (f) => setActionModal({ open: true, fund: f }),
-                                    onPercentModeToggle: (code) =>
-                                      setPercentModes((prev) => ({ ...prev, [code]: !prev[code] })),
-                                    onTodayPercentModeToggle: (code) =>
-                                      setTodayPercentModes((prev) => ({ ...prev, [code]: !prev[code] })),
-                                    onToggleCollapse: toggleCollapse,
-                                    onToggleTrendCollapse: toggleTrendCollapse,
-                                    onToggleEarningsCollapse: toggleEarningsCollapse,
-                                    masked: maskAmounts,
-                                    layoutMode: 'drawer',
-                                  };
-                                }}
+                                getFundCardProps={getFundCardPropsForRow}
                               />
                             </div>
                           </div>
@@ -6145,29 +6236,10 @@ export default function HomePage() {
                         blockDrawerClose={!!fundDeleteConfirm || !!fundDeleteBulkConfirm}
                         closeDrawerRef={fundDetailDrawerCloseRef}
                         onReorder={handleReorder}
-                        onRemoveFund={(row) => {
-                          if (refreshing) return;
-                          if (!row || !row.code) return;
-                          requestRemoveFund({ code: row.code, name: row.fundName });
-                        }}
-                        onToggleFavorite={(row) => {
-                          if (!row || !row.code) return;
-                          toggleFavorite(row.code);
-                        }}
-                        onHoldingAmountClick={(row, meta) => {
-                          if (!row || !row.code) return;
-                          const fund = row.rawFund || { code: row.code, name: row.fundName };
-                          if (meta?.hasHolding) {
-                            setActionModal({ open: true, fund });
-                          } else {
-                            setHoldingModal({ open: true, fund });
-                          }
-                        }}
-                        onHoldingProfitClick={(row) => {
-                          if (!row || !row.code) return;
-                          if (row.holdingProfitValue == null) return;
-                          setPercentModes((prev) => ({ ...prev, [row.code]: !prev[row.code] }));
-                        }}
+                        onRemoveFund={handleRemoveFundRow}
+                        onToggleFavorite={handleToggleFavoriteRow}
+                        onHoldingAmountClick={handleHoldingAmountClickRow}
+                        onHoldingProfitClick={handleHoldingProfitClickRow}
                         onBulkRemoveFundsConfirmed={(items) => {
                           if (refreshing) return;
                           fundDetailDrawerCloseRef.current?.();
@@ -6188,43 +6260,7 @@ export default function HomePage() {
                         onCustomSettingsChange={triggerCustomSettingsSync}
                         onFundCardDrawerOpenChange={handleFundCardDrawerOpenChange}
                         onMobileSettingModalOpenChange={handleMobileSettingModalOpenChange}
-                        getFundCardProps={(row) => {
-                          const fund = row?.rawFund || (row ? { code: row.code, name: row.fundName } : null);
-                          if (!fund) return {};
-                          return {
-                            fund,
-                            todayStr,
-                            currentTab,
-                            favorites,
-                            dcaPlans: dcaPlansForTab,
-                            holdings: holdingsForTab,
-                            percentModes,
-                            todayPercentModes,
-                            fundDailyEarnings: currentFundDailyEarnings,
-                            valuationSeries,
-                            collapsedCodes,
-                            collapsedTrends,
-                            collapsedEarnings,
-                            transactions: transactionsForTab,
-                            theme,
-                            isTradingDay,
-                            refreshing,
-                            getHoldingProfit,
-                            onToggleFavorite: toggleFavorite,
-                            onRemoveFund: requestRemoveFund,
-                            onHoldingClick: (f) => setHoldingModal({ open: true, fund: f }),
-                            onActionClick: (f) => setActionModal({ open: true, fund: f }),
-                            onPercentModeToggle: (code) =>
-                              setPercentModes((prev) => ({ ...prev, [code]: !prev[code] })),
-                            onTodayPercentModeToggle: (code) =>
-                              setTodayPercentModes((prev) => ({ ...prev, [code]: !prev[code] })),
-                            onToggleCollapse: toggleCollapse,
-                            onToggleTrendCollapse: toggleTrendCollapse,
-                            onToggleEarningsCollapse: toggleEarningsCollapse,
-                            masked: maskAmounts,
-                            layoutMode: 'drawer',
-                          };
-                        }}
+                        getFundCardProps={getFundCardPropsForRow}
                         masked={maskAmounts}
                       />
                     )}
@@ -6261,14 +6297,10 @@ export default function HomePage() {
                               getHoldingProfit={getHoldingProfit}
                               onToggleFavorite={toggleFavorite}
                               onRemoveFund={requestRemoveFund}
-                              onHoldingClick={(fund) => setHoldingModal({ open: true, fund })}
-                              onActionClick={(fund) => setActionModal({ open: true, fund })}
-                              onPercentModeToggle={(code) =>
-                                setPercentModes((prev) => ({ ...prev, [code]: !prev[code] }))
-                              }
-                              onTodayPercentModeToggle={(code) =>
-                                setTodayPercentModes((prev) => ({ ...prev, [code]: !prev[code] }))
-                              }
+                              onHoldingClick={openHoldingModal}
+                              onActionClick={openActionModal}
+                              onPercentModeToggle={togglePercentMode}
+                              onTodayPercentModeToggle={toggleTodayPercentMode}
                               onToggleCollapse={toggleCollapse}
                               onToggleTrendCollapse={toggleTrendCollapse}
                               onToggleEarningsCollapse={toggleEarningsCollapse}

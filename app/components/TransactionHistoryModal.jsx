@@ -145,7 +145,7 @@ export default function TransactionHistoryModal({
                   </div>
                   <div className="row" style={{ justifyContent: 'space-between', fontSize: '12px' }}>
                     <span className="muted">份额/金额</span>
-                    <span>{item.share ? `${Number(item.share).toFixed(2)} 份` : `¥${Number(item.amount).toFixed(2)}`}</span>
+                    <span>{item.share ? `${Number(item.share).toFixed(2)} 份` : `${Number(item.amount).toFixed(2)}`}</span>
                   </div>
                   <div className="row" style={{ justifyContent: 'space-between', fontSize: '12px', marginTop: 8 }}>
                     <span className="tx-history-pending-status">等待净值更新...</span>
@@ -192,7 +192,7 @@ export default function TransactionHistoryModal({
                   </div>
                   <div className="row" style={{ justifyContent: 'space-between', fontSize: '12px', marginBottom: 2 }}>
                     <span className="muted">成交金额</span>
-                    <span>¥{Number(item.amount).toFixed(2)}</span>
+                    <span>{Number(item.amount).toFixed(2)}</span>
                   </div>
                   {item.price && (
                     <div className="row" style={{ justifyContent: 'space-between', fontSize: '12px', marginBottom: 2 }}>

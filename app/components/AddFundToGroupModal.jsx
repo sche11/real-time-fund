@@ -138,7 +138,7 @@ export default function AddFundToGroupModal({ allFunds, currentGroupCodes, holdi
                     <div className="muted" style={{ fontSize: '12px' }}>#{fund.code}</div>
                     {getHoldingAmount(fund) != null && (
                       <div className="muted" style={{ fontSize: '12px', marginTop: 2 }}>
-                        持仓金额：<span style={{ color: 'var(--foreground)', fontWeight: 500 }}>¥{getHoldingAmount(fund).toFixed(2)}</span>
+                        持仓金额：<span style={{ color: 'var(--foreground)', fontWeight: 500 }}>{getHoldingAmount(fund).toFixed(2)}</span>
                       </div>
                     )}
                   </div>
