@@ -1504,6 +1504,18 @@ export default function HomePage() {
           holding && isNumber(holding.cost) && isNumber(holding.share)
             ? holding.cost * holding.share
             : 0;
+        const holdingCostValue =
+          holding && isNumber(holding.cost) && isNumber(holding.share)
+            ? holding.cost * holding.share
+            : null;
+        const holdingCost =
+          holdingCostValue == null
+            ? '未设置'
+            : `¥${Number(holdingCostValue).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const costNavValue =
+          holding && isNumber(holding.cost) ? holding.cost : null;
+        const costNav =
+          costNavValue == null ? '—' : Number(costNavValue).toFixed(4);
         const todayProfitPercent =
           profitToday != null && principal > 0
             ? `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs((profitToday / principal) * 100).toFixed(2)}%`
@@ -1597,6 +1609,10 @@ export default function HomePage() {
           estimateProfitPercent,
           holdingAmount,
           holdingAmountValue,
+          holdingCost,
+          holdingCostValue,
+          costNav,
+          costNavValue,
           holdingDaysValue,
           todayProfit,
           todayProfitPercent,
