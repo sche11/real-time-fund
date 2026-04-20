@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v1.2.0';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v1.3.0';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -75,13 +75,11 @@ export default function Announcement() {
               <span>公告</span>
             </div>
             <div style={{ color: 'var(--text)', lineHeight: '1.6', fontSize: '15px', overflowY: 'auto', minHeight: 0, flex: 1, paddingRight: '4px' }}>
-              <p>v1.2.0 更新内容如下：</p>
-              <p>1. 🎉服务器已扩容，现已提升账号同步频率，支持更高频率的单账号多设备同步。</p>
-              <p>2. 重构日期选择组件。</p>
-              <p>3. 优化我的收益日期组件展示。</p>
-              <p>4. 修复清空持仓未清空定投问题。</p>
-              <p>5. 修复指数刷新问题。</p>
-              <p>6. 修复导入导出数据问题。</p>
+              <p>v1.3.0 更新内容如下：</p>
+              <p>1. 新增标签列，可自定义基金标签，支持批量添加。</p>
+              <p>2. 新增持仓成本、成本净值列。</p>
+              <p>3. 拍照识别方案调整（需登录）。</p>
+              <p>4. 修复我的收益日历展示样式。</p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
