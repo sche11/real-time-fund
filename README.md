@@ -169,6 +169,26 @@
 
    导入成功后，基金卡片将展示其追踪的关联板块及实时涨跌幅。
 
+9. 部署 Supabase Edge Function（可选）
+
+   本项目使用的是 **Supabase 云服务（Supabase Cloud）**。如需把“OCR 识别出的长文本 → 解析出基金名称/代码/金额/收益”的逻辑放到云端执行，可部署边缘函数 `analyze-fund`。
+
+   **配置步骤：**
+   - 需要用户已登录（函数会读取请求头 `Authorization`，并通过 `supabase.auth.getUser()` 校验 JWT）
+   - 进入 **Supabase 控制台** → 选择你的项目
+   - 左侧菜单找到 **Project Settings**（项目设置）
+   - 点击 **Edge Functions** 选项卡
+   - 在 **Functions** 区域点击 **Develop a new function** → **Via Editor**
+   - 输入函数名称 `analyze-fund`和复制 `doc/edgeFunction/analyze-fund.ts` 内容到编辑器中，点击 **Create**
+   - 到该函数的 Settings 页，取消 **Verify JWT with legacy secret** 选项
+   - 在 **Secrets** 区域点击 **Add a new secret**
+   - Name 填入 `AIHUBMIX_API_KEY`，Value 填入你从 [AIHubMix 控制台](https://console.aihubmix.com/token) 申请的 Key
+   - 点击 **保存** 即可
+
+   **常见排查：**
+   - 401 Unauthorized：说明当前未登录或未携带用户 JWT（先完成 Supabase 登录流程）
+   - 500 / “模型未返回合法 JSON”：通常是第三方模型接口返回格式异常或 Key 无效
+
 更多 Supabase 相关内容查阅官方文档。
 
 ### 构建与部署
