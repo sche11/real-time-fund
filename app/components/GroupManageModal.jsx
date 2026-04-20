@@ -1,14 +1,82 @@
 'use client';
 
 import { useState } from 'react';
-import { AnimatePresence, Reorder } from 'framer-motion';
+import { AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog';
 import ConfirmModal from './ConfirmModal';
-import { CloseIcon, DragIcon, PlusIcon, SettingsIcon, TrashIcon } from './Icons';
+import { DragIcon, PlusIcon, SettingsIcon, TrashIcon } from './Icons';
+
+function GroupManageReorderItem({
+  item,
+  onRename,
+  onDeleteClick,
+}) {
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      key={item.id}
+      value={item}
+      className="group-manage-item glass"
+      layout
+      dragListener={false}
+      dragControls={dragControls}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{
+        type: 'spring',
+        stiffness: 500,
+        damping: 35,
+        mass: 1,
+        layout: { duration: 0.2 }
+      }}
+    >
+      <div
+        className="drag-handle"
+        style={{
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 8px',
+          touchAction: 'none',
+        }}
+        onPointerDown={(e) => {
+          dragControls.start(e);
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="拖拽排序"
+      >
+        <DragIcon width="18" height="18" className="muted" />
+      </div>
+      <input
+        className={`input group-rename-input ${!item.name.trim() ? 'error' : ''}`}
+        value={item.name}
+        onChange={(e) => onRename(item.id, e.target.value)}
+        placeholder="请输入分组名称..."
+        style={{
+          flex: 1,
+          height: '36px',
+          background: 'rgba(0,0,0,0.2)',
+          border: !item.name.trim() ? '1px solid var(--danger)' : 'none'
+        }}
+      />
+      <button
+        className="icon-button danger"
+        onClick={() => onDeleteClick(item.id, item.name)}
+        title="删除分组"
+        style={{ width: '36px', height: '36px', flexShrink: 0 }}
+      >
+        <TrashIcon width="16" height="16" />
+      </button>
+    </Reorder.Item>
+  );
+}
 
 export default function GroupManageModal({ groups, onClose, onSave }) {
   const [items, setItems] = useState(groups);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, name }
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const handleReorder = (newOrder) => {
     setItems(newOrder);
@@ -89,46 +157,12 @@ export default function GroupManageModal({ groups, onClose, onSave }) {
               <Reorder.Group axis="y" values={items} onReorder={handleReorder} className="group-manage-list">
                 <AnimatePresence mode="popLayout">
                   {items.map((item) => (
-                    <Reorder.Item
+                    <GroupManageReorderItem
                       key={item.id}
-                      value={item}
-                      className="group-manage-item glass"
-                      layout
-                      initial={{ opacity: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 500,
-                        damping: 35,
-                        mass: 1,
-                        layout: { duration: 0.2 }
-                      }}
-                    >
-                      <div className="drag-handle" style={{ cursor: 'grab', display: 'flex', alignItems: 'center', padding: '0 8px' }}>
-                        <DragIcon width="18" height="18" className="muted" />
-                      </div>
-                      <input
-                        className={`input group-rename-input ${!item.name.trim() ? 'error' : ''}`}
-                        value={item.name}
-                        onChange={(e) => handleRename(item.id, e.target.value)}
-                        placeholder="请输入分组名称..."
-                        style={{
-                          flex: 1,
-                          height: '36px',
-                          background: 'rgba(0,0,0,0.2)',
-                          border: !item.name.trim() ? '1px solid var(--danger)' : 'none'
-                        }}
-                      />
-                      <button
-                        className="icon-button danger"
-                        onClick={() => handleDeleteClick(item.id, item.name)}
-                        title="删除分组"
-                        style={{ width: '36px', height: '36px', flexShrink: 0 }}
-                      >
-                        <TrashIcon width="16" height="16" />
-                      </button>
-                    </Reorder.Item>
+                      item={item}
+                      onRename={handleRename}
+                      onDeleteClick={handleDeleteClick}
+                    />
                   ))}
                 </AnimatePresence>
               </Reorder.Group>

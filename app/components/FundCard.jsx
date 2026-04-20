@@ -20,6 +20,9 @@ import {
   TrashIcon,
   LinkIcon,
 } from './Icons';
+import { Badge } from '@/components/ui/badge';
+import { getTagThemeBadgeProps } from './AddTagDialog';
+import { cn } from '@/lib/utils';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -77,6 +80,8 @@ export default function FundCard({
   onToggleEarningsCollapse,
   layoutMode = 'card', // 'card' | 'drawer'，drawer 时前10重仓与业绩走势以 Tabs 展示
   masked = false,
+  fundTags = [],
+  onFundTagsClick,
 }) {
   const holding = holdings[f?.code];
   const profit = getHoldingProfit?.(f, holding) ?? null;
@@ -181,6 +186,45 @@ export default function FundCard({
               #{f.code}
               {dcaPlans?.[f.code]?.enabled === true && <span className="dca-indicator">定</span>}
               {f.jzrq === todayStr && <span className="updated-indicator">✓</span>}
+              {fundTags.length > 0 && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    flexWrap: 'wrap',
+                    gap: 2,
+                    marginLeft: 4,
+                    verticalAlign: 'middle',
+                  }}
+                >
+                  {fundTags.map((raw, idx) => {
+                    const item =
+                      raw && typeof raw === 'object' && raw.name != null
+                        ? {
+                            name: String(raw.name).trim(),
+                            theme: String(raw.theme ?? 'default').trim() || 'default',
+                          }
+                        : { name: String(raw).trim(), theme: 'default' };
+                    if (!item.name) return null;
+                    const { variant, className: themeCls } = getTagThemeBadgeProps(item.theme);
+                    return (
+                      <Badge
+                        key={`${item.name}-${idx}`}
+                        variant={variant}
+                        className={cn('font-normal text-[11px]', themeCls)}
+                        style={{ cursor: onFundTagsClick ? 'pointer' : 'default' }}
+                        onClick={(e) => {
+                          if (onFundTagsClick) {
+                            e.stopPropagation?.();
+                            onFundTagsClick(f, fundTags);
+                          }
+                        }}
+                      >
+                        {item.name}
+                      </Badge>
+                    );
+                  })}
+                </span>
+              )}
             </span>
           </div>
         </div>

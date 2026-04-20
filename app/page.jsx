@@ -7025,6 +7025,8 @@ export default function HomePage() {
       masked: maskAmounts,
       layoutMode: 'drawer',
       isHoldingLinked: !!row?.isHoldingLinked,
+      fundTags: row?.fundTags || [],
+      onFundTagsClick: openFundTagsEdit,
     };
   }, [
     todayStr,
@@ -7262,9 +7264,9 @@ export default function HomePage() {
           {isMobile && (
             <button
               className="icon-button mobile-search-btn"
-              aria-label="搜索基金"
+              aria-label="筛选基金"
               onClick={handleMobileSearchClick}
-              title="搜索"
+              title="筛选"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
@@ -7890,6 +7892,8 @@ export default function HomePage() {
                               onToggleTrendCollapse={toggleTrendCollapse}
                               onToggleEarningsCollapse={toggleEarningsCollapse}
                               masked={maskAmounts}
+                              fundTags={Array.isArray(fundTagListsByCode[f.code]) ? fundTagListsByCode[f.code] : []}
+                              onFundTagsClick={openFundTagsEdit}
                             />
                         </motion.div>
                       ))}
@@ -8170,6 +8174,8 @@ export default function HomePage() {
             allFunds={funds}
             currentGroupCodes={groups.find(g => g.id === currentTab)?.codes || []}
             holdings={holdingsForTabWithLinked}
+            fundTagListsByCode={fundTagListsByCode}
+            fundTagRecords={fundTagRecords}
             onClose={() => setAddFundToGroupOpen(false)}
             onAdd={handleAddFundsToGroup}
           />
@@ -8220,6 +8226,25 @@ export default function HomePage() {
             fund={dcaModal.fund}
             plan={dcaPlansForTab[dcaModal.fund?.code]}
             onClose={() => setDcaModal({ open: false, fund: null })}
+            onReset={(fundCode) => {
+              const code = fundCode || dcaModal.fund?.code;
+              if (!code) return;
+              const scope = activeGroupId || DCA_SCOPE_GLOBAL;
+              setDcaPlans((prev) => {
+                const scoped = migrateDcaPlansToScoped(prev);
+                const bucket = isPlainObject(scoped[scope]) ? scoped[scope] : null;
+                if (!bucket || !Object.prototype.hasOwnProperty.call(bucket, code)) return prev;
+                const nextBucket = { ...bucket };
+                delete nextBucket[code];
+                const next = { ...scoped };
+                if (Object.keys(nextBucket).length === 0) delete next[scope];
+                else next[scope] = nextBucket;
+                storageHelper.setItem('dcaPlans', JSON.stringify(next));
+                return next;
+              });
+              setDcaModal({ open: false, fund: null });
+              showToast('已重置定投数据', 'success');
+            }}
             onConfirm={(config) => {
               const code = config?.fundCode || dcaModal.fund?.code;
               if (!code) {
