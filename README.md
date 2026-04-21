@@ -148,6 +148,7 @@
    - 启用行级安全（RLS），确保用户只能访问自己的数据
    - 创建 SELECT / INSERT / UPDATE 策略
    - 创建 `update_user_config_partial` 函数（用于增量更新配置）
+   - 创建 `supabase_realtime` Publication（开启对 `user_configs` 表的实时变更监听）
 
    执行成功后，可在 Table Editor 中看到 `user_configs` 表。
 
@@ -171,7 +172,7 @@
 
 9. 部署 Supabase Edge Function（可选）
 
-   本项目使用的是 **Supabase 云服务（Supabase Cloud）**。如需把“OCR 识别出的长文本 → 解析出基金名称/代码/金额/收益”的逻辑放到云端执行，可部署边缘函数 `analyze-fund`。
+   本项目 OCR 识别基金截图功能依赖第三方模型接口，已封装为 Supabase Edge Function 以隐藏 API Key 并避免跨域问题。大模型服务赞助商为 [AINX](https://api.ainx.cc/)。
 
    **配置步骤：**
    - 需要用户已登录（函数会读取请求头 `Authorization`，并通过 `supabase.auth.getUser()` 校验 JWT）
@@ -182,12 +183,12 @@
    - 输入函数名称 `analyze-fund`和复制 `doc/edgeFunction/analyze-fund.ts` 内容到编辑器中，点击 **Create**
    - 到该函数的 Settings 页，取消 **Verify JWT with legacy secret** 选项
    - 在 **Secrets** 区域点击 **Add a new secret**
-   - Name 填入 `AIHUBMIX_API_KEY`，Value 填入你从 [AIHubMix 控制台](https://console.aihubmix.com/token) 申请的 Key
+   - Name 填入 `AINX_API_KEY`，Value 填入你从 [AINX 控制台](https://console.ainx.cc/token) 申请的 Key
    - 点击 **保存** 即可
 
    **常见排查：**
    - 401 Unauthorized：说明当前未登录或未携带用户 JWT（先完成 Supabase 登录流程）
-   - 500 / “模型未返回合法 JSON”：通常是第三方模型接口返回格式异常或 Key 无效
+   - 500 / "模型未返回合法 JSON"：通常是第三方模型接口返回格式异常或 Key 无效
 
 更多 Supabase 相关内容查阅官方文档。
 
