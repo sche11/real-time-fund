@@ -3460,6 +3460,35 @@ export default function HomePage() {
           }
         }
       } catch { }
+      setTransactions((prev) => {
+        const out = { ...(prev || {}) };
+        let changed = false;
+        Object.keys(out).forEach((code) => {
+          const list = out[code];
+          if (!Array.isArray(list) || list.length === 0) return;
+          const filtered = list.filter((t) => !removedIds.includes(t?.groupId));
+          if (filtered.length !== list.length) {
+            changed = true;
+            if (filtered.length) out[code] = filtered;
+            else delete out[code];
+          }
+        });
+        if (changed) storageHelper.setItem('transactions', JSON.stringify(out));
+        return changed ? out : prev;
+      });
+      setFundDailyEarnings((prev) => {
+        if (!isPlainObject(prev)) return prev;
+        let changed = false;
+        const next = { ...prev };
+        removedIds.forEach((rid) => {
+          if (rid in next) {
+            delete next[rid];
+            changed = true;
+          }
+        });
+        if (changed) storageHelper.setItem('fundDailyEarnings', JSON.stringify(next));
+        return changed ? next : prev;
+      });
     }
   };
 
