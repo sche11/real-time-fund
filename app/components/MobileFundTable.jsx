@@ -1076,7 +1076,7 @@ export default function MobileFundTable({
     const holdingLocked =
       (currentTab === 'all' || currentTab === 'fav') &&
       !!original.isHoldingLinked;
-    const holdingLockedTitle = '持仓来自自定义分组汇总，无法在「全部/自选」设置持仓金额';
+    const holdingLinkedTitle = '持仓来自自定义分组汇总，点击选择分组后操作';
 
     if (isEditMode) {
       return (
@@ -1241,19 +1241,17 @@ export default function MobileFundTable({
           {holdingAmountDisplay ? (
             <span
               className="muted code-text"
-              role={holdingLocked ? undefined : 'button'}
-              tabIndex={holdingLocked ? -1 : 0}
-              title={holdingLocked ? holdingLockedTitle : '点击设置持仓'}
-              style={{ cursor: holdingLocked ? 'not-allowed' : 'pointer' }}
+              role="button"
+              tabIndex={0}
+              title={holdingLocked ? holdingLinkedTitle : '点击设置持仓'}
+              style={{ cursor: 'pointer' }}
               onClick={(e) => {
                 e.stopPropagation?.();
-                if (holdingLocked) return;
                 onHoldingAmountClickRef.current?.(original, { hasHolding: true });
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  if (holdingLocked) return;
                   onHoldingAmountClickRef.current?.(original, { hasHolding: true });
                 }
               }}
@@ -1265,19 +1263,17 @@ export default function MobileFundTable({
           ) : code ? (
             <span
               className="muted code-text"
-              role={holdingLocked ? undefined : 'button'}
-              tabIndex={holdingLocked ? -1 : 0}
-              title={holdingLocked ? holdingLockedTitle : '设置持仓'}
-              style={{ cursor: holdingLocked ? 'not-allowed' : 'pointer' }}
+              role="button"
+              tabIndex={0}
+              title={holdingLocked ? holdingLinkedTitle : '设置持仓'}
+              style={{ cursor: 'pointer' }}
               onClick={(e) => {
                 e.stopPropagation?.();
-                if (holdingLocked) return;
                 onHoldingAmountClickRef.current?.(original, { hasHolding: false });
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  if (holdingLocked) return;
                   onHoldingAmountClickRef.current?.(original, { hasHolding: false });
                 }
               }}

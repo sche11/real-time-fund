@@ -74,6 +74,7 @@ import WeChatModal from "./components/WeChatModal";
 import DcaModal from "./components/DcaModal";
 import FundConvertModal from "./components/FundConvertModal";
 import SelectFundSingleModal from "./components/SelectFundSingleModal";
+import SelectHoldingGroupModal from "./components/SelectHoldingGroupModal";
 import MarketIndexAccordion from "./components/MarketIndexAccordion";
 import SortSettingModal from "./components/SortSettingModal";
 import githubImg from "./assets/github.svg";
@@ -258,7 +259,7 @@ export default function HomePage() {
       // 2）兼容旧版独立 localSortRules 字段
       let rulesFromSettings = null;
       try {
-        const parsed = customSettings;
+        const parsed = storageStore.getItem('customSettings', customSettings || {});
         if (parsed) {
           if (Array.isArray(parsed.localSortRules)) {
             rulesFromSettings = parsed.localSortRules;
@@ -498,6 +499,7 @@ export default function HomePage() {
   const [tradeModal, setTradeModal] = useState({ open: false, fund: null, type: 'buy' }); // type: 'buy' | 'sell'
   const [convertModal, setConvertModal] = useState({ open: false, fund: null });
   const [selectFundSingleModal, setSelectFundSingleModal] = useState({ open: false, excludeCodes: [], initialSelectedCode: '' });
+  const [selectHoldingGroupModal, setSelectHoldingGroupModal] = useState({ open: false, fund: null });
   const [dcaModal, setDcaModal] = useState({ open: false, fund: null });
   const [clearConfirm, setClearConfirm] = useState(null); // { fund }
   const [donateOpen, setDonateOpen] = useState(false);
@@ -1139,10 +1141,11 @@ export default function HomePage() {
    */
   const linkedHoldingsForAllFav = useMemo(() => {
     const enabled = (currentTab === 'all' || currentTab === 'fav') && !activeGroupId;
-    if (!enabled) return { derived: {}, linked: new Set() };
+    if (!enabled) return { derived: {}, linked: new Set(), groupIdsByCode: {} };
 
     const derived = {};
     const linked = new Set();
+    const groupIdsByCode = {};
 
     const hasGlobalHolding = (h) =>
       !!h && isNumber(h.share) && Number(h.share) > 0;
@@ -1155,6 +1158,7 @@ export default function HomePage() {
       let totalShare = 0;
       let totalCostShare = 0;
       let hasAnyCost = false;
+      const sourceGroupIds = [];
 
       for (const g of groups || []) {
         const gid = g?.id;
@@ -1163,6 +1167,7 @@ export default function HomePage() {
         if (!h) continue;
         const s = Number(h.share);
         if (!Number.isFinite(s) || s <= 0) continue;
+        sourceGroupIds.push(gid);
         totalShare += s;
 
         const c = h.cost == null || h.cost === '' ? null : Number(h.cost);
@@ -1178,10 +1183,11 @@ export default function HomePage() {
           cost: hasAnyCost ? totalCostShare / totalShare : null,
         };
         linked.add(code);
+        groupIdsByCode[code] = sourceGroupIds;
       }
     }
 
-    return { derived, linked };
+    return { derived, linked, groupIdsByCode };
   }, [currentTab, activeGroupId, funds, holdings, groupHoldings, groups]);
 
   const holdingsForTabWithLinked = useMemo(() => {
@@ -1226,6 +1232,26 @@ export default function HomePage() {
     }
     return map;
   }, [groups]);
+
+  const getScopedGroupId = (groupIdOverride) => (
+    groupIdOverride !== undefined ? groupIdOverride : (activeGroupId || null)
+  );
+
+  const getScopedHolding = (code, groupIdOverride) => {
+    if (!code) return undefined;
+    if (groupIdOverride !== undefined) {
+      return groupIdOverride ? groupHoldings?.[groupIdOverride]?.[code] : holdings?.[code];
+    }
+    if (activeGroupId) return groupHoldings?.[activeGroupId]?.[code];
+    return holdingsForTabWithLinked?.[code];
+  };
+
+  const getScopedDcaPlan = (code, groupIdOverride) => {
+    if (!code) return undefined;
+    const scope = getScopedGroupId(groupIdOverride) || DCA_SCOPE_GLOBAL;
+    const scoped = migrateDcaPlansToScoped(dcaPlans);
+    return scoped?.[scope]?.[code];
+  };
 
   const activeGroupCodeSet = useMemo(() => {
     if (currentTab === SUMMARY_TAB_ID) {
@@ -1622,11 +1648,12 @@ export default function HomePage() {
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
 
-  const handleSaveHolding = (code, data) => {
-    const gid =
-      currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab)
-        ? currentTab
-        : null;
+  const handleSaveHolding = (code, data, groupIdOverride) => {
+    const gid = getScopedGroupId(
+      groupIdOverride !== undefined
+        ? groupIdOverride
+        : (currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab) ? currentTab : null)
+    );
     if (!gid) {
       setHoldings((prev) => {
         const next = { ...prev };
@@ -1653,33 +1680,35 @@ export default function HomePage() {
     setHoldingModal({ open: false, fund: null });
   };
 
-  const handleAction = (type, fund) => {
+  const handleAction = (type, fund, groupIdOverride) => {
+    const groupId = getScopedGroupId(groupIdOverride);
     if (type !== 'history') {
       setActionModal({ open: false, fund: null });
     }
 
     if (type === 'edit') {
-      setHoldingModal({ open: true, fund });
+      setHoldingModal({ open: true, fund, groupId });
     } else if (type === 'clear') {
-      setClearConfirm({ fund });
+      setClearConfirm({ fund, groupId });
     } else if (type === 'buy' || type === 'sell') {
-      setTradeModal({ open: true, fund, type });
+      setTradeModal({ open: true, fund, type, groupId });
     } else if (type === 'history') {
-      setHistoryModal({ open: true, fund });
+      setHistoryModal({ open: true, fund, groupId });
     } else if (type === 'dca') {
-      setDcaModal({ open: true, fund });
+      setDcaModal({ open: true, fund, groupId });
     } else if (type === 'convert') {
-      setConvertModal({ open: true, fund });
+      setConvertModal({ open: true, fund, groupId });
     }
   };
 
   const handleClearConfirm = () => {
     if (clearConfirm?.fund) {
       const code = clearConfirm.fund.code;
-      const gid =
-        currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab)
-          ? currentTab
-          : null;
+      const gid = getScopedGroupId(
+        clearConfirm.groupId !== undefined
+          ? clearConfirm.groupId
+          : (currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab) ? currentTab : null)
+      );
       if (!gid) {
         setHoldings((prev) => {
           const next = { ...prev };
@@ -1871,10 +1900,10 @@ export default function HomePage() {
     }
   };
 
-  const handleDeleteTransaction = (fundCode, transactionId) => {
+  const handleDeleteTransaction = (fundCode, transactionId, groupIdOverride) => {
     setTransactions(prev => {
       const current = prev[fundCode] || [];
-      const gid = activeGroupId;
+      const gid = getScopedGroupId(groupIdOverride);
       const next = current.filter((t) => {
         if (t.id !== transactionId) return true;
         const inScope = !gid ? !t.groupId : t.groupId === gid;
@@ -1886,8 +1915,8 @@ export default function HomePage() {
     showToast('交易记录已删除', 'success');
   };
 
-  const handleMergeAllGroupTransactionsToCurrent = (fundCode) => {
-    const targetGid = activeGroupId;
+  const handleMergeAllGroupTransactionsToCurrent = (fundCode, groupIdOverride) => {
+    const targetGid = getScopedGroupId(groupIdOverride);
     if (!fundCode || !targetGid) return;
 
     // 复制“历史交易记录”到当前分组（不改变原记录）
@@ -1962,6 +1991,7 @@ export default function HomePage() {
 
   const handleAddHistory = (data) => {
     const fundCode = data.fundCode;
+    const historyGid = getScopedGroupId(addHistoryModal.groupId);
     // 添加历史记录仅作补录展示，不修改真实持仓金额与份额
     setTransactions(prev => {
       const current = prev[fundCode] || [];
@@ -1976,7 +2006,7 @@ export default function HomePage() {
         isDca: false,
         isHistoryOnly: true, // 仅记录，不参与持仓计算
         timestamp: data.timestamp || Date.now(),
-        ...(activeGroupId ? { groupId: activeGroupId } : {}),
+        ...(historyGid ? { groupId: historyGid } : {}),
       };
       // 按时间倒序排列
       const next = [record, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -1988,7 +2018,7 @@ export default function HomePage() {
   };
 
   const handleTrade = (fund, data) => {
-    const tradeGid = activeGroupId || null;
+    const tradeGid = getScopedGroupId(tradeModal.groupId);
     // 如果没有价格（API失败），加入待处理队列
     if (!data.price || data.price === 0) {
         const pending = {
@@ -2014,7 +2044,7 @@ export default function HomePage() {
         // 如果该基金没有持仓数据，初始化持仓金额为 0
         const tabH = tradeGid ? (groupHoldings[tradeGid] || {}) : holdings;
         if (!tabH[fund.code]) {
-          handleSaveHolding(fund.code, { share: 0, cost: 0 });
+          handleSaveHolding(fund.code, { share: 0, cost: 0 }, tradeGid);
         }
 
         setTradeModal({ open: false, fund: null, type: 'buy' });
@@ -2049,7 +2079,7 @@ export default function HomePage() {
       cost: newCost,
       ...(current.firstPurchaseDate ? { firstPurchaseDate: current.firstPurchaseDate } : {}),
       ...(isBuy && !current.firstPurchaseDate && data.date ? { firstPurchaseDate: data.date } : {}),
-    });
+    }, tradeGid);
 
     setTransactions(prev => {
       const curList = prev[fund.code] || [];
@@ -3893,13 +3923,23 @@ export default function HomePage() {
 
   useEffect(() => {
     refreshCycleStartRef.current = Date.now();
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      const codes = refreshCodesRef.current || [];
-      if (codes.length) refreshAll(codes);
-    }, refreshMs);
+    
+    const tick = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        const codes = refreshCodesRef.current || [];
+        if (codes.length) {
+          refreshAll(codes);
+        } else {
+          tick(); // 如果没基金，继续等下一周期
+        }
+      }, refreshMs);
+    };
+
+    tick();
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [refreshMs]);
 
@@ -4275,6 +4315,16 @@ export default function HomePage() {
       refreshingRef.current = false;
       setRefreshing(false);
       refreshCycleStartRef.current = Date.now();
+      
+      // 核心改进：递归式调度下一次刷新，确保上一次请求彻底完成后才开始计时
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        const codes = refreshCodesRef.current || [];
+        if (codes.length) {
+          refreshAll(codes);
+        }
+      }, refreshMs);
+
       try {
         await processPendingQueue();
       }catch (e) {
@@ -5790,6 +5840,12 @@ export default function HomePage() {
         try {
           const merged = { ...(customSettings || {}), ...cloudData.customSettings };
           setCustomSettings(merged);
+          if (
+            typeof merged.localSortDisplayMode === 'string' &&
+            SORT_DISPLAY_MODES.has(merged.localSortDisplayMode)
+          ) {
+            setSortDisplayMode(merged.localSortDisplayMode);
+          }
         } catch { }
       }
 
@@ -6265,6 +6321,7 @@ export default function HomePage() {
       cloudConfigModal.open ||
       logoutConfirmOpen ||
       holdingModal.open ||
+      selectHoldingGroupModal.open ||
       actionModal.open ||
       tradeModal.open ||
       dcaModal.open ||
@@ -6297,6 +6354,7 @@ export default function HomePage() {
       cloudConfigModal.open,
       logoutConfirmOpen,
       holdingModal.open,
+      selectHoldingGroupModal.open,
       actionModal.open,
       tradeModal.open,
       dcaModal.open,
@@ -6404,7 +6462,8 @@ export default function HomePage() {
   const handleHoldingAmountClickRow = useCallback((row, meta) => {
     if (!row || !row.code) return;
     if ((currentTab === 'all' || currentTab === 'fav') && row.isHoldingLinked) {
-      showToast('该基金持仓来自自定义分组汇总，无法在「全部/自选」设置持仓金额', 'info');
+      const fund = row.rawFund || { code: row.code, name: row.fundName };
+      setSelectHoldingGroupModal({ open: true, fund });
       return;
     }
 
@@ -6432,7 +6491,7 @@ export default function HomePage() {
     } else {
       setHoldingModal({ open: true, fund });
     }
-  }, [currentTab, showToast]);
+  }, [activeGroupId, currentTab, groupHoldings, holdings]);
 
   const handleHoldingProfitClickRow = useCallback((row) => {
     if (!row || !row.code) return;
@@ -6443,7 +6502,7 @@ export default function HomePage() {
   const openHoldingModal = useCallback((fund) => {
     const code = fund?.code;
     if ((currentTab === 'all' || currentTab === 'fav') && code && linkedHoldingsForAllFav.linked?.has?.(code)) {
-      showToast('该基金持仓来自自定义分组汇总，无法在「全部/自选」设置持仓金额', 'info');
+      setSelectHoldingGroupModal({ open: true, fund });
       return;
     }
 
@@ -6466,8 +6525,15 @@ export default function HomePage() {
     }
 
     setHoldingModal({ open: true, fund });
-  }, [currentTab, linkedHoldingsForAllFav, showToast]);
-  const openActionModal = useCallback((fund) => setActionModal({ open: true, fund }), []);
+  }, [activeGroupId, currentTab, groupHoldings, holdings, linkedHoldingsForAllFav]);
+  const openActionModal = useCallback((fund) => {
+    const code = fund?.code;
+    if ((currentTab === 'all' || currentTab === 'fav') && code && linkedHoldingsForAllFav.linked?.has?.(code)) {
+      setSelectHoldingGroupModal({ open: true, fund });
+      return;
+    }
+    setActionModal({ open: true, fund });
+  }, [currentTab, linkedHoldingsForAllFav]);
   const togglePercentMode = useCallback((code) => {
     setPercentModes((prev) => ({ ...prev, [code]: !prev[code] }));
   }, []);
@@ -7666,17 +7732,34 @@ export default function HomePage() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {selectHoldingGroupModal.open && (
+          <SelectHoldingGroupModal
+            fund={selectHoldingGroupModal.fund}
+            groups={groups}
+            groupHoldings={groupHoldings}
+            onClose={() => setSelectHoldingGroupModal({ open: false, fund: null })}
+            onNext={(groupId) => {
+              const fund = selectHoldingGroupModal.fund;
+              setSelectHoldingGroupModal({ open: false, fund: null });
+              setActionModal({ open: true, fund, groupId });
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {actionModal.open && (
           <HoldingActionModal
             fund={actionModal.fund}
             onClose={() => setActionModal({ open: false, fund: null })}
-            onAction={(type) => handleAction(type, actionModal.fund)}
+            onAction={(type) => handleAction(type, actionModal.fund, actionModal.groupId)}
+            groupName={actionModal.groupId ? groupById.get(actionModal.groupId)?.name : ''}
             hasHistory={!!(transactions[actionModal.fund?.code] || []).some((t) =>
-              !activeGroupId ? !t.groupId : t.groupId === activeGroupId
+              !getScopedGroupId(actionModal.groupId) ? !t.groupId : t.groupId === getScopedGroupId(actionModal.groupId)
             )}
             pendingCount={pendingTrades.filter((t) =>
               t.fundCode === actionModal.fund?.code &&
-              (!activeGroupId ? !t.groupId : t.groupId === activeGroupId)
+              (!getScopedGroupId(actionModal.groupId) ? !t.groupId : t.groupId === getScopedGroupId(actionModal.groupId))
             ).length}
           />
         )}
@@ -7687,10 +7770,13 @@ export default function HomePage() {
           <TradeModal
             type={tradeModal.type}
             fund={tradeModal.fund}
-            holding={holdingsForTabWithLinked[tradeModal.fund?.code]}
+            holding={getScopedHolding(tradeModal.fund?.code, tradeModal.groupId)}
             onClose={() => setTradeModal({ open: false, fund: null, type: 'buy' })}
             onConfirm={(data) => handleTrade(tradeModal.fund, data)}
-            pendingTrades={pendingTrades}
+            pendingTrades={pendingTrades.filter((t) =>
+              t.fundCode === tradeModal.fund?.code &&
+              (!getScopedGroupId(tradeModal.groupId) ? !t.groupId : t.groupId === getScopedGroupId(tradeModal.groupId))
+            )}
             onDeletePending={(id) => {
                 setPendingTrades(prev => {
                     const next = prev.filter(t => t.id !== id);
@@ -7706,12 +7792,12 @@ export default function HomePage() {
         {dcaModal.open && (
           <DcaModal
             fund={dcaModal.fund}
-            plan={dcaPlansForTab[dcaModal.fund?.code]}
+            plan={getScopedDcaPlan(dcaModal.fund?.code, dcaModal.groupId)}
             onClose={() => setDcaModal({ open: false, fund: null })}
             onReset={(fundCode) => {
               const code = fundCode || dcaModal.fund?.code;
               if (!code) return;
-              const scope = activeGroupId || DCA_SCOPE_GLOBAL;
+              const scope = getScopedGroupId(dcaModal.groupId) || DCA_SCOPE_GLOBAL;
               setDcaPlans((prev) => {
                 const scoped = migrateDcaPlansToScoped(prev);
                 const bucket = isPlainObject(scoped[scope]) ? scoped[scope] : null;
@@ -7731,7 +7817,7 @@ export default function HomePage() {
                 setDcaModal({ open: false, fund: null });
                 return;
               }
-              const scope = activeGroupId || DCA_SCOPE_GLOBAL;
+              const scope = getScopedGroupId(dcaModal.groupId) || DCA_SCOPE_GLOBAL;
               setDcaPlans((prev) => {
                 const scoped = migrateDcaPlansToScoped(prev);
                 const bucket = { ...(isPlainObject(scoped[scope]) ? scoped[scope] : {}) };
@@ -7763,7 +7849,7 @@ export default function HomePage() {
               const f = convertModal.fund;
               const code = f?.code;
               if (!code) return 0;
-              const holding = holdingsForTabWithLinked?.[code];
+              const holding = getScopedHolding(code, convertModal.groupId);
               const share = Number(holding?.share) || 0;
               const nav =
                 Number(f?.dwjz) ||
@@ -7786,7 +7872,7 @@ export default function HomePage() {
               });
             }}
             onConfirm={(payload) => {
-              const tradeGid = activeGroupId || null;
+              const tradeGid = getScopedGroupId(convertModal.groupId);
               const nowTs = Date.now();
 
               const outPending = {
@@ -7892,17 +7978,17 @@ export default function HomePage() {
           <TransactionHistoryModal
             fund={historyModal.fund}
             transactions={(transactions[historyModal.fund?.code] || []).filter((t) =>
-              !activeGroupId ? !t.groupId : t.groupId === activeGroupId
+              !getScopedGroupId(historyModal.groupId) ? !t.groupId : t.groupId === getScopedGroupId(historyModal.groupId)
             )}
             pendingTransactions={pendingTrades.filter((t) =>
               t.fundCode === historyModal.fund?.code &&
-              (!activeGroupId ? !t.groupId : t.groupId === activeGroupId)
+              (!getScopedGroupId(historyModal.groupId) ? !t.groupId : t.groupId === getScopedGroupId(historyModal.groupId))
             )}
             onClose={() => setHistoryModal({ open: false, fund: null })}
-            onDeleteTransaction={(id) => handleDeleteTransaction(historyModal.fund?.code, id)}
-            onAddHistory={() => setAddHistoryModal({ open: true, fund: historyModal.fund })}
-            canMergeAllGroups={!!activeGroupId}
-            onMergeAllGroups={() => handleMergeAllGroupTransactionsToCurrent(historyModal.fund?.code)}
+            onDeleteTransaction={(id) => handleDeleteTransaction(historyModal.fund?.code, id, historyModal.groupId)}
+            onAddHistory={() => setAddHistoryModal({ open: true, fund: historyModal.fund, groupId: getScopedGroupId(historyModal.groupId) })}
+            canMergeAllGroups={!!getScopedGroupId(historyModal.groupId)}
+            onMergeAllGroups={() => handleMergeAllGroupTransactionsToCurrent(historyModal.fund?.code, historyModal.groupId)}
             onDeletePending={(id) => {
                 setPendingTrades(prev => {
                     const next = prev.filter(t => t.id !== id);
@@ -7930,14 +8016,14 @@ export default function HomePage() {
         {holdingModal.open && (
           <HoldingEditModal
             fund={holdingModal.fund}
-            holding={holdingsForTabWithLinked[holdingModal.fund?.code]}
+            holding={getScopedHolding(holdingModal.fund?.code, holdingModal.groupId)}
             onClose={() => setHoldingModal({ open: false, fund: null })}
-            onSave={(data) => handleSaveHolding(holdingModal.fund?.code, data)}
+            onSave={(data) => handleSaveHolding(holdingModal.fund?.code, data, holdingModal.groupId)}
             onOpenTrade={() => {
               const f = holdingModal.fund;
               if (!f) return;
               setHoldingModal({ open: false, fund: null });
-              setTradeModal({ open: true, fund: f, type: 'buy' });
+              setTradeModal({ open: true, fund: f, type: 'buy', groupId: getScopedGroupId(holdingModal.groupId) });
             }}
           />
         )}

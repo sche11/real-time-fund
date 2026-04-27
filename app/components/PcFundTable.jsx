@@ -1413,30 +1413,28 @@ export default function PcFundTable({
           const holdingLocked =
             (currentTab === 'all' || currentTab === 'fav') &&
             !!original.isHoldingLinked;
-          const holdingLockedTitle = '持仓来自自定义分组汇总，无法在「全部/自选」设置持仓金额';
+          const holdingLinkedTitle = '持仓来自自定义分组汇总，点击选择分组后操作';
           if (original.holdingAmountValue == null) {
             return (
               <div
-                role={holdingLocked ? undefined : 'button'}
-                tabIndex={holdingLocked ? -1 : 0}
+                role="button"
+                tabIndex={0}
                 className="muted"
-                title={holdingLocked ? holdingLockedTitle : '设置持仓'}
+                title={holdingLocked ? holdingLinkedTitle : '设置持仓'}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 4,
                   fontSize: '12px',
-                  cursor: holdingLocked ? 'not-allowed' : 'pointer',
+                  cursor: 'pointer',
                 }}
                 onClick={(e) => {
                   e.stopPropagation?.();
-                  if (holdingLocked) return;
                   onHoldingAmountClickRef.current?.(original, { hasHolding: false });
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    if (holdingLocked) return;
                     onHoldingAmountClickRef.current?.(original, { hasHolding: false });
                   }
                 }}
@@ -1447,17 +1445,16 @@ export default function PcFundTable({
           }
           return (
             <div
-              title={holdingLocked ? holdingLockedTitle : '点击设置持仓'}
+              title={holdingLocked ? holdingLinkedTitle : '点击设置持仓'}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                cursor: holdingLocked ? 'not-allowed' : 'pointer',
+                cursor: 'pointer',
                 width: '100%',
                 minWidth: 0,
               }}
               onClick={(e) => {
                 e.stopPropagation?.();
-                if (holdingLocked) return;
                 onHoldingAmountClickRef.current?.(original, { hasHolding: true });
               }}
             >
@@ -1470,11 +1467,9 @@ export default function PcFundTable({
                 className="icon-button no-hover"
                 onClick={(e) => {
                   e.stopPropagation?.();
-                  if (holdingLocked) return;
                   onHoldingAmountClickRef.current?.(original, { hasHolding: true });
                 }}
-                title={holdingLocked ? holdingLockedTitle : '编辑持仓'}
-                disabled={holdingLocked}
+                title={holdingLocked ? holdingLinkedTitle : '编辑持仓'}
                 style={{
                   border: 'none',
                   width: '28px',
@@ -1483,7 +1478,7 @@ export default function PcFundTable({
                   flexShrink: 0,
                   backgroundColor: 'transparent',
                   color: holdingLocked ? 'var(--muted)' : undefined,
-                  cursor: holdingLocked ? 'not-allowed' : 'pointer',
+                  cursor: 'pointer',
                 }}
               >
                 <SettingsIcon width="14" height="14" />
