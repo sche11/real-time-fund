@@ -201,7 +201,7 @@ export default function HomePage() {
     if (typeof window === 'undefined') return;
     try {
       const parsed = customSettings;
-      if (!parsed) return;
+      if (!parsed || typeof parsed !== 'object') return;
       const w = parsed?.pcContainerWidth;
       const num = Number(w);
       if (Number.isFinite(num)) {
@@ -212,7 +212,7 @@ export default function HomePage() {
       if (typeof parsed?.showGroupFundSearchPc === 'boolean') setShowGroupFundSearchPc(parsed.showGroupFundSearchPc);
       if (typeof parsed?.showGroupFundSearchMobile === 'boolean') setShowGroupFundSearchMobile(parsed.showGroupFundSearchMobile);
     } catch { }
-  }, []);
+  }, [customSettings]);
 
   // 全局刷新状态
   const [refreshing, setRefreshing] = useState(false);
@@ -4720,12 +4720,12 @@ export default function HomePage() {
 
     // 同步删除自选状态
     setFavorites(prev => {
-      if (!prev.has(removeCode)) return prev;
+      if (!prev || !prev.has(removeCode)) return prev;
       const nextSet = new Set(prev);
       nextSet.delete(removeCode);
-      if (next.size === 0) setCurrentTab('all');
-      return next;
-      });
+      if (nextSet.size === 0 && currentTab === 'fav') setCurrentTab('all');
+      return nextSet;
+    });
 
     // 同步删除持仓数据
     setHoldings(prev => {

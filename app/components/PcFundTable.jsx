@@ -1003,7 +1003,7 @@ export default function PcFundTable({
             />
           );
         },
-        size: 265,
+        size: 300,
         minSize: 140,
         enablePinning: true,
         cell: (info) => (
