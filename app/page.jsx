@@ -88,7 +88,7 @@ import {
 } from './lib/dailyEarnings';
 import { loadHolidaysForYears, isTradingDay as isDateTradingDay } from './lib/tradingCalendar';
 import { asyncPool } from './lib/asyncHelper';
-import { parseFundTextWithLLM, fetchFundData, fetchFundNetValueRange, fetchLatestRelease, fetchShanghaiIndexDate, fetchSmartFundNetValue, searchFunds } from './api/fund';
+import { parseFundTextWithLLM, fetchFundData, fetchFundNetValueRange, fetchLatestRelease, fetchShanghaiIndexDate, fetchSmartFundNetValue, searchFunds, fetchFundPeriodReturns } from './api/fund';
 import packageJson from '../package.json';
 import PcFundTable from './components/PcFundTable';
 import MobileFundTable from './components/MobileFundTable';
@@ -235,7 +235,16 @@ export default function HomePage() {
     // 持仓金额排序：默认隐藏
     { id: 'holdingAmount', label: '持仓金额', enabled: false },
     { id: 'todayProfit', label: '当日收益', enabled: false },
+    { id: 'yesterdayProfit', label: '昨日收益', enabled: false },
+    { id: 'holdingDays', label: '持有天数', enabled: false },
     { id: 'holding', label: '持有收益', enabled: true },
+    { id: 'estimateProfit', label: '估算收益', enabled: true },
+    { id: 'holdingCost', label: '持仓成本', enabled: false },
+    { id: 'last1Week', label: '近1周', enabled: false },
+    { id: 'last1Month', label: '近1月', enabled: false },
+    { id: 'last3Months', label: '近3月', enabled: false },
+    { id: 'last6Months', label: '近6月', enabled: false },
+    { id: 'last1Year', label: '近1年', enabled: false },
     { id: 'name', label: '基金名称', alias: '名称', enabled: true },
   ];
   const SORT_DISPLAY_MODES = new Set(['buttons', 'dropdown']);
@@ -243,7 +252,8 @@ export default function HomePage() {
   // 排序状态
   const [sortBy, setSortBy] = useState('default'); // default, name, yield, yesterdayIncrease, holding, holdingAmount, todayProfit
   const [sortOrder, setSortOrder] = useState('desc'); // asc | desc
-  const [sortDisplayMode, setSortDisplayMode] = useState('buttons'); // buttons | dropdown
+  const [pcSortDisplayMode, setPcSortDisplayMode] = useState('buttons'); // buttons | dropdown
+  const [mobileSortDisplayMode, setMobileSortDisplayMode] = useState('buttons'); // buttons | dropdown
   const [isSortLoaded, setIsSortLoaded] = useState(false);
   const [sortRules, setSortRules] = useState(DEFAULT_SORT_RULES);
   const [sortSettingOpen, setSortSettingOpen] = useState(false);
@@ -264,13 +274,24 @@ export default function HomePage() {
           if (Array.isArray(parsed.localSortRules)) {
             rulesFromSettings = parsed.localSortRules;
           }
-          if (
-            parsed &&
-            typeof parsed.localSortDisplayMode === 'string' &&
-            SORT_DISPLAY_MODES.has(parsed.localSortDisplayMode)
-          ) {
-            setSortDisplayMode(parsed.localSortDisplayMode);
+          
+          let pcMode = 'buttons';
+          let mobileMode = 'buttons';
+
+          if (parsed && typeof parsed.localSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(parsed.localSortDisplayMode)) {
+            pcMode = parsed.localSortDisplayMode;
+            mobileMode = parsed.localSortDisplayMode;
+          } else {
+            if (parsed && typeof parsed.pcLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(parsed.pcLocalSortDisplayMode)) {
+              pcMode = parsed.pcLocalSortDisplayMode;
+            }
+            if (parsed && typeof parsed.mobileLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(parsed.mobileLocalSortDisplayMode)) {
+              mobileMode = parsed.mobileLocalSortDisplayMode;
+            }
           }
+
+          setPcSortDisplayMode(pcMode);
+          setMobileSortDisplayMode(mobileMode);
         }
       } catch {
         // ignore
@@ -337,14 +358,19 @@ export default function HomePage() {
         const next = {
           ...(parsed && typeof parsed === 'object' ? parsed : {}),
           localSortRules: sortRules,
-          localSortDisplayMode: sortDisplayMode,
+          pcLocalSortDisplayMode: pcSortDisplayMode,
+          mobileLocalSortDisplayMode: mobileSortDisplayMode,
         };
+        // 删除旧的字段以兼容历史数据
+        if ('localSortDisplayMode' in next) {
+          delete next.localSortDisplayMode;
+        }
         setCustomSettings(next);
       } catch {
         // ignore
       }
     }
-  }, [sortBy, sortOrder, sortRules, sortDisplayMode, isSortLoaded]);
+  }, [sortBy, sortOrder, sortRules, pcSortDisplayMode, mobileSortDisplayMode, isSortLoaded]);
 
   // 当用户关闭某个排序规则时，如果当前 sortBy 不再可用，则自动切换到第一个启用的规则
   useEffect(() => {
@@ -1284,6 +1310,60 @@ export default function HomePage() {
     });
   }, [funds, currentTab, favorites, activeGroupCodeSet]);
 
+  const [sortPeriodReturnsByCode, setSortPeriodReturnsByCode] = useState({});
+  const sortPeriodReturnsCacheRef = useRef(new Map());
+  const needsSortPeriodReturns = ['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy);
+
+  useEffect(() => {
+    if (!needsSortPeriodReturns) return;
+    const codes = scopedFunds.map(f => f.code);
+    if (codes.length === 0) return;
+
+    let cancelled = false;
+    const missing = [];
+    const cachedBatch = {};
+
+    for (const code of codes) {
+      if (!sortPeriodReturnsCacheRef.current.has(code)) {
+        missing.push(code);
+      } else {
+        cachedBatch[code] = sortPeriodReturnsCacheRef.current.get(code);
+      }
+    }
+
+    if (Object.keys(cachedBatch).length > 0) {
+      setSortPeriodReturnsByCode((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [code, value] of Object.entries(cachedBatch)) {
+          if (next[code] !== value) {
+            next[code] = value;
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }
+
+    if (missing.length === 0) return;
+
+    (async () => {
+      await asyncPool(4, missing, async (code) => {
+        const value = await fetchFundPeriodReturns(code);
+        sortPeriodReturnsCacheRef.current.set(code, value);
+        if (cancelled) return;
+        setSortPeriodReturnsByCode((prev) => {
+          if (prev[code] === value) return prev;
+          return { ...prev, [code]: value };
+        });
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scopedFunds, needsSortPeriodReturns]);
+
   // 过滤和排序后的基金列表（包含“列表搜索”过滤）
   const displayFunds = useMemo(
     () => {
@@ -1386,8 +1466,100 @@ export default function HomePage() {
         if (sortBy === 'holding') {
           const pa = profitByCode?.get(a.code);
           const pb = profitByCode?.get(b.code);
-          const valA = pa?.profitTotal ?? Number.NEGATIVE_INFINITY;
-          const valB = pb?.profitTotal ?? Number.NEGATIVE_INFINITY;
+          const valA = pa?.profitTotal;
+          const valB = pb?.profitTotal;
+          const hasA = valA != null && Number.isFinite(valA);
+          const hasB = valB != null && Number.isFinite(valB);
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+        if (sortBy === 'estimateProfit') {
+          const getEstimateProfitValue = (f) => {
+            const hasTodayData = f.jzrq === todayStr;
+            const holding = holdingsForTabWithLinked[f.code];
+            const profit = getHoldingProfitForTab(f, holding);
+            const total = profit ? profit.profitTotal : null;
+            if (hasTodayData) return total;
+
+            const principal = holding && isNumber(holding.cost) && isNumber(holding.share) ? holding.cost * holding.share : 0;
+            const hasTodayEstimate = !f.noValuation && isString(f.gztime) && f.gztime.startsWith(todayStr);
+            const estimateChangeValue = f.noValuation ? null : (f.estPricedCoverage > 0.05 ? (isNumber(f.estGszzl) ? Number(f.estGszzl) : null) : (isNumber(f.gszzl) ? Number(f.gszzl) : null));
+            const holdingProfitPercentValue = total != null && principal > 0 ? (total / principal) * 100 : null;
+            const hasEstimatePercent = hasTodayEstimate && estimateChangeValue != null;
+            const hasHoldingPercent = holdingProfitPercentValue != null;
+            const fallbackEstimateProfitPercentValue = hasEstimatePercent || hasHoldingPercent ? (hasEstimatePercent ? estimateChangeValue : 0) + (hasHoldingPercent ? holdingProfitPercentValue : 0) : null;
+            
+            return fallbackEstimateProfitPercentValue != null && principal > 0 ? principal * (fallbackEstimateProfitPercentValue / 100) : null;
+          };
+          const valA = getEstimateProfitValue(a);
+          const valB = getEstimateProfitValue(b);
+          const hasA = valA != null && Number.isFinite(valA);
+          const hasB = valB != null && Number.isFinite(valB);
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+        if (sortBy === 'yesterdayProfit') {
+          const getYesterdayProfit = (code, jzrq) => {
+            const list = currentFundDailyEarnings?.[code];
+            if (!Array.isArray(list) || list.length === 0) return null;
+            let matchedDaily = null;
+            if (typeof jzrq === 'string') {
+              for (const item of list) {
+                if (item?.date === jzrq) {
+                  matchedDaily = item;
+                  break;
+                }
+              }
+            }
+            if (!matchedDaily) matchedDaily = list[list.length - 1];
+            return matchedDaily && Number.isFinite(Number(matchedDaily.earnings)) ? Number(matchedDaily.earnings) : null;
+          };
+          const valA = getYesterdayProfit(a.code, a.jzrq);
+          const valB = getYesterdayProfit(b.code, b.jzrq);
+          const hasA = valA != null && Number.isFinite(valA);
+          const hasB = valB != null && Number.isFinite(valB);
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+        if (sortBy === 'holdingDays') {
+          const ha = holdingsForTabWithLinked[a.code];
+          const hb = holdingsForTabWithLinked[b.code];
+          const valA = ha?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(ha.firstPurchaseDate), 'day') : null;
+          const valB = hb?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(hb.firstPurchaseDate), 'day') : null;
+          const hasA = valA != null && Number.isFinite(valA);
+          const hasB = valB != null && Number.isFinite(valB);
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+        if (sortBy === 'holdingCost') {
+          const getCost = (h) => h?.cost != null && h?.share != null && Number.isFinite(Number(h.cost)) && Number.isFinite(Number(h.share)) ? Number(h.cost) * Number(h.share) : null;
+          const valA = getCost(holdingsForTabWithLinked[a.code]);
+          const valB = getCost(holdingsForTabWithLinked[b.code]);
+          const hasA = valA != null && Number.isFinite(valA);
+          const hasB = valB != null && Number.isFinite(valB);
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+        if (['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy)) {
+          const keyMap = { last1Week: 'week', last1Month: 'month', last3Months: 'month3', last6Months: 'month6', last1Year: 'year1' };
+          const key = keyMap[sortBy];
+          const valA = sortPeriodReturnsByCode[a.code]?.[key];
+          const valB = sortPeriodReturnsByCode[b.code]?.[key];
+          const hasA = valA != null && Number.isFinite(valA);
+          const hasB = valB != null && Number.isFinite(valB);
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
           return sortOrder === 'asc' ? valA - valB : valB - valA;
         }
         if (sortBy === 'name') {
@@ -1396,7 +1568,7 @@ export default function HomePage() {
         return 0;
       });
     },
-    [scopedFunds, currentTab, groups, sortBy, sortOrder, holdingsForTabWithLinked, getHoldingProfitForTab, groupFundSearchTerm, shouldShowGroupFundSearch],
+    [scopedFunds, currentTab, groups, sortBy, sortOrder, holdingsForTabWithLinked, getHoldingProfitForTab, groupFundSearchTerm, shouldShowGroupFundSearch, currentFundDailyEarnings, sortPeriodReturnsByCode, todayStr],
   );
 
   const latestDailyByCode = useMemo(() => {
@@ -2670,7 +2842,7 @@ export default function HomePage() {
         setLastSyncTime(e.newValue);
       }
       if (!keys.has(e.key)) return;
-      
+
       // 使用 storageStore 提供的签名函数进行精细判断
       import('./stores/storageStore').then(({ getFundCodesSignature, getTagsStoreSignature }) => {
         if (e.key === 'funds') {
@@ -3923,7 +4095,7 @@ export default function HomePage() {
 
   useEffect(() => {
     refreshCycleStartRef.current = Date.now();
-    
+
     const tick = () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
@@ -4059,276 +4231,314 @@ export default function HomePage() {
   };
 
   const refreshAll = async (codes) => {
+    // 【步骤 1】重入锁检查：防止多个刷新任务同时运行导致状态混乱
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     setRefreshing(true);
+
+    // 【步骤 2】参数归一化：去重并缓存当前本地存储中的基金代码，用于判断基金是否已被用户删除
     const uniqueCodes = Array.from(new Set(codes));
-    /** 从 localStorage 读取当前列表中的基金代码；解析失败时返回 null（调用方不做“已删除”过滤） */
-    const readStoredFundCodes = () => {
-      try {
-        const arr = storageStore.getItem('funds', []);
-        if (!Array.isArray(arr)) return null;
-        return new Set(arr.map((x) => x?.code).filter(Boolean));
-      } catch {
-        return null;
+    let cachedStoredFundCodes = new Set();
+    try {
+      const arr = storageStore.getItem('funds', []);
+      if (Array.isArray(arr)) {
+        cachedStoredFundCodes = new Set(arr.map((x) => x?.code).filter(Boolean));
       }
-    };
+    } catch (e) {
+      console.warn('读取缓存基金列表失败', e);
+    }
+
     const fundCodeStillInStorage = (code) => {
       if (!code) return false;
-      const s = readStoredFundCodes();
-      if (s === null) return true;
-      return s.has(code);
+      return cachedStoredFundCodes.has(code);
     };
+
     try {
       const updated = [];
+      const dailyChanges = {}; // 存储待更新的每日收益 { [scope]: { [code]: nextList } }
+      let earningsChanged = false;
+
+      // ... 辅助函数定义 (isValidDateStr, addDays, calcEarningsFromNavs 等) ...
+      const isValidDateStr = (s) => isString(s) && /^\d{4}-\d{2}-\d{2}$/.test(s);
+      const addDays = (dateStr, days) => dayjs.tz(dateStr, TZ).add(days, 'day').format('YYYY-MM-DD');
+      const subDays = (dateStr, days) => dayjs.tz(dateStr, TZ).subtract(days, 'day').format('YYYY-MM-DD');
+      const calcEarningsFromNavs = (nav, prevNav, share) => (nav - prevNav) * share;
+      const calcRateFromNavs = (nav, prevNav, cost) => {
+        if (!Number.isFinite(nav) || !Number.isFinite(prevNav) || !Number.isFinite(cost) || cost <= 0) return null;
+        return ((nav - prevNav) / cost) * 100;
+      };
+
+      const calcLatestDayFromFund = (u, share, cost) => {
+        const nav = Number(u?.dwjz);
+        if (!Number.isFinite(nav) || nav <= 0) return null;
+        const lastNav = u?.lastNav != null && u.lastNav !== '' ? Number(u.lastNav) : null;
+        if (lastNav != null && Number.isFinite(lastNav) && lastNav > 0) {
+          return {
+            earnings: calcEarningsFromNavs(nav, lastNav, share),
+            rate: calcRateFromNavs(nav, lastNav, cost),
+          };
+        }
+        const zzl = u?.zzl != null && u.zzl !== '' ? Number(u.zzl) : Number.NaN;
+        if (Number.isFinite(zzl)) {
+          const prev = nav / (1 + zzl / 100);
+          if (Number.isFinite(prev) && prev > 0) {
+            return {
+              earnings: calcEarningsFromNavs(nav, prev, share),
+              rate: calcRateFromNavs(nav, prev, cost),
+            };
+          }
+        }
+        return null;
+      };
+
+      const findPrevTradingNav = async (code, dateStr, navCache, u) => {
+        if (u && isValidDateStr(u.jzrq) && u.jzrq === dateStr) {
+          const lastNav = u?.lastNav != null && u.lastNav !== '' ? Number(u.lastNav) : null;
+          if (lastNav != null && Number.isFinite(lastNav) && lastNav > 0) return lastNav;
+        }
+        if (navCache && navCache.size) {
+          let bestD = '';
+          let bestNav = null;
+          for (const d of navCache.keys()) {
+            if (!isValidDateStr(d) || d >= dateStr) continue;
+            const v = navCache.get(d);
+            if (!Number.isFinite(v) || v <= 0) continue;
+            if (!bestD || d > bestD) {
+              bestD = d;
+              bestNav = v;
+            }
+          }
+          if (bestNav != null) return bestNav;
+        }
+        const end = subDays(dateStr, 1);
+        const start = subDays(dateStr, 120);
+        const rows = await fetchFundNetValueRange(code, start, end);
+        for (const r of rows) {
+          if (navCache) navCache.set(r.date, r.nav);
+        }
+        for (let i = rows.length - 1; i >= 0; i--) {
+          if (rows[i].date < dateStr) {
+            const v = rows[i].nav;
+            if (Number.isFinite(v) && v > 0) return v;
+          }
+        }
+        return null;
+      };
+
+      const localRecordToChanges = (scope, code, earnings, dateStr, rate) => {
+        if (!dailyChanges[scope]) dailyChanges[scope] = {};
+        const list = dailyChanges[scope][code] ||
+                     (fundDailyEarnings[scope] && Array.isArray(fundDailyEarnings[scope][code]) ? fundDailyEarnings[scope][code] : []);
+        const existingIndex = list.findIndex(item => item.date === dateStr);
+        const normalizedRate = isNumber(rate) && Number.isFinite(rate) ? rate : null;
+        const nextList = existingIndex >= 0
+          ? list.map((item, i) => i === existingIndex ? { date: dateStr, earnings, rate: normalizedRate } : item)
+          : [...list, { date: dateStr, earnings, rate: normalizedRate }];
+        nextList.sort((a, b) => a.date.localeCompare(b.date));
+        dailyChanges[scope][code] = nextList;
+        earningsChanged = true;
+      };
+
+      const nextValuationSeries = { ...valuationSeries };
+      let valuationChanged = false;
+
+      // 【步骤 3】核心流水线：使用 asyncPool 控制并发（同时抓取 5 个基金），平衡性能与浏览器限制
       await asyncPool(5, uniqueCodes, async (c) => {
         if (!fundCodeStillInStorage(c)) return;
+        let data = null;
         try {
-          const data = await fetchFundData(c);
-          // 请求完数据，检查数据是否存在，可能会有刷新前存在，刷新过程中被删除的情况
-          if (fundCodeStillInStorage(c)) {
-            updated.push(data);
-          }
+          // 【步骤 3.1】数据获取：调用 api 获取实时估值、净值和持仓数据
+          data = await fetchFundData(c);
         } catch (e) {
           console.error(`刷新基金 ${c} 失败`, e);
-          // 失败时检查是否存在
           if (fundCodeStillInStorage(c)) {
-            // 失败时从 localStorage 中寻找旧数据
             try {
               const arr = storageStore.getItem('funds', []);
-              const old = arr.find((f) => f.code === c);
-              if (old) updated.push(old);
-            } catch {
-              // ignore
+              data = arr.find((f) => f.code === c);
+            } catch { }
+          }
+        }
+
+        if (!data || !fundCodeStillInStorage(c)) return;
+        updated.push(data);
+
+        // 【步骤 3.2】估值时序记录：提取实时估值点（gsz），用于绘制分时图
+        if (data.code != null && !data.noValuation && Number.isFinite(Number(data.gsz))) {
+          const value = Number(data.gsz);
+          const gztime = data.gztime ?? null;
+          const dateStr = (isString(gztime) && /^\d{4}-\d{2}-\d{2}/.test(gztime))
+            ? gztime.slice(0, 10)
+            : dayjs().tz(TZ).format('YYYY-MM-DD');
+          const timeLabel = (isString(gztime) && gztime.length > 10)
+            ? gztime.slice(11, 16)
+            : dayjs().tz(TZ).format('HH:mm');
+
+          const list = Array.isArray(nextValuationSeries[data.code]) ? nextValuationSeries[data.code] : [];
+          const lastDate = list.length ? list[list.length - 1].date : '';
+
+          if (dateStr > lastDate) {
+            nextValuationSeries[data.code] = [{ time: timeLabel, value, date: dateStr }];
+            valuationChanged = true;
+          } else if (dateStr === lastDate) {
+            if (!list.some(p => p.time === timeLabel)) {
+              nextValuationSeries[data.code] = [...list, { time: timeLabel, value, date: dateStr }];
+              valuationChanged = true;
             }
           }
         }
-      });
 
-      if (updated.length > 0) {
-        setFunds(prev => {
-          const merged = prev.map(f => {
-            const u = updated.find(x => x.code === f.code);
-            return u ? u : f;
-          });
-          return merged;
-        });
-        // 记录估值分时：每次刷新写入一条，新日期到来时自动清掉老日期数据
-        const nextSeries = {};
-        updated.forEach(u => {
-          if (u?.code != null && !u.noValuation && Number.isFinite(Number(u.gsz))) {
-            const val = recordValuation(u.code, { gsz: u.gsz, gztime: u.gztime });
-            nextSeries[u.code] = val;
-          }
-        });
-        if (Object.keys(nextSeries).length > 0) {
-          setValuationSeries(prev => ({ ...prev, ...nextSeries }));
-        }
-
-        // 记录/补齐每日收益（仅对有持仓的基金）
+        // 【步骤 3.3】收益补齐逻辑：检查本地历史收益记录，如有缺失则根据持仓和历史净值进行追溯计算
         try {
-          let changed = false;
-          const nextScopedDailyMap = { ...(isPlainObject(fundDailyEarnings) ? fundDailyEarnings : {}) };
-          const nextDailyMap = {
-            ...(isPlainObject(nextScopedDailyMap[dailyEarningsScope]) ? nextScopedDailyMap[dailyEarningsScope] : {})
-          };
-          const isValidDateStr = (s) => isString(s) && /^\d{4}-\d{2}-\d{2}$/.test(s);
-          const addDays = (dateStr, days) => dayjs.tz(dateStr, TZ).add(days, 'day').format('YYYY-MM-DD');
-          const subDays = (dateStr, days) => dayjs.tz(dateStr, TZ).subtract(days, 'day').format('YYYY-MM-DD');
-
-          const calcEarningsFromNavs = (nav, prevNav, share) => (nav - prevNav) * share;
-          const calcRateFromNavs = (nav, prevNav, cost) => {
-            if (!Number.isFinite(nav) || !Number.isFinite(prevNav) || !Number.isFinite(cost) || cost <= 0) return null;
-            return ((nav - prevNav) / cost) * 100;
-          };
-
-          const calcLatestDayFromFund = (u, share, cost) => {
-            const nav = Number(u?.dwjz);
-            if (!Number.isFinite(nav) || nav <= 0) return null;
-            const lastNav = u?.lastNav != null && u.lastNav !== '' ? Number(u.lastNav) : null;
-            if (lastNav != null && Number.isFinite(lastNav) && lastNav > 0) {
-              return {
-                earnings: calcEarningsFromNavs(nav, lastNav, share),
-                rate: calcRateFromNavs(nav, lastNav, cost),
-              };
+          const targetScopes = [];
+          if (holdings[data.code] && isNumber(holdings[data.code].share) && holdings[data.code].share > 0) {
+            targetScopes.push(DAILY_EARNINGS_SCOPE_ALL);
+          }
+          Object.keys(groupHoldings || {}).forEach(gid => {
+            if (groupHoldings[gid]?.[data.code] && isNumber(groupHoldings[gid][data.code].share) && groupHoldings[gid][data.code].share > 0) {
+              targetScopes.push(gid);
             }
-            const zzl = u?.zzl != null && u.zzl !== '' ? Number(u.zzl) : Number.NaN;
-            if (Number.isFinite(zzl)) {
-              const prev = nav / (1 + zzl / 100);
-              if (Number.isFinite(prev) && prev > 0) {
-                return {
-                  earnings: calcEarningsFromNavs(nav, prev, share),
-                  rate: calcRateFromNavs(nav, prev, cost),
-                };
-              }
-            }
-            return null;
-          };
+          });
 
-          const findPrevTradingNav = async (code, dateStr, navCache, u) => {
-            // 优先：如果目标日期就是基金最新净值日，且 fund 带 lastNav，则直接用 lastNav（避免额外请求）
-            if (u && isValidDateStr(u.jzrq) && u.jzrq === dateStr) {
-              const lastNav = u?.lastNav != null && u.lastNav !== '' ? Number(u.lastNav) : null;
-              if (lastNav != null && Number.isFinite(lastNav) && lastNav > 0) return lastNav;
-            }
-            // 已批量拉取的区间净值（见 navCache）
-            if (navCache && navCache.size) {
-              let bestD = '';
-              let bestNav = null;
-              for (const d of navCache.keys()) {
-                if (!isValidDateStr(d) || d >= dateStr) continue;
-                const v = navCache.get(d);
-                if (!Number.isFinite(v) || v <= 0) continue;
-                if (!bestD || d > bestD) {
-                  bestD = d;
-                  bestNav = v;
-                }
-              }
-              if (bestNav != null) return bestNav;
-            }
-            const end = subDays(dateStr, 1);
-            const start = subDays(dateStr, 120);
-            const rows = await fetchFundNetValueRange(code, start, end);
-            for (const r of rows) {
-              if (navCache) navCache.set(r.date, r.nav);
-            }
-            for (let i = rows.length - 1; i >= 0; i--) {
-              if (rows[i].date < dateStr) {
-                const v = rows[i].nav;
-                if (Number.isFinite(v) && v > 0) return v;
-              }
-            }
-            return null;
-          };
+          if (targetScopes.length === 0) return;
 
-          await asyncPool(5, updated, async (u) => {
-            const code = u?.code;
-            if (!code) return;
-            if (!fundCodeStillInStorage(code)) return;
-            const h = holdingsForTabWithLinked?.[code];
-            const share = h?.share;
-            const cost = h?.cost;
-            // 规则 1：基金存在持仓数据（只要求份额有效）
-            if (!isNumber(share) || share <= 0) return;
+          const latestNavDate = data.jzrq;
+          if (!isValidDateStr(latestNavDate)) return;
 
-            const latestNavDate = u?.jzrq;
-            // 只在“最新净值日期”明确存在时计算每日收益
-            if (!isValidDateStr(latestNavDate)) return;
+          const navCache = new Map();
 
-            const existing = Array.isArray(nextDailyMap[code]) ? nextDailyMap[code] : [];
+          for (const scope of targetScopes) {
+            const h = scope === DAILY_EARNINGS_SCOPE_ALL ? holdings[data.code] : groupHoldings[scope][data.code];
+            const existing = dailyChanges[scope]?.[data.code] ||
+                             (fundDailyEarnings[scope] && Array.isArray(fundDailyEarnings[scope][data.code]) ? fundDailyEarnings[scope][data.code] : []);
             const lastRecordedDate = existing.length ? existing[existing.length - 1]?.date : null;
 
-            // 规则 3：如果每日收益没有任何一条数据，则仅需记录最新的净值的收益数据
-            if (!existing.length) {
-              const v = calcLatestDayFromFund(u, share, cost);
-              if (v && Number.isFinite(v.earnings) && fundCodeStillInStorage(code)) {
-                if (!fundCodeStillInStorage(code)) return;
-                const list = recordDailyEarnings(code, v.earnings, latestNavDate, v.rate, dailyEarningsScope);
-                nextDailyMap[code] = list;
-                changed = true;
+            const getEffectiveShare = (targetDate) => {
+              let baseShare = h.share;
+              const list = transactions[data.code] || [];
+              for (const tx of list) {
+                if (!tx || !tx.date || tx.date < targetDate) continue;
+                const gid = tx.groupId || null;
+                const txInScope = (scope === DAILY_EARNINGS_SCOPE_ALL) ? !gid : (gid === scope);
+                if (!txInScope) continue;
+                const s = Number(tx.share) || 0;
+                if (tx.type === 'buy') baseShare -= s;
+                else if (tx.type === 'sell') baseShare += s;
               }
-              // 若 fund 本身缺少 lastNav/zzl，尝试用接口回查上一交易日净值补一条
-              if (!changed || !Array.isArray(nextDailyMap[code]) || nextDailyMap[code].length === 0) {
+              return Math.max(0, baseShare);
+            };
+
+            if (!existing.length) {
+              const share = getEffectiveShare(latestNavDate);
+              if (share > 0) {
+                const v = calcLatestDayFromFund(data, share, h.cost);
+                if (v && Number.isFinite(v.earnings) && fundCodeStillInStorage(data.code)) {
+                  localRecordToChanges(scope, data.code, v.earnings, latestNavDate, v.rate);
+                }
+              }
+              if (!(dailyChanges[scope] && dailyChanges[scope][data.code])) {
                 try {
-                  const nav = Number(u?.dwjz);
+                  const nav = Number(data.dwjz);
                   if (Number.isFinite(nav) && nav > 0) {
-                    const navCache = new Map([[latestNavDate, nav]]);
-                    const prevNav = await findPrevTradingNav(code, latestNavDate, navCache, u);
-                    if (!fundCodeStillInStorage(code)) return;
-                    if (Number.isFinite(prevNav) && prevNav > 0) {
+                    navCache.set(latestNavDate, nav);
+                    const prevNav = await findPrevTradingNav(data.code, latestNavDate, navCache, data);
+                    const share = getEffectiveShare(latestNavDate);
+                    if (fundCodeStillInStorage(data.code) && Number.isFinite(prevNav) && prevNav > 0 && share > 0) {
                       const earnings = calcEarningsFromNavs(nav, prevNav, share);
-                      const rate = calcRateFromNavs(nav, prevNav, cost);
-                      if (Number.isFinite(earnings) && fundCodeStillInStorage(code)) {
-                        if (!fundCodeStillInStorage(code)) return;
-                        const list = recordDailyEarnings(code, earnings, latestNavDate, rate, dailyEarningsScope);
-                        nextDailyMap[code] = list;
-                        changed = true;
+                      const rate = calcRateFromNavs(nav, prevNav, h.cost);
+                      if (Number.isFinite(earnings)) {
+                        localRecordToChanges(scope, data.code, earnings, latestNavDate, rate);
                       }
                     }
                   }
-                } catch {
-                  // ignore
+                } catch { }
+              }
+            } else if (isValidDateStr(lastRecordedDate) && lastRecordedDate < latestNavDate) {
+              const latestNav = Number(data.dwjz);
+              if (Number.isFinite(latestNav) && latestNav > 0) navCache.set(latestNavDate, latestNav);
+
+              const start = addDays(lastRecordedDate, 1);
+              const navRows = await fetchFundNetValueRange(data.code, lastRecordedDate, latestNavDate);
+              if (fundCodeStillInStorage(data.code)) {
+                for (const r of navRows) navCache.set(r.date, r.nav);
+                const firstIdx = navRows.findIndex((r) => r.date >= start);
+                if (firstIdx !== -1) {
+                  for (let j = firstIdx; j < navRows.length; j++) {
+                    const prevNav = j > 0 ? navRows[j - 1].nav : await findPrevTradingNav(data.code, navRows[j].date, navCache, data);
+                    if (!fundCodeStillInStorage(data.code)) break;
+                    if (!Number.isFinite(prevNav) || prevNav <= 0) continue;
+                    const nav = navRows[j].nav;
+                    const cursor = navRows[j].date;
+                    if (!Number.isFinite(nav) || nav <= 0) continue;
+                    const share = getEffectiveShare(cursor);
+                    if (share <= 0) continue;
+                    const earnings = calcEarningsFromNavs(nav, prevNav, share);
+                    const rate = calcRateFromNavs(nav, prevNav, h.cost);
+                    if (Number.isFinite(earnings)) {
+                      localRecordToChanges(scope, data.code, earnings, cursor, rate);
+                    }
+                  }
                 }
               }
-              return;
             }
-
-            // 规则 2：如果每日收益最后一条日期数据小于基金最新净值，则需要遍历补齐
-            if (!isValidDateStr(lastRecordedDate) || lastRecordedDate >= latestNavDate) return;
-
-            const navCache = new Map();
-            const latestNav = Number(u?.dwjz);
-            if (Number.isFinite(latestNav) && latestNav > 0) navCache.set(latestNavDate, latestNav);
-
-            const start = addDays(lastRecordedDate, 1);
-            const navRows = await fetchFundNetValueRange(code, lastRecordedDate, latestNavDate);
-            if (!fundCodeStillInStorage(code)) return;
-            for (const r of navRows) {
-              navCache.set(r.date, r.nav);
-            }
-
-            const firstIdx = navRows.findIndex((r) => r.date >= start);
-            if (firstIdx === -1) return;
-
-            for (let j = firstIdx; j < navRows.length; j++) {
-              const prevNav = j > 0
-                ? navRows[j - 1].nav
-                : await findPrevTradingNav(code, navRows[j].date, navCache, u);
-              if (!fundCodeStillInStorage(code)) break;
-              if (!Number.isFinite(prevNav) || prevNav <= 0) continue;
-
-              const nav = navRows[j].nav;
-              const cursor = navRows[j].date;
-              if (!Number.isFinite(nav) || nav <= 0) continue;
-
-              const earnings = calcEarningsFromNavs(nav, prevNav, share);
-              const rate = calcRateFromNavs(nav, prevNav, cost);
-              if (Number.isFinite(earnings) && fundCodeStillInStorage(code)) {
-                if (!fundCodeStillInStorage(code)) break;
-                const list = recordDailyEarnings(code, earnings, cursor, rate, dailyEarningsScope);
-                nextDailyMap[code] = list;
-                changed = true;
-              }
-            }
-          });
-          const storedForEarnings = readStoredFundCodes();
-          if (storedForEarnings !== null) {
-            for (const code of Object.keys(nextDailyMap)) {
-              if (!storedForEarnings.has(code)) {
-                clearDailyEarnings(code, dailyEarningsScope);
-                delete nextDailyMap[code];
-                changed = true;
-              }
-            }
-          }
-          if (changed) {
-            nextScopedDailyMap[dailyEarningsScope] = nextDailyMap;
-            setFundDailyEarnings(nextScopedDailyMap);
           }
         } catch (e) {
-          console.warn('记录每日收益失败', e);
+          console.warn(`记录 ${data.code} 每日收益失败`, e);
+        }
+      });
+
+      // 【步骤 4】UI 与存储同步：统一更新 React 状态和本地 localStorage，减少页面重绘
+      if (updated.length > 0) {
+        setFunds(prev => prev.map(f => updated.find(x => x.code === f.code) || f));
+        if (valuationChanged) {
+          setValuationSeries(prev => {
+            const next = { ...prev };
+            Object.entries(nextValuationSeries).forEach(([code, list]) => {
+               next[code] = list;
+            });
+            return next;
+          });
+          storageStore.setItem('fundValuationTimeseries', JSON.stringify(nextValuationSeries));
         }
       }
+
+      if (earningsChanged) {
+        setFundDailyEarnings(prev => {
+          const next = { ...prev };
+          for (const [scope, bucket] of Object.entries(dailyChanges)) {
+            next[scope] = { ...next[scope], ...bucket };
+          }
+          for (const code of uniqueCodes) {
+            if (!cachedStoredFundCodes.has(code)) {
+              Object.keys(next).forEach(s => {
+                if (next[s] && next[s][code]) {
+                  const nb = { ...next[s] };
+                  delete nb[code];
+                  next[s] = nb;
+                }
+              });
+            }
+          }
+          return next;
+        });
+      }
     } catch (e) {
-      console.error(e);
+      console.error('刷新过程出错', e);
     } finally {
+      // 【步骤 5】后期调度：重置锁定状态，并根据用户设置的时间间隔启动下一次定时刷新
       refreshingRef.current = false;
       setRefreshing(false);
       refreshCycleStartRef.current = Date.now();
-      
-      // 核心改进：递归式调度下一次刷新，确保上一次请求彻底完成后才开始计时
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         const codes = refreshCodesRef.current || [];
-        if (codes.length) {
-          refreshAll(codes);
-        }
+        if (codes.length) refreshAll(codes);
       }, refreshMs);
 
+      // 【步骤 6】队列处理：执行可能积压的待处理交易（如到达触发价格的自动交易）
       try {
         await processPendingQueue();
-      }catch (e) {
-        showToast('待交易队列计算出错', 'error')
+      } catch (e) {
+        console.warn('待交易处理出错', e);
       }
     }
   };
@@ -5844,7 +6054,15 @@ export default function HomePage() {
             typeof merged.localSortDisplayMode === 'string' &&
             SORT_DISPLAY_MODES.has(merged.localSortDisplayMode)
           ) {
-            setSortDisplayMode(merged.localSortDisplayMode);
+            setPcSortDisplayMode(merged.localSortDisplayMode);
+            setMobileSortDisplayMode(merged.localSortDisplayMode);
+          } else {
+            if (typeof merged.pcLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(merged.pcLocalSortDisplayMode)) {
+              setPcSortDisplayMode(merged.pcLocalSortDisplayMode);
+            }
+            if (typeof merged.mobileLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(merged.mobileLocalSortDisplayMode)) {
+              setMobileSortDisplayMode(merged.mobileLocalSortDisplayMode);
+            }
           }
         } catch { }
       }
@@ -6251,7 +6469,15 @@ export default function HomePage() {
               setSortRules(mergedSettings.localSortRules);
             }
             if (mergedSettings.localSortDisplayMode && SORT_DISPLAY_MODES.has(mergedSettings.localSortDisplayMode)) {
-              setSortDisplayMode(mergedSettings.localSortDisplayMode);
+              setPcSortDisplayMode(mergedSettings.localSortDisplayMode);
+              setMobileSortDisplayMode(mergedSettings.localSortDisplayMode);
+            } else {
+              if (mergedSettings.pcLocalSortDisplayMode && SORT_DISPLAY_MODES.has(mergedSettings.pcLocalSortDisplayMode)) {
+                setPcSortDisplayMode(mergedSettings.pcLocalSortDisplayMode);
+              }
+              if (mergedSettings.mobileLocalSortDisplayMode && SORT_DISPLAY_MODES.has(mergedSettings.mobileLocalSortDisplayMode)) {
+                setMobileSortDisplayMode(mergedSettings.mobileLocalSortDisplayMode);
+              }
             }
             if (typeof mergedSettings.pcContainerWidth === 'number' && Number.isFinite(mergedSettings.pcContainerWidth)) {
               setContainerWidth(Math.min(2000, Math.max(600, mergedSettings.pcContainerWidth)));
@@ -6377,19 +6603,6 @@ export default function HomePage() {
       fundTagsEdit.open,
     ]
   );
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (isAnyModalOpen) {
-      el.style.overflow = 'hidden';
-    } else {
-      el.style.overflow = '';
-    }
-    return () => {
-      if (containerRef.current) containerRef.current.style.overflow = '';
-    };
-  }, [isAnyModalOpen]);
 
   useEffect(() => {
     if (!isMobile || mobileMainTab !== 'home' || isAnyModalOpen) return;
@@ -7158,7 +7371,7 @@ export default function HomePage() {
                   <span className="muted">排序</span>
                   <SettingsIcon width="14" height="14" />
                 </button>
-                {sortDisplayMode === 'dropdown' ? (
+                { (isMobile ? mobileSortDisplayMode : pcSortDisplayMode) === 'dropdown' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Select
                       value={sortBy}
@@ -7351,6 +7564,16 @@ export default function HomePage() {
                                 groups={groups}
                                 favorites={favorites}
                                 sortBy={sortBy}
+                                sortOrder={sortOrder}
+                                sortRules={sortRules}
+                                onSortChange={(id) => {
+                                  if (sortBy === id) {
+                                    setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                                  } else {
+                                    setSortBy(id);
+                                    setSortOrder('desc');
+                                  }
+                                }}
                                 onReorder={handleReorder}
                                 onRemoveFund={handleRemoveFundEntry}
                                 onRemoveFunds={removeFundsFromCurrentTabHandler}
@@ -7379,6 +7602,16 @@ export default function HomePage() {
                         onMoveFunds={handleMoveFunds}
                         favorites={favorites}
                         sortBy={sortBy}
+                        sortOrder={sortOrder}
+                        sortRules={sortRules}
+                        onSortChange={(id) => {
+                          if (sortBy === id) {
+                            setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                          } else {
+                            setSortBy(id);
+                            setSortOrder('desc');
+                          }
+                        }}
                         stickyTop={navbarHeight + filterBarHeight + marketIndexAccordionHeight}
                         blockDrawerClose={!!fundDeleteConfirm || !!fundDeleteBulkConfirm}
                         closeDrawerRef={fundDetailDrawerCloseRef}
@@ -8262,8 +8495,8 @@ export default function HomePage() {
             isMobile={isMobile}
             rules={sortRules}
             onChangeRules={setSortRules}
-            sortDisplayMode={sortDisplayMode}
-            onChangeSortDisplayMode={setSortDisplayMode}
+            sortDisplayMode={isMobile ? mobileSortDisplayMode : pcSortDisplayMode}
+            onChangeSortDisplayMode={isMobile ? setMobileSortDisplayMode : setPcSortDisplayMode}
             onResetRules={() => setSortRules(DEFAULT_SORT_RULES)}
           />
         )}

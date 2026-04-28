@@ -40,7 +40,10 @@ function MiniTrendLine({ changePercent, code, className }) {
     script.src = url;
     script.async = true;
 
+    let done = false;
     const cleanup = () => {
+      done = true;
+      if (timer) clearTimeout(timer);
       if (document.body && document.body.contains(script)) {
         document.body.removeChild(script);
       }
@@ -53,8 +56,16 @@ function MiniTrendLine({ changePercent, code, className }) {
       }
     };
 
+    const timer = setTimeout(() => {
+      if (done) return;
+      cleanup();
+      if (!cancelled) {
+        setRealPath(null);
+      }
+    }, 10000);
+
     script.onload = () => {
-      if (cancelled) {
+      if (cancelled || done) {
         cleanup();
         return;
       }

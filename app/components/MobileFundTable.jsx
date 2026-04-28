@@ -335,6 +335,9 @@ export default function MobileFundTable({
   onHoldingAmountClick,
   onHoldingProfitClick, // 保留以兼容调用方，表格内已不再使用点击切换
   sortBy = 'default',
+  sortOrder = 'desc',
+  sortRules = [],
+  onSortChange,
   onReorder,
   onCustomSettingsChange,
   stickyTop = 0,
@@ -971,6 +974,34 @@ export default function MobileFundTable({
     if (!Array.isArray(data) || data.length === 0) return;
 
     const codes = Array.from(new Set(data.map((d) => d?.code).filter(Boolean)));
+    const cachedBatch = {};
+    for (const code of codes) {
+      if (!periodReturnsCacheRef.current.has(code)) continue;
+      cachedBatch[code] = periodReturnsCacheRef.current.get(code);
+    }
+    if (Object.keys(cachedBatch).length > 0) {
+      setPeriodReturnsByCode((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [code, value] of Object.entries(cachedBatch)) {
+          const prevVal = next[code];
+          if (
+            prevVal
+            && prevVal.week === value.week
+            && prevVal.month === value.month
+            && prevVal.month3 === value.month3
+            && prevVal.month6 === value.month6
+            && prevVal.year1 === value.year1
+          ) {
+            continue;
+          }
+          next[code] = value;
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }
+
     const missing = codes.filter((code) => !periodReturnsCacheRef.current.has(code));
     if (missing.length === 0) return;
 
@@ -2085,15 +2116,74 @@ export default function MobileFundTable({
           const pinClass = getPinClass(columnId, true);
           const alignClass = getAlignClass(columnId);
           const isLastColumn = headerIndex === headerGroup.headers.length - 1;
+
+          // 匹配排序状态
+          const sortMap = {
+            'fundName': 'name',
+            'yesterdayChangePercent': 'yesterdayIncrease',
+            'estimateChangePercent': 'yield',
+            'totalChangePercent': 'estimateProfit',
+            'holdingAmount': 'holdingAmount',
+            'todayProfit': 'todayProfit',
+            'yesterdayProfit': 'yesterdayProfit',
+            'holdingProfit': 'holding',
+            'holdingDays': 'holdingDays',
+            'holdingCost': 'holdingCost',
+            'period1w': 'last1Week',
+            'period1m': 'last1Month',
+            'period3m': 'last3Months',
+            'period6m': 'last6Months',
+            'period1y': 'last1Year'
+          };
+          const sortKey = sortMap[columnId];
+          const isSorted = sortBy && sortKey === sortBy;
+          let isSortEnabled = sortKey && sortRules.find(r => r.id === sortKey)?.enabled;
+          
+          // 选择默认排序的时候，隐藏基金名称表头的排序和箭头
+          if (sortBy === 'default' && sortKey === 'name') {
+            isSortEnabled = false;
+          }
+
           return (
             <div
               key={header.id}
               className={`table-header-cell ${alignClass} ${pinClass}`}
-              style={isLastColumn ? { paddingRight: LAST_COLUMN_EXTRA } : undefined}
+              style={{
+                ...(isLastColumn ? { paddingRight: LAST_COLUMN_EXTRA } : {}),
+                cursor: isSortEnabled ? 'pointer' : 'default',
+                userSelect: isSortEnabled ? 'none' : 'auto'
+              }}
+              onClick={() => {
+                if (isSortEnabled && onSortChange) {
+                  onSortChange(sortKey);
+                }
+              }}
             >
-              {header.isPlaceholder
-                ? null
-                : flexRender(header.column.columnDef.header, header.getContext())}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 2,
+                justifyContent: alignClass.includes('text-center') ? 'center' : alignClass.includes('text-right') ? 'flex-end' : 'flex-start',
+                width: '100%'
+              }}>
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(header.column.columnDef.header, header.getContext())}
+                {isSortEnabled && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      flexDirection: 'column',
+                      lineHeight: 1,
+                      fontSize: '8px',
+                      opacity: isSorted ? 1 : 0.3
+                    }}
+                  >
+                    <span style={{ opacity: isSorted && sortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
+                    <span style={{ opacity: isSorted && sortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isEqual } from 'lodash';
 import { getFundCodesFromTagRecord } from '@/app/lib/fundHelpers';
 
 /**
@@ -258,10 +259,24 @@ export const useStorageStore = create((set, get) => ({
    * @param {string} value JSON 字符串或普通字符串
    */
   setItem: (key, value) => {
-    const prevValue = (key === 'funds' || key === 'tags') ? window.localStorage.getItem(key) : null;
+    const prevValue = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
     
+    // 检查内容是否真的发生了变化 (使用 lodash isEqual 进行深对比)
+    if (prevValue !== null) {
+      try {
+        const parsedNew = JSON.parse(value);
+        const parsedOld = JSON.parse(prevValue);
+        if (isEqual(parsedNew, parsedOld)) return;
+      } catch (e) {
+        // 非 JSON 或解析失败时使用字符串直接对比
+        if (prevValue === value) return;
+      }
+    }
+
     // 更新本地存储
-    window.localStorage.setItem(key, value);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(key, value);
+    }
 
     // 同步更新 Store 状态，确保 UI 响应
     try {
@@ -289,6 +304,8 @@ export const useStorageStore = create((set, get) => ({
     const { onSync } = get();
     if (onSync && SYNC_KEYS.has(key)) {
       // 特殊逻辑：如果是 funds 或 tags，通过签名判断是否真的需要同步
+      // 注意：isEqual 已经过滤了完全一致的情况，这里依然保留签名判断
+      // 是为了过滤“实质性”无变化的更新（如 jzrq, dwjz 没变，但其他非核心字段变了）
       if (key === 'funds') {
         if (getFundCodesSignature(prevValue) === getFundCodesSignature(value)) {
           return;
