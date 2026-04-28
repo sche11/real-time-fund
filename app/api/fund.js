@@ -390,53 +390,61 @@ export const fetchSmartFundNetValue = async (code, startDate) => {
   return null;
 };
 
-let allFundJsonCache = null;
-const fetchAllFundJson = async () => {
-  if (allFundJsonCache) return allFundJsonCache;
-  try {
-    const response = await fetch('/allFund.json');
-    if (!response.ok) return null;
-    const list = await response.json();
-    if (Array.isArray(list)) {
-      allFundJsonCache = new Map(list.map(f => [f.code, f.name]));
-      return allFundJsonCache;
-    }
-  } catch (e) {
-    console.warn('加载 allFund.json 失败', e);
-  }
-  return null;
-};
-
 export const fetchFundDataFallback = async (c) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     throw new Error('无浏览器环境');
   }
   return new Promise(async (resolve, reject) => {
+    const searchCallbackName = `SuggestData_fallback_${Date.now()}`;
+    const searchUrl = `https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=${encodeURIComponent(c)}&callback=${searchCallbackName}&_=${Date.now()}`;
+    let fundName = '';
     try {
-      // 尝试并行获取 F10 数据和本地全量基金列表
-      const f10Promise = (async () => {
-        const url = `https://fundf10.eastmoney.com/F10DataApi.aspx?type=lsjz&code=${c}&page=1&per=3&sdate=&edate=`;
-        const apidata = await loadScript(url);
-        const content = apidata?.content || '';
-        const navList = parseNetValuesFromLsjzContent(content);
-        const latest = navList.length > 0 ? navList[navList.length - 1] : null;
-        const previousNav = navList.length > 1 ? navList[navList.length - 2] : null;
-        const yM = computeYesterdayNavMetricsFromList(navList);
-        return { latest, previousNav, yM };
-      })();
-
-      const namePromise = (async () => {
-        const fundMap = await fetchAllFundJson();
-        return fundMap?.get(c) || null;
-      })();
-
-      const [navResult, fundName] = await Promise.all([f10Promise, namePromise]);
-
-      if (navResult && navResult.latest && navResult.latest.nav) {
-        const { latest, previousNav, yM } = navResult;
+      await new Promise((resSearch, rejSearch) => {
+        window[searchCallbackName] = (data) => {
+          if (data && data.Datas && data.Datas.length > 0) {
+            const found = data.Datas.find(d => d.CODE === c);
+            if (found) {
+              fundName = found.NAME || found.SHORTNAME || '';
+            }
+          }
+          delete window[searchCallbackName];
+          resSearch();
+        };
+        const script = document.createElement('script');
+        script.src = searchUrl;
+        script.async = true;
+        script.onload = () => {
+          if (document.body.contains(script)) document.body.removeChild(script);
+        };
+        script.onerror = () => {
+          if (document.body.contains(script)) document.body.removeChild(script);
+          delete window[searchCallbackName];
+          rejSearch(new Error('搜索接口失败'));
+        };
+        document.body.appendChild(script);
+        setTimeout(() => {
+          if (window[searchCallbackName]) {
+            delete window[searchCallbackName];
+            resSearch();
+          }
+        }, 3000);
+      });
+    } catch (e) {
+    }
+    try {
+      // fallback 同样取最近两天净值，以补齐 lastNav（用于更精确的当日收益计算）
+      const url = `https://fundf10.eastmoney.com/F10DataApi.aspx?type=lsjz&code=${c}&page=1&per=3&sdate=&edate=`;
+      const apidata = await loadScript(url);
+      const content = apidata?.content || '';
+      const navList = parseNetValuesFromLsjzContent(content);
+      const latest = navList.length > 0 ? navList[navList.length - 1] : null;
+      const previousNav = navList.length > 1 ? navList[navList.length - 2] : null;
+      const yM = computeYesterdayNavMetricsFromList(navList);
+      if (latest && latest.nav) {
+        const name = fundName || `未知基金(${c})`;
         resolve({
           code: c,
-          name: fundName || `基金(${c})`,
+          name,
           dwjz: String(latest.nav),
           lastNav: previousNav ? String(previousNav.nav) : null,
           gsz: null,
