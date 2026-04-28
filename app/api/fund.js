@@ -390,23 +390,53 @@ export const fetchSmartFundNetValue = async (code, startDate) => {
   return null;
 };
 
+let allFundJsonCache = null;
+const fetchAllFundJson = async () => {
+  if (allFundJsonCache) return allFundJsonCache;
+  try {
+    const response = await fetch('/allFund.json');
+    if (!response.ok) return null;
+    const list = await response.json();
+    if (Array.isArray(list)) {
+      allFundJsonCache = new Map(list.map(f => [f.code, f.name]));
+      return allFundJsonCache;
+    }
+  } catch (e) {
+    console.warn('加载 allFund.json 失败', e);
+  }
+  return null;
+};
+
 export const fetchFundDataFallback = async (c) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     throw new Error('无浏览器环境');
   }
   return new Promise(async (resolve, reject) => {
     try {
-      const url = `https://fundf10.eastmoney.com/F10DataApi.aspx?type=lsjz&code=${c}&page=1&per=3&sdate=&edate=`;
-      const apidata = await loadScript(url);
-      const content = apidata?.content || '';
-      const navList = parseNetValuesFromLsjzContent(content);
-      const latest = navList.length > 0 ? navList[navList.length - 1] : null;
-      const previousNav = navList.length > 1 ? navList[navList.length - 2] : null;
-      const yM = computeYesterdayNavMetricsFromList(navList);
-      if (latest && latest.nav) {
+      // 尝试并行获取 F10 数据和本地全量基金列表
+      const f10Promise = (async () => {
+        const url = `https://fundf10.eastmoney.com/F10DataApi.aspx?type=lsjz&code=${c}&page=1&per=3&sdate=&edate=`;
+        const apidata = await loadScript(url);
+        const content = apidata?.content || '';
+        const navList = parseNetValuesFromLsjzContent(content);
+        const latest = navList.length > 0 ? navList[navList.length - 1] : null;
+        const previousNav = navList.length > 1 ? navList[navList.length - 2] : null;
+        const yM = computeYesterdayNavMetricsFromList(navList);
+        return { latest, previousNav, yM };
+      })();
+
+      const namePromise = (async () => {
+        const fundMap = await fetchAllFundJson();
+        return fundMap?.get(c) || null;
+      })();
+
+      const [navResult, fundName] = await Promise.all([f10Promise, namePromise]);
+
+      if (navResult && navResult.latest && navResult.latest.nav) {
+        const { latest, previousNav, yM } = navResult;
         resolve({
           code: c,
-          name: `基金(${c})`,
+          name: fundName || `基金(${c})`,
           dwjz: String(latest.nav),
           lastNav: previousNav ? String(previousNav.nav) : null,
           gsz: null,
