@@ -47,6 +47,7 @@ const MOBILE_NON_FROZEN_COLUMN_IDS = [
   'relatedSector',
   'yesterdayChangePercent',
   'estimateChangePercent',
+  'sinceAddedChangePercent',
   'todayProfit',
   'totalChangePercent',
   'yesterdayProfit',
@@ -63,7 +64,7 @@ const MOBILE_NON_FROZEN_COLUMN_IDS = [
   'estimateNav',
 ];
 
-const MOBILE_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav']);
+const MOBILE_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav', 'sinceAddedChangePercent']);
 
 const MOBILE_COLUMN_HEADERS = {
   relatedSector: '关联板块',
@@ -76,6 +77,7 @@ const MOBILE_COLUMN_HEADERS = {
   estimateNav: '估算净值',
   yesterdayChangePercent: '最新涨幅',
   estimateChangePercent: '估算涨幅',
+  sinceAddedChangePercent: '自添加来',
   totalChangePercent: '估算收益',
   holdingCost: '持仓成本',
   costNav: '成本净值',
@@ -840,6 +842,7 @@ export default function MobileFundTable({
     estimateNav: 64,
     yesterdayChangePercent: 72,
     estimateChangePercent: 80,
+    sinceAddedChangePercent: 80,
     totalChangePercent: 80,
     holdingDays: 64,
     todayProfit: 80,
@@ -1804,6 +1807,34 @@ export default function MobileFundTable({
         meta: { align: 'right', cellClassName: 'est-change-cell', width: columnWidthMap.estimateChangePercent },
       },
       {
+        accessorKey: 'sinceAddedChangePercent',
+        header: '自添加来',
+        cell: (info) => {
+          const original = info.row.original || {};
+          const value = original.sinceAddedChangeValue;
+          const cls = value == null ? 'muted' : value > 0 ? 'up' : value < 0 ? 'down' : '';
+          const rawDate = original.sinceAddedDateRaw ?? '';
+          const displayDate = original.sinceAddedDate ?? '';
+          const text = info.getValue();
+          const hasText = text != null && text !== '—';
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
+              <span className={cls} style={{ display: 'block', width: '100%', fontWeight: 700 }}>
+                <FitText maxFontSize={14} minFontSize={10}>
+                  {text ?? '—'}
+                </FitText>
+              </span>
+              {hasText && displayDate ? (
+                <span className="muted" title={rawDate && rawDate !== displayDate ? rawDate : undefined} style={{ fontSize: '10px' }}>
+                  {displayDate}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
+        meta: { align: 'right', cellClassName: 'since-added-cell', width: columnWidthMap.sinceAddedChangePercent },
+      },
+      {
         accessorKey: 'totalChangePercent',
         header: '估算收益',
         cell: (info) => {
@@ -2100,7 +2131,7 @@ export default function MobileFundTable({
   const getAlignClass = (columnId) => {
     if (columnId === 'fundName') return '';
     if (columnId === EDIT_MOVE_TO_FRONT_COL || columnId === EDIT_DRAG_COL) return 'text-center';
-    if (['latestNav', 'estimateNav', 'yesterdayChangePercent', 'estimateChangePercent', 'totalChangePercent', 'holdingDays', 'todayProfit', 'yesterdayProfit', 'holdingProfit', 'holdingCost', 'costNav', 'period1w', 'period1m', 'period3m', 'period6m', 'period1y', 'tags'].includes(columnId)) return 'text-right';
+    if (['latestNav', 'estimateNav', 'yesterdayChangePercent', 'estimateChangePercent', 'sinceAddedChangePercent', 'totalChangePercent', 'holdingDays', 'todayProfit', 'yesterdayProfit', 'holdingProfit', 'holdingCost', 'costNav', 'period1w', 'period1m', 'period3m', 'period6m', 'period1y', 'tags'].includes(columnId)) return 'text-right';
     return 'text-right';
   };
 
@@ -2120,6 +2151,7 @@ export default function MobileFundTable({
           // 匹配排序状态
           const sortMap = {
             'fundName': 'name',
+            'tags': 'tags',
             'yesterdayChangePercent': 'yesterdayIncrease',
             'estimateChangePercent': 'yield',
             'totalChangePercent': 'estimateProfit',

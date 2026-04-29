@@ -88,7 +88,7 @@ import {
 } from './lib/dailyEarnings';
 import { loadHolidaysForYears, isTradingDay as isDateTradingDay } from './lib/tradingCalendar';
 import { asyncPool } from './lib/asyncHelper';
-import { parseFundTextWithLLM, fetchFundData, fetchFundNetValueRange, fetchLatestRelease, fetchShanghaiIndexDate, fetchSmartFundNetValue, searchFunds, fetchFundPeriodReturns } from './api/fund';
+import { parseFundTextWithLLM, fetchFundData, fetchFundNetValueRange, fetchLatestRelease, fetchShanghaiIndexDate, fetchSmartFundNetValue, fetchSmartFundNetValueBackward, searchFunds, fetchFundPeriodReturns } from './api/fund';
 import packageJson from '../package.json';
 import PcFundTable from './components/PcFundTable';
 import MobileFundTable from './components/MobileFundTable';
@@ -245,6 +245,7 @@ export default function HomePage() {
     { id: 'last3Months', label: '近3月', enabled: false },
     { id: 'last6Months', label: '近6月', enabled: false },
     { id: 'last1Year', label: '近1年', enabled: false },
+    { id: 'tags', label: '基金标签', enabled: false },
     { id: 'name', label: '基金名称', alias: '名称', enabled: true },
   ];
   const SORT_DISPLAY_MODES = new Set(['buttons', 'dropdown']);
@@ -1181,6 +1182,26 @@ export default function HomePage() {
     return { derived, linked, groupIdsByCode };
   }, [currentTab, activeGroupId, funds, holdings, groupHoldings, groups]);
 
+  useEffect(() => {
+    const linkedCodes = linkedHoldingsForAllFav?.linked;
+    if (!(linkedCodes instanceof Set) || linkedCodes.size === 0) return;
+    setFundDailyEarnings((prev) => {
+      if (!isPlainObject(prev)) return prev;
+      const globalBucket = prev[DAILY_EARNINGS_SCOPE_ALL];
+      if (!isPlainObject(globalBucket)) return prev;
+      const nextGlobalBucket = { ...globalBucket };
+      let changed = false;
+      for (const code of linkedCodes) {
+        if (code in nextGlobalBucket) {
+          delete nextGlobalBucket[code];
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      return { ...prev, [DAILY_EARNINGS_SCOPE_ALL]: nextGlobalBucket };
+    });
+  }, [linkedHoldingsForAllFav, setFundDailyEarnings]);
+
   const currentFundDailyEarnings = useMemo(() => {
     if (!isPlainObject(fundDailyEarnings)) return {};
 
@@ -1293,31 +1314,23 @@ export default function HomePage() {
   const portfolioDailySeries = useMemo(
     () => {
       if (!isPlainObject(fundDailyEarnings)) return [];
-      const mergedByCode = {};
+      const byDate = new Map();
       Object.values(fundDailyEarnings).forEach((bucket) => {
         if (!isPlainObject(bucket)) return;
-        Object.entries(bucket).forEach(([code, list]) => {
+        Object.values(bucket).forEach((list) => {
           if (!Array.isArray(list) || list.length === 0) return;
-          const prev = Array.isArray(mergedByCode[code]) ? mergedByCode[code] : [];
-          // 按 scope 合并后按日期去重，避免同一基金同一天重复累计
-          const byDate = new Map();
-          [...prev, ...list].forEach((item) => {
+          list.forEach((item) => {
             const date = item?.date ? String(item.date) : '';
             const earnings = Number(item?.earnings);
-            const rateRaw = item?.rate;
-            const rate = rateRaw == null || rateRaw === '' ? null : Number(rateRaw);
             if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
             if (!Number.isFinite(earnings)) return;
-            byDate.set(date, {
-              date,
-              earnings,
-              rate: Number.isFinite(rate) ? rate : null,
-            });
+            byDate.set(date, (byDate.get(date) ?? 0) + earnings);
           });
-          mergedByCode[code] = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
         });
       });
-      return aggregatePortfolioDailyEarnings(mergedByCode);
+      return [...byDate.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, earnings]) => ({ date, earnings, rate: null }));
     },
     [fundDailyEarnings]
   );
@@ -1668,13 +1681,34 @@ export default function HomePage() {
           if (!hasB) return -1;
           return sortOrder === 'asc' ? valA - valB : valB - valA;
         }
+        if (sortBy === 'tags') {
+          const getTagKey = (fund) => {
+            const code = String(fund?.code ?? '').trim();
+            const list = code ? fundTagListsByCode?.[code] : null;
+            if (!Array.isArray(list) || list.length === 0) return '';
+            return list
+              .map((t) => (t?.name != null ? String(t.name).trim() : ''))
+              .filter(Boolean)
+              .join('、');
+          };
+          const keyA = getTagKey(a);
+          const keyB = getTagKey(b);
+          const hasA = !!keyA;
+          const hasB = !!keyB;
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          return sortOrder === 'asc'
+            ? keyA.localeCompare(keyB, 'zh-CN')
+            : keyB.localeCompare(keyA, 'zh-CN');
+        }
         if (sortBy === 'name') {
           return sortOrder === 'asc' ? a.name.localeCompare(b.name, 'zh-CN') : b.name.localeCompare(a.name, 'zh-CN');
         }
         return 0;
       });
     },
-    [scopedFunds, currentTab, groups, sortBy, sortOrder, holdingsForTabWithLinked, getHoldingProfitForTab, groupFundSearchTerm, shouldShowGroupFundSearch, currentFundDailyEarnings, sortPeriodReturnsByCode, todayStr],
+    [scopedFunds, currentTab, groups, sortBy, sortOrder, holdingsForTabWithLinked, getHoldingProfitForTab, groupFundSearchTerm, shouldShowGroupFundSearch, currentFundDailyEarnings, sortPeriodReturnsByCode, todayStr, fundTagListsByCode],
   );
 
   const latestDailyByCode = useMemo(() => {
@@ -1848,6 +1882,44 @@ export default function HomePage() {
             ? ''
             : `${estimateProfitPercentValue > 0 ? '+' : ''}${estimateProfitPercentValue.toFixed(2)}%`;
 
+        const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
+        const addBaseNav = addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
+        const sinceAddedCurrentNav = (() => {
+          if (f.noValuation) {
+            const v = Number(f.dwjz);
+            return Number.isFinite(v) && v > 0 ? v : null;
+          }
+          if (f.estPricedCoverage > 0.05) {
+            const v = Number(f.estGsz);
+            return Number.isFinite(v) && v > 0 ? v : null;
+          }
+          const v = Number(f.gsz);
+          return Number.isFinite(v) && v > 0 ? v : null;
+        })();
+        const sinceAddedChangeValue =
+          addBaseNav != null && sinceAddedCurrentNav != null
+            ? ((sinceAddedCurrentNav / addBaseNav) - 1) * 100
+            : null;
+        const sinceAddedChangePercent =
+          sinceAddedChangeValue == null
+            ? '—'
+            : `${sinceAddedChangeValue > 0 ? '+' : ''}${sinceAddedChangeValue.toFixed(2)}%`;
+        const sinceAddedDateRaw = (() => {
+          const raw = f.addBaseDate;
+          const rawStr = raw != null ? String(raw) : '';
+          if (/^\d{4}-\d{2}-\d{2}/.test(rawStr)) return rawStr.slice(0, 10);
+          const ts = Number(f.addedAt);
+          if (Number.isFinite(ts) && ts > 0) return dayjs.tz(ts, TZ).format('YYYY-MM-DD');
+          return '';
+        })();
+        const sinceAddedDate = (() => {
+          const raw = sinceAddedDateRaw || '';
+          if (!raw) return '';
+          const currentYear = typeof todayStr === 'string' && todayStr.length >= 4 ? todayStr.slice(0, 4) : '';
+          if (currentYear && raw.startsWith(`${currentYear}-`) && raw.length >= 10) return raw.slice(5);
+          return raw;
+        })();
+
         const fc = String(f.code ?? '').trim();
         const listFromDerived = fundTagListsByCode[fc];
         const fundTags = Array.isArray(listFromDerived)
@@ -1881,6 +1953,10 @@ export default function HomePage() {
           estimateProfit,
           estimateProfitValue,
           estimateProfitPercent,
+          sinceAddedChangePercent,
+          sinceAddedChangeValue,
+          sinceAddedDate,
+          sinceAddedDateRaw: sinceAddedDateRaw || undefined,
           holdingAmount,
           holdingAmountValue,
           holdingCost,
@@ -2049,6 +2125,17 @@ export default function HomePage() {
         }
         return next;
       });
+
+      try {
+        const earningsScope = gid || DAILY_EARNINGS_SCOPE_ALL;
+        clearDailyEarnings(code, earningsScope);
+        setFundDailyEarnings((prev) => {
+          if (!isPlainObject(prev) || !isPlainObject(prev[earningsScope]) || !(code in prev[earningsScope])) return prev;
+          const next = { ...prev, [earningsScope]: { ...prev[earningsScope] } };
+          delete next[earningsScope][code];
+          return next;
+        });
+      } catch { }
     }
     setClearConfirm(null);
   };
@@ -2093,7 +2180,13 @@ export default function HomePage() {
       }
 
       // 尝试获取智能净值
-      const result = await fetchSmartFundNetValue(trade.fundCode, queryDate);
+      const navOffsetDays = Number(trade.navOffsetDays);
+      if (Number.isFinite(navOffsetDays) && navOffsetDays) {
+        queryDate = toTz(queryDate).add(navOffsetDays, 'day').format('YYYY-MM-DD');
+      }
+      const result = (trade.netValueSearch === 'backward')
+        ? await fetchSmartFundNetValueBackward(trade.fundCode, queryDate)
+        : await fetchSmartFundNetValue(trade.fundCode, queryDate);
 
       if (result && result.value > 0) {
         // 成功获取，执行交易
@@ -4155,6 +4248,30 @@ export default function HomePage() {
     });
   };
 
+  const getAddBaseSnapshotFromFund = (fund) => {
+    const dwjz = Number(fund?.dwjz);
+    if (Number.isFinite(dwjz) && dwjz > 0) {
+      return { nav: dwjz, date: fund?.jzrq || null };
+    }
+    const gsz = Number(fund?.gsz);
+    if (Number.isFinite(gsz) && gsz > 0) {
+      return { nav: gsz, date: fund?.gztime || fund?.time || null };
+    }
+    return { nav: null, date: null };
+  };
+
+  const withAddBaseline = (fund) => {
+    const next = { ...(fund || {}) };
+    const now = Date.now();
+    if (next.addedAt == null) next.addedAt = now;
+    if (next.addBaseNav == null || next.addBaseDate == null) {
+      const snap = getAddBaseSnapshotFromFund(next);
+      if (next.addBaseNav == null && snap.nav != null) next.addBaseNav = snap.nav;
+      if (next.addBaseDate == null && snap.date) next.addBaseDate = snap.date;
+    }
+    return next;
+  };
+
   const handleScanImportConfirm = async (codes) => {
     if (!Array.isArray(codes) || codes.length === 0) return;
     const uniqueCodes = Array.from(new Set(codes));
@@ -4170,7 +4287,7 @@ export default function HomePage() {
         try {
           const data = await fetchFundData(code);
           if (data && data.code) {
-            added.push(data);
+            added.push(withAddBaseline(data));
           }
         } catch (e) {
           console.error(`通过识别导入基金 ${code} 失败`, e);
@@ -4209,7 +4326,7 @@ export default function HomePage() {
         if (funds.some(existing => existing.code === f.CODE)) return;
         try {
           const data = await fetchFundData(f.CODE);
-          newFunds.push(data);
+          newFunds.push(withAddBaseline(data));
         } catch (e) {
           console.error(`添加基金 ${f.CODE} 失败`, e);
         }
@@ -4529,7 +4646,21 @@ export default function HomePage() {
 
       // 【步骤 4】UI 与存储同步：统一更新 React 状态和本地 localStorage，减少页面重绘
       if (updated.length > 0) {
-        setFunds(prev => prev.map(f => updated.find(x => x.code === f.code) || f));
+        setFunds(prev => prev.map((f) => {
+          const next = updated.find(x => x.code === f.code);
+          if (!next) return f;
+          const merged = { ...next };
+          if (f.addedAt != null) merged.addedAt = f.addedAt;
+          if (f.addBaseNav != null) merged.addBaseNav = f.addBaseNav;
+          if (f.addBaseDate != null) merged.addBaseDate = f.addBaseDate;
+          if (merged.addedAt == null || merged.addBaseNav == null || merged.addBaseDate == null) {
+            const snap = getAddBaseSnapshotFromFund(merged);
+            if (merged.addedAt == null) merged.addedAt = Date.now();
+            if (merged.addBaseNav == null && snap.nav != null) merged.addBaseNav = snap.nav;
+            if (merged.addBaseDate == null && snap.date) merged.addBaseDate = snap.date;
+          }
+          return merged;
+        }));
         if (valuationChanged) {
           setValuationSeries(prev => {
             const next = { ...prev };
@@ -8172,6 +8303,8 @@ export default function HomePage() {
                 feeMode: 'none',
                 feeValue: 0,
                 date: payload.date,
+                navOffsetDays: -1,
+                netValueSearch: 'backward',
                 isAfter3pm: false,
                 isDca: false,
                 timestamp: nowTs,
@@ -8189,6 +8322,8 @@ export default function HomePage() {
                 feeMode: 'none',
                 feeValue: 0,
                 date: payload.date,
+                navOffsetDays: -1,
+                netValueSearch: 'backward',
                 isAfter3pm: false,
                 isDca: false,
                 timestamp: nowTs + 1,

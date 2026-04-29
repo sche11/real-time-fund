@@ -401,6 +401,21 @@ export const fetchSmartFundNetValue = async (code, startDate) => {
   return null;
 };
 
+export const fetchSmartFundNetValueBackward = async (code, startDate) => {
+  const today = nowInTz().startOf('day');
+  let current = toTz(startDate).startOf('day');
+  if (current.isAfter(today)) current = today;
+  for (let i = 0; i < 30; i++) {
+    const dateStr = current.format('YYYY-MM-DD');
+    const val = await fetchFundNetValue(code, dateStr);
+    if (val !== null) {
+      return { date: dateStr, value: val };
+    }
+    current = current.subtract(1, 'day');
+  }
+  return null;
+};
+
 export const fetchFundDataFallback = async (c) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     throw new Error('无浏览器环境');

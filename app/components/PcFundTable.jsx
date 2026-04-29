@@ -51,6 +51,7 @@ const NON_FROZEN_COLUMN_IDS = [
   'relatedSector',
   'yesterdayChangePercent',
   'estimateChangePercent',
+  'sinceAddedChangePercent',
   'todayProfit',
   'totalChangePercent',
   'yesterdayProfit',
@@ -69,7 +70,7 @@ const NON_FROZEN_COLUMN_IDS = [
 ];
 
 /** 已保存列显示偏好时，新增列默认隐藏；未保存时随「全展示」 */
-const PC_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav']);
+const PC_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav', 'sinceAddedChangePercent']);
 
 /** 非冻结列中右对齐的（标签列左对齐） */
 const isPcDataColumnRightAligned = (id) =>
@@ -86,6 +87,7 @@ const COLUMN_HEADERS = {
   estimateNav: '估算净值',
   yesterdayChangePercent: '最新涨幅',
   estimateChangePercent: '估算涨幅',
+  sinceAddedChangePercent: '自添加来',
   totalChangePercent: '估算收益',
   holdingAmount: '持仓金额',
   holdingCost: '持仓成本',
@@ -1394,6 +1396,37 @@ export default function PcFundTable({
         },
       },
       {
+        accessorKey: 'sinceAddedChangePercent',
+        header: '自添加来',
+        size: 135,
+        minSize: 100,
+        cell: (info) => {
+          const original = info.row.original || {};
+          const value = original.sinceAddedChangeValue;
+          const cls = value == null ? 'muted' : value > 0 ? 'up' : value < 0 ? 'down' : '';
+          const rawDate = original.sinceAddedDateRaw ?? '';
+          const displayDate = original.sinceAddedDate ?? '';
+          const text = info.getValue();
+          const hasText = text != null && text !== '—';
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
+              <FitText className={cls} style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10} as="div">
+                {text ?? '—'}
+              </FitText>
+              {hasText && displayDate ? (
+                <span className="muted" title={rawDate && rawDate !== displayDate ? rawDate : undefined} style={{ fontSize: '11px' }}>
+                  {displayDate}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
+        meta: {
+          align: 'right',
+          cellClassName: 'since-added-cell',
+        },
+      },
+      {
         accessorKey: 'totalChangePercent',
         header: '估算收益',
         size: 135,
@@ -1872,6 +1905,7 @@ export default function PcFundTable({
           const colId = header.column.id || header.column.columnDef?.accessorKey;
           const sortMap = {
             'fundName': 'name',
+            'tags': 'tags',
             'yesterdayChangePercent': 'yesterdayIncrease',
             'estimateChangePercent': 'yield',
             'totalChangePercent': 'estimateProfit',
