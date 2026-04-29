@@ -1136,6 +1136,17 @@ export default function PcFundTable({
                 gap: 2,
               }}
             >
+              {pctText != null ? (
+                <FitText
+                  className={pctCls}
+                  style={{ fontWeight: 700, textAlign: 'right' }}
+                  maxFontSize={14}
+                  minFontSize={10}
+                  as="div"
+                >
+                  {pctText}
+                </FitText>
+              ) : null}
               <span
                 title={firstLine !== '—' ? firstLine : undefined}
                 style={{
@@ -1146,19 +1157,11 @@ export default function PcFundTable({
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   textAlign: 'right',
-                  fontSize: '14px',
+                  fontSize: pctText != null ? '11px' : '14px',
                 }}
               >
                 {firstLine}
               </span>
-              {pctText != null ? (
-                <span
-                  className={pctCls}
-                  style={{ fontSize: '11px', fontWeight: 600, textAlign: 'right' }}
-                >
-                  {pctText}
-                </span>
-              ) : null}
             </div>
           );
         },
