@@ -447,6 +447,7 @@ export const fetchFundDataFallback = async (c) => {
           yesterdayZzl: yM.yesterdayZzl,
           yesterdayNavDelta: yM.yesterdayNavDelta,
           noValuation: true,
+          valuationSource: 'fallback',
           holdings: [],
           holdingsReportDate: null,
           holdingsIsLastQuarter: false
@@ -655,7 +656,8 @@ export const fetchFundData = async (c) => {
           gsz: json.gsz,
           gztime: json.gztime,
           jzrq: json.jzrq,
-          gszzl: Number.isFinite(gszzlNum) ? gszzlNum : json.gszzl
+          gszzl: Number.isFinite(gszzlNum) ? gszzlNum : json.gszzl,
+          valuationSource: 'fundgz'
         };
         const lsjzPromise = new Promise((resolveT) => {
           const url = `https://fundf10.eastmoney.com/F10DataApi.aspx?type=lsjz&code=${code}&page=1&per=3&sdate=&edate=`;
