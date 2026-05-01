@@ -48,7 +48,6 @@ import {
   FolderPlusIcon,
 } from "./components/Icons";
 import AddFundToGroupModal from "./components/AddFundToGroupModal";
-import AddResultModal from "./components/AddResultModal";
 import CloudConfigModal from "./components/CloudConfigModal";
 import ConfirmModal from "./components/ConfirmModal";
 import DonateModal from "./components/DonateModal";
@@ -230,7 +229,6 @@ export default function HomePage() {
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupManageOpen, setGroupManageOpen] = useState(false);
   const [addFundToGroupOpen, setAddFundToGroupOpen] = useState(false);
-
   const [sortSettingOpen, setSortSettingOpen] = useState(false);
 
   // 调用 store 的 initSort，在 mount 时恢复持久化的排序偏好
@@ -317,8 +315,6 @@ export default function HomePage() {
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [addResultOpen, setAddResultOpen] = useState(false);
-  const [addFailures, setAddFailures] = useState([]);
 
   // 分组内基金列表搜索（点击按钮后才应用）
   const [groupFundSearchTerm, setGroupFundSearchTerm] = useState('');
@@ -6543,7 +6539,6 @@ export default function HomePage() {
     () =>
       portfolioEarningsOpen ||
       feedbackOpen ||
-      addResultOpen ||
       addFundToGroupOpen ||
       groupManageOpen ||
       groupModalOpen ||
@@ -6576,7 +6571,6 @@ export default function HomePage() {
     [
       portfolioEarningsOpen,
       feedbackOpen,
-      addResultOpen,
       addFundToGroupOpen,
       groupManageOpen,
       groupModalOpen,
@@ -7767,14 +7761,6 @@ export default function HomePage() {
       <AnimatePresence>
         {weChatOpen && (
             <WeChatModal onClose={() => setWeChatOpen(false)} />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {addResultOpen && (
-          <AddResultModal
-            failures={addFailures}
-            onClose={() => setAddResultOpen(false)}
-          />
         )}
       </AnimatePresence>
 
