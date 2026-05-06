@@ -1360,11 +1360,49 @@ export function computeWeekReturnFromNetWorthTrend(trend) {
 }
 
 /**
+ * 计算基金连涨连跌天数
+ * @param {Array<{x: number, y: any}>} trend - pingzhongdata.Data_netWorthTrend 原始数据
+ * @returns {{ type: 'up' | 'down', days: number } | null}
+ */
+export function calculateConsecutiveTrend(trend) {
+  if (!Array.isArray(trend) || trend.length < 2) return null;
+  const valid = trend
+    .filter((d) => d && typeof d.x === 'number' && Number.isFinite(Number(d.y)))
+    .sort((a, b) => a.x - b.x);
+  if (valid.length < 2) return null;
+
+  let count = 0;
+  let type = null;
+
+  for (let i = valid.length - 1; i > 0; i--) {
+    const curr = Number(valid[i].y);
+    const prev = Number(valid[i - 1].y);
+
+    if (curr > prev) {
+      if (type === 'down') break;
+      type = 'up';
+      count++;
+    } else if (curr < prev) {
+      if (type === 'up') break;
+      type = 'down';
+      count++;
+    } else {
+      break;
+    }
+  }
+
+  if (count >= 3) {
+    return { type, days: count };
+  }
+  return null;
+}
+
+/**
  * 基金阶段涨跌幅（东方财富 pingzhongdata：近一月/三月/六月/一年为接口字段；近一周由净值走势推算）
- * @returns {Promise<{ week: number|null, month: number|null, month3: number|null, month6: number|null, year1: number|null }>}
+ * @returns {Promise<{ week: number|null, month: number|null, month3: number|null, month6: number|null, year1: number|null, consecutiveTrend: { type: 'up'|'down', days: number }|null }>}
  */
 export async function fetchFundPeriodReturns(fundCode, { cacheTime = 60 * 60 * 1000 } = {}) {
-  const empty = { week: null, month: null, month3: null, month6: null, year1: null };
+  const empty = { week: null, month: null, month3: null, month6: null, year1: null, consecutiveTrend: null };
   if (!fundCode) return empty;
   try {
     const pz = await fetchFundPingzhongdata(fundCode, { cacheTime });
@@ -1374,6 +1412,7 @@ export async function fetchFundPeriodReturns(fundCode, { cacheTime = 60 * 60 * 1
       month3: parsePingzhongSylNumber(pz?.syl_3y),
       month6: parsePingzhongSylNumber(pz?.syl_6y),
       year1: parsePingzhongSylNumber(pz?.syl_1n),
+      consecutiveTrend: calculateConsecutiveTrend(pz?.Data_netWorthTrend),
     };
   } catch {
     return empty;
