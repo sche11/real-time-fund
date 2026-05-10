@@ -12,6 +12,7 @@ export default function MineTab({
   onLogin,
   onMyEarnings,
   onTutorial,
+  onUpdateLog,
   onFeedback,
   onSponsorSupport,
 }) {
@@ -86,6 +87,12 @@ export default function MineTab({
         <li>
           <button type="button" className="mine-menu-row glass" onClick={onTutorial}>
             <span className="mine-menu-label">使用帮助</span>
+            <ChevronRight className="mine-menu-chevron" aria-hidden strokeWidth={2} />
+          </button>
+        </li>
+        <li>
+          <button type="button" className="mine-menu-row glass" onClick={onUpdateLog}>
+            <span className="mine-menu-label">更新日志</span>
             <ChevronRight className="mine-menu-chevron" aria-hidden strokeWidth={2} />
           </button>
         </li>

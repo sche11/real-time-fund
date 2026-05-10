@@ -62,6 +62,7 @@ import SuccessModal from "./components/SuccessModal";
 import TradeModal from "./components/TradeModal";
 import TransactionHistoryModal from "./components/TransactionHistoryModal";
 import TutorialDrawer from "./components/TutorialDrawer";
+import UpdateLogModal from "./components/UpdateLogModal";
 import UserMenu from "./components/UserMenu";
 import RefreshButton from "./components/RefreshButton";
 // 低频弹窗：懒加载，减少首屏 JS 解析体积
@@ -442,6 +443,7 @@ export default function HomePage() {
   const [portfolioEarningsOpen, setPortfolioEarningsOpen] = useState(false);
   const [mobileFundDrawerOpen, setMobileFundDrawerOpen] = useState(false);
   const [tutorialDrawerOpen, setTutorialDrawerOpen] = useState(false);
+  const [updateLogOpen, setUpdateLogOpen] = useState(false);
   const [mobileTableSettingModalOpen, setMobileTableSettingModalOpen] = useState(false);
   const [fundTagsEdit, setFundTagsEdit] = useState({
     open: false,
@@ -3481,32 +3483,30 @@ export default function HomePage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 实时同步
-  useEffect(() => {
-    if (!isSupabaseConfigured || !user?.id) return;
-    const deviceId = deviceIdRef.current;
-    if (!deviceId) return; // 确保设备ID已初始化
-
-    const channel = supabase
-      .channel(`user-configs-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_configs', filter: `last_device_id=neq.${deviceId}` }, async (payload) => {
-        if (deviceConflictModalOpenRef.current) return; // 如果有拦截弹窗，忽略实时推送，防止覆盖本地数据
-        if (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE') return;
-        const incoming = payload?.new?.data;
-        if (!isPlainObject(incoming)) return;
-        const incomingDeviceId = incoming?._syncMeta?.deviceId ? String(incoming._syncMeta.deviceId) : '';
-        if (incomingDeviceId && deviceIdRef.current && incomingDeviceId === deviceIdRef.current) return;
-        const incomingComparable = getComparablePayload(incoming);
-        if (!incomingComparable || incomingComparable === lastSyncedRef.current) return;
-        await applyCloudConfig(incoming, payload.new.updated_at);
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
-
-
+  // // 实时同步
+  // useEffect(() => {
+  //   if (!isSupabaseConfigured || !user?.id) return;
+  //   const deviceId = deviceIdRef.current;
+  //   if (!deviceId) return; // 确保设备ID已初始化
+  //
+  //   const channel = supabase
+  //     .channel(`user-configs-${user.id}`)
+  //     .on('postgres_changes', { event: '*', schema: 'public', table: 'user_configs', filter: `last_device_id=neq.${deviceId}` }, async (payload) => {
+  //       if (deviceConflictModalOpenRef.current) return; // 如果有拦截弹窗，忽略实时推送，防止覆盖本地数据
+  //       if (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE') return;
+  //       const incoming = payload?.new?.data;
+  //       if (!isPlainObject(incoming)) return;
+  //       const incomingDeviceId = incoming?._syncMeta?.deviceId ? String(incoming._syncMeta.deviceId) : '';
+  //       if (incomingDeviceId && deviceIdRef.current && incomingDeviceId === deviceIdRef.current) return;
+  //       const incomingComparable = getComparablePayload(incoming);
+  //       if (!incomingComparable || incomingComparable === lastSyncedRef.current) return;
+  //       await applyCloudConfig(incoming, payload.new.updated_at);
+  //     })
+  //     .subscribe();
+  //   return () => {
+  //     supabase.removeChannel(channel);
+  //   };
+  // }, [user?.id]);
 
   // 登出
   const handleLogout = async () => {
@@ -6645,6 +6645,7 @@ export default function HomePage() {
                 window.open('https://jcle26f8aw.feishu.cn/docx/Qis6d6ntFoaTOZxPVlUckVIpn8c', '_blank');
               }
             }}
+            onUpdateLog={() => setUpdateLogOpen(true)}
           />
         </div>
       </div>
@@ -7334,6 +7335,7 @@ export default function HomePage() {
               window.open('https://www.yuque.com/u267605/ookgim/im06q8tembbld6im?singleDoc', '_blank');
             }
           }}
+          onUpdateLog={() => setUpdateLogOpen(true)}
           onFeedback={() => {
             if (!user?.id) {
               sonnerToast.error('请先登录后再提交反馈');
@@ -7378,6 +7380,12 @@ export default function HomePage() {
       <AnimatePresence>
         {tutorialDrawerOpen && (
           <TutorialDrawer open onOpenChange={setTutorialDrawerOpen} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {updateLogOpen && (
+          <UpdateLogModal open onOpenChange={setUpdateLogOpen} />
         )}
       </AnimatePresence>
 

@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import ConfirmModal from './ConfirmModal';
 import { HelpCircle } from 'lucide-react';
-import { CalendarIcon, LoginIcon, LogoutIcon, SettingsIcon, UserIcon } from './Icons';
+import { CalendarIcon, LoginIcon, LogoutIcon, SettingsIcon, UserIcon, ListIcon } from './Icons';
 
 export default function UserMenu({user,
   userAvatar,
@@ -20,7 +20,8 @@ export default function UserMenu({user,
   onOpenLogin,
   onLogout,
   onLogoutConfirmOpenChange,
-  onTutorial}) {
+  onTutorial,
+  onUpdateLog}) {
   const isMobile = useIsMobile();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -135,6 +136,16 @@ export default function UserMenu({user,
                       <HelpCircle width="16" height="16" />
                       <span>使用帮助</span>
                     </button>
+                    <button
+                      className="user-menu-item"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        onUpdateLog?.();
+                      }}
+                    >
+                      <ListIcon width="16" height="16" />
+                      <span>更新日志</span>
+                    </button>
                     </>
                   )}
                   <button
@@ -211,6 +222,16 @@ export default function UserMenu({user,
                     >
                       <HelpCircle width="16" height="16" />
                       <span>使用帮助</span>
+                    </button>
+                    <button
+                      className="user-menu-item"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        onUpdateLog?.();
+                      }}
+                    >
+                      <ListIcon width="16" height="16" />
+                      <span>更新日志</span>
                     </button>
                     </>
                   )}
