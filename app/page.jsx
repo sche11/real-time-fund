@@ -521,6 +521,7 @@ export default function HomePage() {
         } else {
           if (gid) continue;
         }
+        if (tx.isHistoryOnly) continue;
         const s = Number(tx.share);
         if (!Number.isFinite(s) || s <= 0) continue;
         if (tx.type === 'buy') buyToday += s;
@@ -3973,6 +3974,7 @@ export default function HomePage() {
                 const gid = tx.groupId || null;
                 const txInScope = (scope === DAILY_EARNINGS_SCOPE_ALL) ? !gid : (gid === scope);
                 if (!txInScope) continue;
+                if (tx.isHistoryOnly) continue;
                 const s = Number(tx.share) || 0;
                 if (tx.type === 'buy') baseShare -= s;
                 else if (tx.type === 'sell') baseShare += s;
