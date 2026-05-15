@@ -6,10 +6,14 @@ import * as Sentry from "@sentry/nextjs";
 
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
+console.log("[Sentry Debug] SENTRY_DSN:", SENTRY_DSN);
+console.log("[Sentry Debug] Sentry module:", typeof Sentry);
+
 if (SENTRY_DSN) {
+  console.log("[Sentry Debug] Initializing Sentry with DSN...");
   Sentry.init({
     dsn: SENTRY_DSN,
-
+    debug: true, // 启用调试日志
     // Add optional integrations for additional features
     integrations: [Sentry.replayIntegration()],
 
@@ -30,6 +34,9 @@ if (SENTRY_DSN) {
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
     sendDefaultPii: true,
   });
+  console.log("[Sentry Debug] Sentry initialized successfully");
+} else {
+  console.log("[Sentry Debug] No SENTRY_DSN provided, Sentry not initialized");
 }
 
 export const onRouterTransitionStart = SENTRY_DSN ? Sentry.captureRouterTransitionStart : () => {};
