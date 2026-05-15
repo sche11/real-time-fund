@@ -50,7 +50,7 @@ export default function UpdateLogModal({ open, onOpenChange }) {
               <div className="absolute w-3 h-3 bg-[var(--primary)] rounded-full -left-[7px] top-1.5" />
               <div className="mb-2 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
                 <h3 className="text-base font-semibold text-[var(--text)]">{release.name || release.tag_name}</h3>
-                <span className="text-xs text-[var(--muted)]">{dayjs(release.published_at).format('YYYY-MM-DD HH:mm')}</span>
+                <span className="text-xs text-[var(--muted)]">{dayjs(release.published_at).format('YYYY-MM-DD')}</span>
               </div>
               <div 
                 className="text-sm text-[var(--muted-foreground)] whitespace-pre-wrap break-words"
