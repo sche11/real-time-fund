@@ -23,10 +23,15 @@ jobs:
           NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}
           NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL=${{ secrets.NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL }}
           NEXT_PUBLIC_IS_GITHUB_LOGIN=${{ secrets.NEXT_PUBLIC_IS_GITHUB_LOGIN }}
+          NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
           EOF
 
       - name: Build Dockerfile image
-        run: docker build -t real-time-fund .
+        run: |
+          docker build \
+            --build-arg SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} \
+            -t real-time-fund .
 
       - name: Run Dockerfile container
         run: |
@@ -59,11 +64,13 @@ jobs:
           NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}
           NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL=${{ secrets.NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL }}
           NEXT_PUBLIC_IS_GITHUB_LOGIN=${{ secrets.NEXT_PUBLIC_IS_GITHUB_LOGIN }}
+          NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
           EOF
 
       - name: Docker Compose up
         run: |
-          docker compose up -d --build
+          SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }} docker compose up -d --build
           echo "Waiting 10 seconds for services to start..."
           sleep 10
 

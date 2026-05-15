@@ -196,7 +196,7 @@
 
 本项目已配置 GitHub Actions。每次推送到 `main` 分支时，会自动执行构建并部署到 GitHub Pages。
 如需使用 GitHub Actions 部署，请在 GitHub 项目 Settings → Secrets and variables → Actions 中创建对应的 Repository secrets（字段名称与 `.env.local` 保持一致）。
-包括：`NEXT_PUBLIC_Supabase_URL`、`NEXT_PUBLIC_Supabase_ANON_KEY`、`NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY`、`NEXT_PUBLIC_GA_ID`、`NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL`、`NEXT_PUBLIC_IS_GITHUB_LOGIN`。
+包括：`NEXT_PUBLIC_Supabase_URL`、`NEXT_PUBLIC_Supabase_ANON_KEY`、`NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY`、`NEXT_PUBLIC_GA_ID`、`NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL`、`NEXT_PUBLIC_IS_GITHUB_LOGIN`、`NEXT_PUBLIC_SENTRY_DSN`。
 
 若要手动构建：
 ```bash
@@ -256,7 +256,7 @@ docker compose up -d
    docker run -d -p 3000:3000 --name real-time-fund --restart always --env-file .env hzm0321/real-time-fund:latest
    ```
    或单独指定变量：`-e NEXT_PUBLIC_SUPABASE_URL=xxx -e NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx`。  
-   变量名与本地开发一致：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY`、`NEXT_PUBLIC_GA_ID`、`NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL`。
+   变量名与本地开发一致：`NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY`、`NEXT_PUBLIC_GA_ID`、`NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL`、`NEXT_PUBLIC_SENTRY_DSN`。
 
 ## 📖 使用说明
 
