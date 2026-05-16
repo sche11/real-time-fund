@@ -91,9 +91,9 @@ export default function FundCard({
     funds,
   } = useStorageStore();
   const f = useMemo(() => funds?.find((item) => item.code === fundCode), [funds, fundCode]);
-  const holding = holdings[f?.code];
+  const holding = holdings?.[f?.code];
   const profit = getHoldingProfit?.(f, holding) ?? null;
-  const hasHoldings = f.holdingsIsLastQuarter && Array.isArray(f.holdings) && f.holdings.length > 0;
+  const hasHoldings = f?.holdingsIsLastQuarter && Array.isArray(f?.holdings) && f?.holdings.length > 0;
   // “我的收益”(每日收益)只依赖份额；成本价缺失也应可展示
   const hasHoldingShare =
     holding &&
@@ -119,6 +119,8 @@ export default function FundCard({
     if (!hasHoldingShare) return [];
     return dailyEarningsSeries;
   }, [dailyEarningsSeries, hasHoldingShare]);
+
+  if (!f) return null;
 
   const showFavoriteButton = currentTab === 'all' || currentTab === 'fav';
   const relatedSectorRaw = f?.relatedSector != null ? String(f.relatedSector).trim() : '';

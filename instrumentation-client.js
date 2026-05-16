@@ -15,7 +15,10 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     debug: true, // 启用调试日志
     // Add optional integrations for additional features
-    integrations: [Sentry.replayIntegration()],
+    integrations: [
+      Sentry.replayIntegration(),
+      Sentry.browserTracingIntegration({ instrumentNavigation: false })
+    ],
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,

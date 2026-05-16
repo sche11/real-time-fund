@@ -1,38 +1,33 @@
-import { useSyncExternalStore } from 'react';
-
-// 全局订阅函数
-function subscribe(callback) {
-  // 只在浏览器环境下执行
-  if (typeof window === 'undefined') return () => {};
-  
-  const mediaQuery = window.matchMedia('(max-width: 640px)');
-  
-  // 兼容旧版 Safari 的 listener 写法
-  if (mediaQuery.addEventListener) {
-    mediaQuery.addEventListener('change', callback);
-    return () => mediaQuery.removeEventListener('change', callback);
-  } else {
-    // 兼容老版本浏览器
-    mediaQuery.addListener(callback);
-    return () => mediaQuery.removeListener(callback);
-  }
-}
-
-// 获取当前快照
-function getSnapshot() {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia('(max-width: 640px)').matches;
-}
-
-// 服务端渲染时的默认快照
-function getServerSnapshot() {
-  return false;
-}
+import { useState, useEffect } from 'react';
 
 /**
  * 监听是否为移动端 (<= 640px)
- * 基于 useSyncExternalStore，性能极高且全局只维持一个监听器
+ * 采用标准 useState + useEffect 模式，保证 SSR 与客户端首次渲染一致（始终返回 false），
+ * 在 hydration 完成后立刻检测并更新状态，彻底避免 Next.js Hydration failed 报错。
  */
 export function useIsMobile() {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(max-width: 640px)');
+    
+    // 初始化设置
+    setIsMobile(mediaQuery.matches);
+
+    const handler = (event) => {
+      setIsMobile(event.matches);
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else {
+      mediaQuery.addListener(handler);
+      return () => mediaQuery.removeListener(handler);
+    }
+  }, []);
+
+  return isMobile;
 }

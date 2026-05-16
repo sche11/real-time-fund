@@ -115,9 +115,13 @@ function DrawerContent({
   maxHeight = "90vh",
   ...props
 }) {
-  const [heightPx, setHeightPx] = React.useState(() =>
-    typeof window !== "undefined" ? parseVhToPx(defaultHeight) : null
-  );
+  const [heightPx, setHeightPx] = React.useState(null)
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && defaultHeight) {
+      setHeightPx(parseVhToPx(defaultHeight))
+    }
+  }, [defaultHeight]);
   const [isDragging, setIsDragging] = React.useState(false);
   const dragRef = React.useRef({ startY: 0, startHeight: 0 });
 
