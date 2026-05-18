@@ -27,7 +27,7 @@ function InputOTPGroup({
   return (
     <div
       data-slot="input-otp-group"
-      className={cn("flex items-center", className)}
+      className={cn("flex items-center gap-2", className)}
       {...props} />
   );
 }
@@ -48,7 +48,6 @@ function InputOTPSlot({
         "relative flex h-12 w-10 items-center justify-center rounded-md border-2 bg-background text-lg font-semibold shadow-sm transition-all duration-200",
         "border-input/60 dark:border-input/80",
         "text-foreground dark:text-foreground",
-        "first:rounded-l-md last:rounded-r-md",
         "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
         "data-[active=true]:border-primary data-[active=true]:ring-2 data-[active=true]:ring-primary/30 dark:data-[active=true]:ring-primary/40",
         "aria-invalid:border-destructive aria-invalid:text-destructive",
