@@ -91,7 +91,7 @@ import {
   aggregatePortfolioDailyEarnings,
 } from './lib/dailyEarnings';
 import { loadHolidaysForYears, isTradingDay as isDateTradingDay } from './lib/tradingCalendar';
-import { asyncPool } from './lib/asyncHelper';
+import { asyncPool, withRetry } from './lib/asyncHelper';
 import { parseFundTextWithLLM, fetchFundData, fetchNetValueRangeFromTrend, fetchShanghaiIndexDate, fetchSmartFundNetValue, fetchSmartFundNetValueBackward, searchFunds, fetchFundPeriodReturns } from './api/fund';
 import PcFundTable from './components/PcFundTable';
 import MobileFundTable from './components/MobileFundTable';
@@ -1261,7 +1261,7 @@ export default function HomePage() {
     () => {
       let filtered = [...scopedFunds];
 
-      const q = (shouldShowGroupFundSearch ? (deferredGroupFundSearchTerm || '') : '').trim();
+      const q = String(shouldShowGroupFundSearch ? (deferredGroupFundSearchTerm ?? '') : '').trim();
       if (q) {
         const qLower = q.toLowerCase();
         filtered = filtered.filter((f) => {
@@ -1764,7 +1764,7 @@ export default function HomePage() {
   }, [currentTab]);
 
   // 鼠标拖拽滚动逻辑
-  const [isDragging, setIsDragging] = useState(false);
+  const dragStateRef = useRef({ isDragging: false, startX: 0, startY: 0, hasDragged: false });
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
 
@@ -2241,15 +2241,20 @@ export default function HomePage() {
 
   const handleMouseDown = (e) => {
     if (!tabsRef.current) return;
-    setIsDragging(true);
+    dragStateRef.current = { isDragging: true, startX: e.clientX, startY: e.clientY, hasDragged: false };
   };
 
   const handleMouseLeaveOrUp = () => {
-    setIsDragging(false);
+    dragStateRef.current.isDragging = false;
   };
 
   const handleMouseMove = (e) => {
-    if (!isDragging || !tabsRef.current) return;
+    const ds = dragStateRef.current;
+    if (!ds.isDragging || !tabsRef.current) return;
+    const dx = e.clientX - ds.startX;
+    const dy = e.clientY - ds.startY;
+    if (!ds.hasDragged && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+    ds.hasDragged = true;
     e.preventDefault();
     tabsRef.current.scrollLeft -= e.movementX;
   };
@@ -2258,6 +2263,11 @@ export default function HomePage() {
     if (!tabsRef.current) return;
     const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     tabsRef.current.scrollLeft += delta;
+  };
+
+  const handleTabClick = (tabId) => {
+    if (dragStateRef.current.hasDragged) return;
+    startTransition(() => setCurrentTab(tabId));
   };
 
   const updateTabOverflow = () => {
@@ -2708,7 +2718,7 @@ export default function HomePage() {
       }
       const newPending = [];
 
-      const years = new Set([today.year()]);
+      const years = new Set([today.year(), today.year() + 1]);
       Object.values(scoped).forEach((bucket) => {
         if (!isPlainObject(bucket)) return;
         Object.values(bucket).forEach((plan) => {
@@ -2757,8 +2767,19 @@ export default function HomePage() {
           while (true) {
             if (current.isAfter(today, 'day')) break;
 
-            if (!current.isBefore(first, 'day') && isDateTradingDay(current)) {
-              const dateStr = current.format('YYYY-MM-DD');
+            if (!current.isBefore(first, 'day')) {
+              // 非交易日顺延至下一个交易日
+              let tradeDate = current.clone();
+              let maxAttempts = 30;
+              while (!isDateTradingDay(tradeDate) && maxAttempts-- > 0) {
+                tradeDate = tradeDate.add(1, 'day');
+              }
+              if (!isDateTradingDay(tradeDate) || tradeDate.isAfter(today, 'day')) {
+                current = stepOnce();
+                continue;
+              }
+
+              const dateStr = tradeDate.format('YYYY-MM-DD');
 
               const pending = {
                 id: `dca_${scopeKey}_${code}_${dateStr}`,
@@ -2777,7 +2798,7 @@ export default function HomePage() {
                 ...(tradeGid ? { groupId: tradeGid } : {}),
               };
               newPending.push(pending);
-              lastGenerated = current;
+              lastGenerated = tradeDate;
             }
             current = stepOnce();
           }
@@ -3584,7 +3605,7 @@ export default function HomePage() {
   }, [refreshMs]);
 
   const performSearch = async (val) => {
-    if (!val.trim()) {
+    if (!String(val ?? '').trim()) {
       setSearchResults([]);
       return;
     }
@@ -5723,18 +5744,18 @@ export default function HomePage() {
     if (!userId) return;
     try {
       // 一次查询同时拿到 meta 与 data，方便两种模式复用
-      const { data: meta, error: metaError } = await supabase
+      const { data: meta, error: metaError } = await withRetry(() => supabase
         .from('user_configs')
         .select('id, data, updated_at')
         .eq('user_id', userId)
-        .maybeSingle();
+        .maybeSingle());
 
       if (metaError) throw metaError;
 
       if (!meta?.id) {
-        const { error: insertError } = await supabase
+        const { error: insertError } = await withRetry(() => supabase
           .from('user_configs')
-          .insert({ user_id: userId });
+          .insert({ user_id: userId }));
         if (insertError) throw insertError;
         setCloudConfigModal({ open: true, userId, type: 'empty' });
         return;
@@ -5797,11 +5818,11 @@ export default function HomePage() {
 
       if (isPartial) {
         // 增量更新：使用 RPC 调用
-        const { error: rpcError } = await supabase.rpc('update_user_config_partial', {
+        const { error: rpcError } = await withRetry(() => supabase.rpc('update_user_config_partial', {
           payload: dataToSync,
           p_last_device_id: deviceId,
           p_force_takeover: forceTakeover
-        });
+        }));
 
         if (rpcError) {
           if (rpcError.message?.includes('DEVICE_CONFLICT')) {
@@ -5819,11 +5840,11 @@ export default function HomePage() {
           console.error('增量同步失败，尝试全量同步', rpcError);
           // RPC 失败回退到全量更新
           const fullPayload = collectLocalPayload();
-          const { error: fullError } = await supabase.rpc('update_user_config_full', {
+          const { error: fullError } = await withRetry(() => supabase.rpc('update_user_config_full', {
             payload: fullPayload,
             p_last_device_id: deviceId,
             p_force_takeover: forceTakeover
-          });
+          }));
           if (fullError) {
             if (fullError.message?.includes('DEVICE_CONFLICT')) {
               setIsSyncing(false);
@@ -5842,11 +5863,11 @@ export default function HomePage() {
         }
       } else {
         // 全量更新
-        const { error } = await supabase.rpc('update_user_config_full', {
+        const { error } = await withRetry(() => supabase.rpc('update_user_config_full', {
           payload: dataToSync,
           p_last_device_id: deviceId,
           p_force_takeover: forceTakeover
-        });
+        }));
         if (error) {
           if (error.message?.includes('DEVICE_CONFLICT')) {
             setIsSyncing(false);
@@ -6664,7 +6685,7 @@ export default function HomePage() {
             </form>
 
             <AnimatePresence>
-              {showDropdown && (searchTerm.trim() || searchResults.length > 0) && (
+              {showDropdown && (String(searchTerm ?? '').trim() || searchResults.length > 0) && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -6695,7 +6716,7 @@ export default function HomePage() {
                         );
                       })}
                     </div>
-                  ) : searchTerm.trim() && !isSearching ? (
+                  ) : String(searchTerm ?? '').trim() && !isSearching ? (
                     <div className="no-results muted">未找到相关基金</div>
                   ) : null}
                 </motion.div>
@@ -6797,7 +6818,7 @@ export default function HomePage() {
                         exit={{ opacity: 0, scale: 0.8 }}
                         key="portfolio-summary"
                         className={`tab ${currentTab === SUMMARY_TAB_ID ? 'active' : ''}`}
-                        onClick={() => startTransition(() => setCurrentTab(SUMMARY_TAB_ID))}
+                        onClick={() => handleTabClick(SUMMARY_TAB_ID)}
                         transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                       >
                         汇总
@@ -6810,7 +6831,7 @@ export default function HomePage() {
                       exit={{ opacity: 0, scale: 0.8 }}
                       key="all"
                       className={`tab ${currentTab === 'all' ? 'active' : ''}`}
-                      onClick={() => startTransition(() => setCurrentTab('all'))}
+                      onClick={() => handleTabClick('all')}
                       transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                     >
                       全部 ({funds.length})
@@ -6822,7 +6843,7 @@ export default function HomePage() {
                       exit={{ opacity: 0, scale: 0.8 }}
                       key="fav"
                       className={`tab ${currentTab === 'fav' ? 'active' : ''}`}
-                      onClick={() => startTransition(() => setCurrentTab('fav'))}
+                      onClick={() => handleTabClick('fav')}
                       transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                     >
                       自选 ({favorites.size})
@@ -6835,7 +6856,7 @@ export default function HomePage() {
                         exit={{ opacity: 0, scale: 0.8 }}
                         key={g.id}
                         className={`tab ${currentTab === g.id ? 'active' : ''}`}
-                        onClick={() => startTransition(() => setCurrentTab(g.id))}
+                        onClick={() => handleTabClick(g.id)}
                         transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                       >
                         {g.name} ({g.codes.length})
@@ -7992,6 +8013,7 @@ export default function HomePage() {
             existingAllCodes={funds.map((f) => f?.code).filter(Boolean)}
             existingFavCodes={Array.from(favorites || [])}
             isOcrScan={isOcrScan}
+            currentGroup={currentTab === 'summary' ? 'all' : currentTab}
           />
         )}
       </AnimatePresence>

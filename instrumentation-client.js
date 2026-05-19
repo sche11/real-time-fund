@@ -20,6 +20,45 @@ if (SENTRY_DSN) {
       Sentry.browserTracingIntegration({ instrumentNavigation: false })
     ],
 
+    ignoreErrors: [
+      // Generic error thrown by browsers when a network request is blocked (e.g. by an ad blocker)
+      "Failed to fetch",
+      "NetworkError when attempting to fetch resource.",
+      "TypeError: Failed to fetch",
+      "TypeError: NetworkError when attempting to fetch resource.",
+    ],
+
+    denyUrls: [
+      // Google Analytics
+      /google-analytics\.com/i,
+      /www\.google-analytics\.com/i,
+      /googletagmanager\.com/i,
+    ],
+
+    beforeSend(event, hint) {
+      const error = hint.originalException;
+      const errorMessage = error?.message || "";
+      const isFetchError = errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError");
+      
+      if (isFetchError) {
+        // 检查是否与 Google Analytics 相关
+        const isGA = event.request?.url?.includes("google-analytics.com") || 
+                     event.request?.url?.includes("googletagmanager.com");
+        
+        // 检查面包屑中是否有 GA 相关的失败 fetch
+        const hasGAInBreadcrumbs = event.breadcrumbs?.some(b => 
+          b.category === "fetch" && 
+          (b.data?.url?.includes("google-analytics.com") || b.data?.url?.includes("googletagmanager.com")) &&
+          b.data?.status_code === 0 // 0 通常表示网络错误或被拦截
+        );
+
+        if (isGA || hasGAInBreadcrumbs) {
+          return null;
+        }
+      }
+      return event;
+    },
+
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,
     // Enable logs to be sent to Sentry

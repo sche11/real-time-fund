@@ -10,6 +10,11 @@ if (SENTRY_DSN) {
   Sentry.init({
     dsn: SENTRY_DSN,
 
+    ignoreErrors: [
+      "Failed to fetch",
+      "NetworkError when attempting to fetch resource.",
+    ],
+
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,
 

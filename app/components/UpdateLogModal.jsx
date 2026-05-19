@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer';
 import { CloseIcon } from './Icons';
 import dayjs from 'dayjs';
+import { withRetry } from '@/app/lib/asyncHelper';
 
 export default function UpdateLogModal({ open, onOpenChange }) {
   const isMobile = useIsMobile();
@@ -15,26 +16,28 @@ export default function UpdateLogModal({ open, onOpenChange }) {
 
   useEffect(() => {
     if (open) {
-      setLoading(true);
-      setError(null);
-      fetch('https://api.github.com/repos/hzm0321/real-time-fund/releases')
-        .then((res) => {
-          if (!res.ok) throw new Error('Failed to fetch releases');
-          return res.json();
-        })
-        .then((data) => {
+      const fetchReleases = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const data = await withRetry(async () => {
+            const res = await fetch('https://api.github.com/repos/hzm0321/real-time-fund/releases');
+            if (!res.ok) throw new Error('Failed to fetch releases');
+            return res.json();
+          }, 2, 500);
           setReleases(data);
-          setLoading(false);
-        })
-        .catch((err) => {
+        } catch (err) {
           setError(err.message);
+        } finally {
           setLoading(false);
-        });
+        }
+      };
+      fetchReleases();
     }
   }, [open]);
 
   const content = (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <div className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-y-styled" style={{ WebkitOverflowScrolling: 'touch' }}>
       {loading ? (
         <div className="flex justify-center items-center py-8">
           <span className="loading-spinner" style={{ width: 24, height: 24, border: '2px solid var(--muted)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />

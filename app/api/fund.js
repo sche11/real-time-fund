@@ -3,6 +3,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { isString } from 'lodash';
 import { storageStore } from '../stores';
+import { withRetry } from '../lib/asyncHelper';
 import { getQueryClient } from '../lib/get-query-client';
 import * as qk from '../lib/query-keys';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
@@ -121,10 +122,10 @@ export const fetchRelatedSectorsBatch = async (codes, { cacheTime = ONE_DAY_MS, 
 
   // 2. 批量从 Supabase 查询
   try {
-    const { data, error } = await supabase
+    const { data, error } = await withRetry(() => supabase
       .from('fund_related')
       .select('fund_code, related_sector')
-      .in('fund_code', missingCodes);
+      .in('fund_code', missingCodes));
 
     if (error) throw error;
 
@@ -210,10 +211,10 @@ export const fetchFundSecidsBatch = async (labels, { cacheTime = ONE_DAY_MS } = 
   if (missingLabels.length === 0) return results;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await withRetry(() => supabase
       .from('fund_secid')
       .select('related_sector, secid')
-      .in('related_sector', missingLabels);
+      .in('related_sector', missingLabels));
 
     if (error) throw error;
 
@@ -273,6 +274,85 @@ export const fetchEastmoneySectorQuote = async (secid, { cacheTime = SECTOR_QUOT
   } catch (e) {
     return null;
   }
+};
+
+/**
+ * 批量获取东方财富板块/指数行情（单次请求）
+ * @param {string[]} secids
+ * @returns {Promise<Record<string, { name: string, code: string, pct: number|null }|null>>}
+ */
+export const fetchEastmoneySectorQuotesBatch = async (secids, { cacheTime = SECTOR_QUOTE_CACHE_MS } = {}) => {
+  if (!Array.isArray(secids) || secids.length === 0) return {};
+  if (typeof fetch === 'undefined') return {};
+
+  const qc = getQueryClient();
+  const results = {};
+  const missingSecids = [];
+
+  for (const secid of secids) {
+    const s = secid != null ? String(secid).trim() : '';
+    if (!s) continue;
+    const cached = qc.getQueryData(qk.eastSectorQuote(s));
+    if (cached !== undefined) {
+      results[s] = cached;
+    } else {
+      missingSecids.push(s);
+    }
+  }
+
+  if (missingSecids.length === 0) return results;
+
+  const chunkSize = 20;
+  const chunks = [];
+  for (let i = 0; i < missingSecids.length; i += chunkSize) {
+    chunks.push(missingSecids.slice(i, i + chunkSize));
+  }
+
+  try {
+    await Promise.all(chunks.map(async (chunk) => {
+      try {
+        const url = `https://push2delay.eastmoney.com/api/qt/ulist.np/get?fields=f12,f13,f14,f3&secids=${encodeURIComponent(chunk.join(','))}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const json = await res.json();
+        const diff = json?.data?.diff;
+        if (!Array.isArray(diff)) return;
+
+        for (const item of diff) {
+          const code = item.f12 != null ? String(item.f12) : '';
+          const market = item.f13 != null ? String(item.f13) : '';
+          const key = market && code ? `${market}.${code}` : '';
+          if (!key) continue;
+
+          const f3 = item.f3;
+          const pct = f3 != null && Number.isFinite(Number(f3)) ? Number(f3) / 100 : null;
+          const quote = {
+            name: item.f14 != null ? String(item.f14) : '',
+            code,
+            pct,
+          };
+
+          results[key] = quote;
+          qc.setQueryData(qk.eastSectorQuote(key), quote, { staleTime: cacheTime });
+        }
+      } catch (e) {
+        console.error('Fetch sector quotes batch chunk error:', e);
+      }
+    }));
+
+    for (const s of missingSecids) {
+      if (results[s] === undefined) {
+        results[s] = null;
+        qc.setQueryData(qk.eastSectorQuote(s), null, { staleTime: cacheTime });
+      }
+    }
+  } catch (e) {
+    for (const s of missingSecids) {
+      if (results[s] === undefined) results[s] = null;
+    }
+  }
+
+  return results;
 };
 
 /**
@@ -889,11 +969,11 @@ export const fetchQdiiValuationFromSupabase = async (code) => {
   if (!normalized) return null;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await withRetry(() => supabase
       .from('gs_qdii')
       .select('gztime, gszzl, gzstatus')
       .eq('fund_code', normalized)
-      .maybeSingle();
+      .maybeSingle());
 
     if (error || !data) return null;
 
@@ -1595,13 +1675,20 @@ export const fetchLatestRelease = async () => {
   const url = process.env.NEXT_PUBLIC_GITHUB_LATEST_RELEASE_URL;
   if (!url) return null;
 
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const data = await res.json();
-  return {
-    tagName: data.tag_name,
-    body: data.body || ''
-  };
+  try {
+    const data = await withRetry(async () => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      return res.json();
+    }, 2, 500);
+    return {
+      tagName: data.tag_name,
+      body: data.body || ''
+    };
+  } catch (err) {
+    console.error('fetchLatestRelease failed after retries:', err);
+    return null;
+  }
 };
 
 export const submitFeedback = async (formData) => {
@@ -1927,9 +2014,9 @@ export const parseFundTextWithLLM = async (text) => {
   if (!supabase?.functions?.invoke) return null;
 
   try {
-    const { data, error } = await supabase.functions.invoke('analyze-fund', {
+    const { data, error } = await withRetry(() => supabase.functions.invoke('analyze-fund', {
       body: { text }
-    });
+    }));
 
     if (error) return null;
     if (!data || data.success !== true) return null;
