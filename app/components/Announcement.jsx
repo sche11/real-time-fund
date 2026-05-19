@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { storageStore } from '../stores';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v1.5.0';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v1.5.1';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -78,11 +78,8 @@ export default function Announcement() {
               <span>公告</span>
             </div>
             <div style={{ color: 'var(--text)', lineHeight: '1.6', fontSize: '15px', overflowY: 'auto', minHeight: 0, flex: 1, paddingRight: '4px' }}>
-              <p>v1.5.0 更新内容如下：</p>
-              <p>1. 新增白屏监控，程序报错自动上报。</p>
-              <p>2. 修复持仓份额存储精度问题。</p>
-              <p>3. 修复折线图快速点击引起的报错。</p>
-              <p>4. 重新调整我的收益计算方式。</p>
+              <p>v1.5.1 更新内容如下：</p>
+              <p>1. 新增全球 qdii 估值数据(需登录)。</p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>

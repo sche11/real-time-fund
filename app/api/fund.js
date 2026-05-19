@@ -881,6 +881,35 @@ function fetchSinaEstimateNetworthResponse(code) {
  */
 
 /**
+ * 从 Supabase gs_qdii 表获取 QDII 基金的估值数据（作为天天基金数据源 1 的 fallback）
+ */
+export const fetchQdiiValuationFromSupabase = async (code) => {
+  if (!code || !isSupabaseConfigured) return null;
+  const normalized = String(code).trim();
+  if (!normalized) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('gs_qdii')
+      .select('gztime, gszzl, gzstatus')
+      .eq('fund_code', normalized)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    // gszzl 在表中是 real，通常为百分比数值（如 1.23 表示 1.23%）
+    return {
+      gztime: data.gztime != null ? String(data.gztime).replace(/:(\d{2}):\d{2}$/, ':$1') : null,
+      gszzl: data.gszzl != null && Number.isFinite(Number(data.gszzl)) ? Number(data.gszzl) : null,
+      valuationSource: 'supabase_qdii',
+      gzstatus: data.gzstatus
+    };
+  } catch (e) {
+    return null;
+  }
+};
+
+/**
  * 按基金编码与数据源类型获取估值（天天基金 fundgz 或新浪估算曲线末点）。
  * @param {string} code - 基金编码
  * @param {number | string} [dataSource=1] - 1 天天基金；2、3 新浪估算不同口径
@@ -953,6 +982,20 @@ export async function fetchFundValuationBySource(code, dataSource = 1) {
     const safeResolve = settleOnce(resolve);
     const safeReject = settleOnce(reject);
 
+    const trySupabaseFallback = async (originalError) => {
+      fundDebugLog('fetchFundValuationBySource try supabase fallback', { code: c });
+      const qdii = await fetchQdiiValuationFromSupabase(c);
+      if (qdii) {
+        safeResolve({
+          code: c,
+          ...qdii,
+          gsz: null, // 由 fetchFundData 等调用方配合 dwjz 计算
+        });
+      } else {
+        safeReject(originalError || new Error('gz failed and no qdii fallback'));
+      }
+    };
+
     const scriptGz = document.createElement('script');
     scriptGz.src = gzUrl;
     scriptGz.async = true;
@@ -972,7 +1015,7 @@ export async function fetchFundValuationBySource(code, dataSource = 1) {
     const onTimeout = () => {
       fundDebugLog('fetchFundValuationBySource gz timeout', { code: c, timeoutMs: 10000 });
       cleanupScript();
-      safeReject(new Error('gz timeout'));
+      trySupabaseFallback(new Error('gz timeout'));
     };
 
     const timer = setTimeout(onTimeout, 10000);
@@ -985,7 +1028,7 @@ export async function fetchFundValuationBySource(code, dataSource = 1) {
         cleanupScript();
 
         if (!json || typeof json !== 'object') {
-          safeReject(new Error('invalid json'));
+          trySupabaseFallback(new Error('invalid json'));
           return;
         }
 
@@ -1001,14 +1044,14 @@ export async function fetchFundValuationBySource(code, dataSource = 1) {
       },
       onError: (e) => {
         cleanupScript();
-        safeReject(e || new Error('gz error callback'));
+        trySupabaseFallback(e || new Error('gz error callback'));
       },
     });
 
     scriptGz.onerror = () => {
       fundDebugLog('fetchFundValuationBySource gz script error', { code: c, url: gzUrl });
       cleanupScript();
-      safeReject(new Error('gz script error'));
+      trySupabaseFallback(new Error('gz script error'));
     };
 
     document.body.appendChild(scriptGz);
@@ -1287,6 +1330,15 @@ export const fetchFundData = async (c) => {
       }
     }
 
+    // 针对 supabase_qdii 等仅提供 gszzl 的数据源，使用最新的 dwjz 计算 gsz
+    if (baseData.valuationSource === 'supabase_qdii' || (baseData.gsz == null && baseData.gszzl != null)) {
+      const nav = Number(baseData.dwjz);
+      const gszzl = Number(baseData.gszzl);
+      if (Number.isFinite(nav) && Number.isFinite(gszzl)) {
+        baseData.gsz = nav * (1 + gszzl / 100);
+      }
+    }
+
     if (!baseData.name) {
       try {
         const results = await searchFunds(code);
@@ -1303,6 +1355,7 @@ export const fetchFundData = async (c) => {
     });
   });
 };
+
 
 export const searchFunds = async (val) => {
   const normalized = String(val || '').trim();

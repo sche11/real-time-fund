@@ -47,9 +47,12 @@ const formatDisplayDate = (value) => {
   const d = toTz(value);
   if (!d.isValid()) return value;
 
-  const hasTime = /[T\s]\d{2}:\d{2}/.test(String(value));
+  // 如果是数字（时间戳）或者字符串中包含显式的时间模式，则展示时分
+  const isTimestamp = typeof value === 'number' || (typeof value === 'string' && /^\d{10,13}$/.test(value));
+  const hasTimePattern = /[T\s]\d{1,2}:\d{2}/.test(String(value));
+  const showTime = isTimestamp || hasTimePattern;
 
-  return hasTime ? d.format('MM-DD HH:mm') : d.format('MM-DD');
+  return showTime ? d.format('MM-DD HH:mm') : d.format('MM-DD');
 };
 
 export default function FundCard({
@@ -277,7 +280,14 @@ export default function FundCard({
       </div>
 
       <div className="row" style={{ marginBottom: 12 }}>
-        <Stat label="单位净值" value={f.dwjz ?? '—'} />
+        <Stat
+          label="单位净值"
+          value={
+            f.dwjz != null && !isNaN(Number(f.dwjz))
+              ? Number(f.dwjz).toFixed(4)
+              : (f.dwjz ?? '—')
+          }
+        />
         {f.noValuation ? (
           <Stat
             label="涨跌幅"
@@ -325,7 +335,9 @@ export default function FundCard({
             <Stat
               label="估值净值"
               value={
-                f.gsz ?? '—'
+                f.gsz != null && !isNaN(Number(f.gsz))
+                  ? Number(f.gsz).toFixed(4)
+                  : (f.gsz ?? '—')
               }
             />
             <Stat
