@@ -1681,6 +1681,9 @@ export const fetchLatestRelease = async () => {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       return res.json();
     }, 2, 500);
+
+    if (!data || !data.tag_name) return null;
+
     return {
       tagName: data.tag_name,
       body: data.body || ''

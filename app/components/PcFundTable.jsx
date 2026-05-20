@@ -65,13 +65,14 @@ const NON_FROZEN_COLUMN_IDS = [
   'period6m',
   'period1y',
   'holdingAmount',
+  'holdingRatio',
   'holdingCost',
   'costNav',
   'estimateNav',
 ];
 
 /** 已保存列显示偏好时，新增列默认隐藏；未保存时随「全展示」 */
-const PC_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav', 'sinceAddedChangePercent']);
+const PC_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav', 'sinceAddedChangePercent', 'holdingRatio']);
 
 /** 非冻结列中右对齐的（标签列左对齐） */
 const isPcDataColumnRightAligned = (id) =>
@@ -91,6 +92,7 @@ const COLUMN_HEADERS = {
   sinceAddedChangePercent: '自添加来',
   totalChangePercent: '估算收益',
   holdingAmount: '持仓金额',
+  holdingRatio: '持仓占比',
   holdingCost: '持仓成本',
   costNav: '成本净值',
   holdingDays: '持有天数',
@@ -638,19 +640,23 @@ export default function PcFundTable({
     if (typeof window === 'undefined') return;
     const getEffectiveStickyTop = () => {
       const stickySummaryCard = document.querySelector('.group-summary-sticky .group-summary-card');
-      if (!stickySummaryCard) return stickyTop;
+      const marketIndexEl = document.querySelector('.market-index-accordion-root');
+      const currentMarketIndexHeight = marketIndexEl ? marketIndexEl.offsetHeight : 0;
+      const baseStickyTop = stickyTop + currentMarketIndexHeight;
+
+      if (!stickySummaryCard) return baseStickyTop;
 
       const stickySummaryWrapper = stickySummaryCard.closest('.group-summary-sticky');
-      if (!stickySummaryWrapper) return stickyTop;
+      if (!stickySummaryWrapper) return baseStickyTop;
 
       const wrapperRect = stickySummaryWrapper.getBoundingClientRect();
-      const isSummaryStuck = wrapperRect.top <= stickyTop + 1;
+      const isSummaryStuck = wrapperRect.top <= baseStickyTop + 1;
 
-      return isSummaryStuck ? stickyTop + stickySummaryWrapper.offsetHeight : stickyTop;
+      return isSummaryStuck ? baseStickyTop + stickySummaryWrapper.offsetHeight : baseStickyTop;
     };
 
     const updateVerticalState = () => {
-      const nextStickyTop = getEffectiveStickyTop();
+      const nextStickyTop = getEffectiveStickyTop() - 2;
       setEffectiveStickyTop((prev) => (prev === nextStickyTop ? prev : nextStickyTop));
 
       const tableEl = tableContainerRef.current;
@@ -673,7 +679,7 @@ export default function PcFundTable({
       setPortalHorizontal((prev) => {
         const next = {
           left: rect.left,
-          right: typeof window !== 'undefined' ? Math.max(0, window.innerWidth - rect.right) : 0,
+          right: rect.left,
         };
         if (prev.left === next.left && prev.right === next.right) return prev;
         return next;
@@ -1600,6 +1606,29 @@ export default function PcFundTable({
         },
       },
       {
+        accessorKey: 'holdingRatio',
+        header: '持仓占比',
+        size: 100,
+        minSize: 80,
+        cell: (info) => {
+          const original = info.row.original || {};
+          const value = original.holdingRatioValue;
+          if (value == null) {
+            return <div className="muted" style={{ textAlign: 'right', fontSize: '12px' }}>—</div>;
+          }
+          const text = `${(value * 100).toFixed(2)}%`;
+          return (
+            <FitText style={{ fontWeight: 700, textAlign: 'right' }} maxFontSize={14} minFontSize={10}>
+              {masked ? <span className="mask-text">******</span> : text}
+            </FitText>
+          );
+        },
+        meta: {
+          align: 'right',
+          cellClassName: 'holding-ratio-cell',
+        },
+      },
+      {
         accessorKey: 'holdingCost',
         header: '持仓成本',
         size: 135,
@@ -1961,11 +1990,13 @@ export default function PcFundTable({
       estimateChangePercent: 'yield',
       totalChangePercent: 'estimateProfit',
       holdingAmount: 'holdingAmount',
+      holdingRatio: 'holdingRatio',
       todayProfit: 'todayProfit',
       yesterdayProfit: 'yesterdayProfit',
       holdingProfit: 'holding',
       holdingDays: 'holdingDays',
       holdingCost: 'holdingCost',
+      sinceAddedChangePercent: 'sinceAddedChangePercent',
       period1w: 'last1Week',
       period1m: 'last1Month',
       period3m: 'last3Months',

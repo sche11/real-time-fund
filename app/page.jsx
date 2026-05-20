@@ -379,8 +379,6 @@ export default function HomePage() {
     filterBarRef,
     navbarHeight,
     filterBarHeight,
-    marketIndexAccordionHeight,
-    setMarketIndexAccordionHeight,
   } = useNavHeights({ groups, currentTab });
 
   const handleMobileSearchClick = (e) => {
@@ -414,17 +412,6 @@ export default function HomePage() {
   const [percentModes, setPercentModes] = useState({}); // { [code]: boolean }
   const [todayPercentModes, setTodayPercentModes] = useState({}); // { [code]: boolean }
 
-  const holdingsRef = useRef(null);
-  const groupHoldingsRef = useRef(null);
-  const pendingTradesRef = useRef(null);
-  const transactionsRef = useRef(null);
-
-  useEffect(() => {
-    holdingsRef.current = holdings;
-    groupHoldingsRef.current = groupHoldings;
-    pendingTradesRef.current = pendingTrades;
-    transactionsRef.current = transactions;
-  }, [holdings, groupHoldings, pendingTrades, transactions]);
 
   const tabsRef = useRef(null);
   const [fundDeleteConfirm, setFundDeleteConfirm] = useState(null); // { code, name }
@@ -474,10 +461,7 @@ export default function HomePage() {
   const shouldShowMarketIndex = isMobile ? showMarketIndexMobile : showMarketIndexPc;
   const shouldShowGroupFundSearch = isMobile ? showGroupFundSearchMobile : showGroupFundSearchPc;
 
-  // 当关闭大盘指数时，重置它的高度，避免 top/stickyTop 仍沿用旧值
-  useEffect(() => {
-    if (!shouldShowMarketIndex) setMarketIndexAccordionHeight(0);
-  }, [shouldShowMarketIndex, setMarketIndexAccordionHeight]);
+
 
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -1284,7 +1268,7 @@ export default function HomePage() {
       }
 
       const profitByCode =
-        sortBy === 'holdingAmount' || sortBy === 'todayProfit' || sortBy === 'holding'
+        sortBy === 'holdingAmount' || sortBy === 'holdingRatio' || sortBy === 'todayProfit' || sortBy === 'holding'
           ? new Map(filtered.map((f) => [f.code, getHoldingProfitForTab(f, holdingsForTabWithLinked[f.code])]))
           : null;
 
@@ -1318,6 +1302,19 @@ export default function HomePage() {
           const pb = profitByCode?.get(b.code);
           const amountA = pa?.amount ?? Number.NEGATIVE_INFINITY;
           const amountB = pb?.amount ?? Number.NEGATIVE_INFINITY;
+          return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
+        }
+        if (sortBy === 'holdingRatio') {
+          const pa = profitByCode?.get(a.code);
+          const pb = profitByCode?.get(b.code);
+          const amountA = pa?.amount;
+          const amountB = pb?.amount;
+          const hasA = amountA != null && Number.isFinite(amountA) && amountA > 0;
+          const hasB = amountB != null && Number.isFinite(amountB) && amountB > 0;
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          // holdingRatio sort is equivalent to holdingAmount sort (same denominator within group)
           return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
         }
         if (sortBy === 'yesterdayIncrease') {
@@ -1435,6 +1432,31 @@ export default function HomePage() {
           if (!hasB) return -1;
           return sortOrder === 'asc' ? valA - valB : valB - valA;
         }
+        if (sortBy === 'sinceAddedChangePercent') {
+          const getSinceAddedChangeValue = (f) => {
+            const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
+            const addBaseNav = addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
+            const sinceAddedCurrentNav = (() => {
+              if (f.noValuation) {
+                const v = Number(f.dwjz);
+                return Number.isFinite(v) && v > 0 ? v : null;
+              }
+              const v = Number(f.gsz);
+              return Number.isFinite(v) && v > 0 ? v : null;
+            })();
+            return addBaseNav != null && sinceAddedCurrentNav != null
+              ? ((sinceAddedCurrentNav / addBaseNav) - 1) * 100
+              : null;
+          };
+          const valA = getSinceAddedChangeValue(a);
+          const valB = getSinceAddedChangeValue(b);
+          const hasA = valA != null && Number.isFinite(valA);
+          const hasB = valB != null && Number.isFinite(valB);
+          if (!hasA && !hasB) return 0;
+          if (!hasA) return 1;
+          if (!hasB) return -1;
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
         if (['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy)) {
           const keyMap = { last1Week: 'week', last1Month: 'month', last3Months: 'month3', last6Months: 'month6', last1Year: 'year1' };
           const key = keyMap[sortBy];
@@ -1500,8 +1522,15 @@ export default function HomePage() {
 
   // PC 端表格数据（用于 PcFundTable）
   const pcFundTableData = useMemo(
-    () =>
-      displayFunds.map((f) => {
+    () => {
+      // 计算分组内所有基金持仓金额之和，用于持仓占比
+      let groupTotalHoldingAmount = 0;
+      for (const ff of displayFunds) {
+        const h = holdingsForTabWithLinked[ff.code];
+        const p = getHoldingProfitForTab(ff, h);
+        if (p && p.amount != null && Number.isFinite(p.amount) && p.amount > 0) groupTotalHoldingAmount += p.amount;
+      }
+      return displayFunds.map((f) => {
         const hasTodayData = f.jzrq === todayStr;
         const latestNav = f.dwjz != null && f.dwjz !== '' ? (typeof f.dwjz === 'number' ? Number(f.dwjz).toFixed(4) : String(f.dwjz)) : '—';
         const estimateNav = f.noValuation
@@ -1536,6 +1565,10 @@ export default function HomePage() {
         const holdingAmount =
           amount == null ? '未设置' : `¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         const holdingAmountValue = amount;
+        const holdingRatioValue =
+          amount != null && Number.isFinite(amount) && amount > 0 && groupTotalHoldingAmount > 0
+            ? amount / groupTotalHoldingAmount
+            : null;
         const holdingDaysValue = holding?.firstPurchaseDate
           ? dayjs.tz(todayStr, TZ).diff(dayjs.tz(holding.firstPurchaseDate, TZ), 'day')
           : null;
@@ -1715,6 +1748,7 @@ export default function HomePage() {
           sinceAddedDateRaw: sinceAddedDateRaw || undefined,
           holdingAmount,
           holdingAmountValue,
+          holdingRatioValue,
           holdingCost,
           holdingCostValue,
           costNav,
@@ -1733,7 +1767,8 @@ export default function HomePage() {
           holdingTargetGroupId:
             currentTab === SUMMARY_TAB_ID ? summaryHoldingSourceGroupByCode[f.code] : undefined,
         };
-      }),
+      });
+    },
     [
       displayFunds,
       holdingsForTabWithLinked,
@@ -1896,16 +1931,16 @@ export default function HomePage() {
   };
 
   const processPendingQueue = async () => {
-    const currentPending = pendingTradesRef.current;
+    const currentPending = useStorageStore.getState().pendingTrades;
     if (currentPending.length === 0) return;
 
     let stateChanged = false;
-    let tempHoldings = { ...holdingsRef.current };
+    let tempHoldings = { ...useStorageStore.getState().holdings };
     let tempGroupHoldings;
     try {
-      tempGroupHoldings = JSON.parse(JSON.stringify(groupHoldingsRef.current || {}));
+      tempGroupHoldings = JSON.parse(JSON.stringify(useStorageStore.getState().groupHoldings || {}));
     } catch {
-      tempGroupHoldings = { ...(groupHoldingsRef.current || {}) };
+      tempGroupHoldings = { ...(useStorageStore.getState().groupHoldings || {}) };
     }
     const processedIds = new Set();
     const newTransactions = [];
@@ -2698,18 +2733,22 @@ export default function HomePage() {
 
   const scheduleDcaTrades = useCallback(async () => {
     if (!isTradingDay) return;
-    if (!isPlainObject(dcaPlans)) return;
-    const codesSet = new Set(funds.map((f) => f.code));
+    const storeState = useStorageStore.getState();
+    const currentDcaPlans = storeState.dcaPlans;
+    if (!isPlainObject(currentDcaPlans)) return;
+    const currentFunds = storeState.funds;
+    const codesSet = new Set(currentFunds.map((f) => f.code));
     if (codesSet.size === 0) return;
 
     if (isSchedulingDcaRef.current) return;
     isSchedulingDcaRef.current = true;
 
     try {
-      const scoped = migrateDcaPlansToScoped(dcaPlans);
-      const groupIdSet = new Set(groups.map((g) => g?.id).filter(Boolean));
+      const scoped = migrateDcaPlansToScoped(currentDcaPlans);
+      const groupIdSet = new Set(storeState.groups.map((g) => g?.id).filter(Boolean));
 
-      const today = toTz(todayStr).startOf('day');
+      const todayStrDynamic = formatDate();
+      const today = toTz(todayStrDynamic).startOf('day');
       let nextPlans;
       try {
         nextPlans = JSON.parse(JSON.stringify(scoped));
@@ -2784,7 +2823,7 @@ export default function HomePage() {
               const pending = {
                 id: `dca_${scopeKey}_${code}_${dateStr}`,
                 fundCode: code,
-                fundName: (funds.find(f => f.code === code) || {}).name,
+                fundName: (currentFunds.find(f => f.code === code) || {}).name,
                 type: 'buy',
                 share: null,
                 amount,
@@ -2845,14 +2884,7 @@ export default function HomePage() {
     } finally {
       isSchedulingDcaRef.current = false;
     }
-  }, [isTradingDay, dcaPlans, funds, todayStr, storageHelper, groups]);
-
-  useEffect(() => {
-    if (!isTradingDay) return;
-    scheduleDcaTrades().catch((e) => {
-      console.error('[scheduleDcaTrades]', e);
-    });
-  }, [isTradingDay, scheduleDcaTrades]);
+  }, [isTradingDay, setDcaPlans, setPendingTrades]);
 
   const handleAddGroup = (name) => {
     const newGroup = {
@@ -4124,7 +4156,14 @@ export default function HomePage() {
         if (codes.length) refreshAll(codes);
       }, refreshMs);
 
-      // 【步骤 6】队列处理：执行可能积压的待处理交易（如到达触发价格的自动交易）
+      // 【步骤 5.5】定投处理：自动生成定投待处理交易
+      try {
+        await scheduleDcaTrades();
+      } catch (e) {
+        console.warn('生成定投待处理交易出错', e);
+      }
+
+      // 【步骤 6】队列处理：执行可能积压的待处理交易（如到达触发价格的自动交易、定投交易等）
       try {
         await processPendingQueue();
       } catch (e) {
@@ -6785,14 +6824,13 @@ export default function HomePage() {
       {shouldShowMarketIndex && (
         <MarketIndexAccordion
           navbarHeight={navbarHeight}
-          onHeightChange={setMarketIndexAccordionHeight}
           onCustomSettingsChange={triggerCustomSettingsSync}
           refreshing={refreshing}
         />
       )}
       <div className="grid">
         <div className="col-12">
-          <div ref={filterBarRef} className="filter-bar" style={{ top: navbarHeight + marketIndexAccordionHeight, marginTop: 0, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div ref={filterBarRef} className="filter-bar" style={{ top: `calc(${navbarHeight}px + var(--market-index-height, 0px))`, marginTop: 0, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div className="tabs-container">
               <div
                 className="tabs-scroll-area"
@@ -7039,12 +7077,12 @@ export default function HomePage() {
                   summaryTotalsOverride={
                     currentTab === SUMMARY_TAB_ID ? summaryTabPortfolioTotals : null
                   }
-                  stickyTop={navbarHeight + marketIndexAccordionHeight + filterBarHeight + (isMobile ? -14 : 0)}
+                  stickyTop={navbarHeight + filterBarHeight + (isMobile ? -14 : 0)}
                   isSticky={isGroupSummarySticky}
                   onToggleSticky={(next) => setIsGroupSummarySticky(next)}
                   masked={maskAmounts}
                   onToggleMasked={() => setMaskAmounts((v) => !v)}
-                  marketIndexAccordionHeight={marketIndexAccordionHeight}
+                  shouldShowMarketIndex={shouldShowMarketIndex}
                   navbarHeight={navbarHeight}
                 />
               {currentTab === SUMMARY_TAB_ID && summaryCardItems.length > 0 && (
@@ -7129,7 +7167,7 @@ export default function HomePage() {
                           <div className="table-scroll-area">
                             <div className="table-scroll-area-inner">
                               <PcFundTable
-                                stickyTop={navbarHeight + marketIndexAccordionHeight + filterBarHeight}
+                                stickyTop={navbarHeight + filterBarHeight}
                                 data={pcFundTableData}
                                 relatedSectorSessionKey={user?.id ?? ''}
                                 currentTab={currentTab}
@@ -7190,7 +7228,7 @@ export default function HomePage() {
                             }
                           });
                         }}
-                        stickyTop={navbarHeight + filterBarHeight + marketIndexAccordionHeight}
+                        stickyTop={navbarHeight + filterBarHeight}
                         blockDrawerClose={!!fundDeleteConfirm || !!fundDeleteBulkConfirm}
                         closeDrawerRef={fundDetailDrawerCloseRef}
                         onReorder={handleReorder}

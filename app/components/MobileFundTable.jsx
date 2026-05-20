@@ -61,12 +61,13 @@ const MOBILE_NON_FROZEN_COLUMN_IDS = [
   'period3m',
   'period6m',
   'period1y',
+  'holdingRatio',
   'holdingCost',
   'costNav',
   'estimateNav',
 ];
 
-const MOBILE_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav', 'sinceAddedChangePercent']);
+const MOBILE_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set(['tags', 'holdingCost', 'costNav', 'sinceAddedChangePercent', 'holdingRatio']);
 
 const MOBILE_COLUMN_HEADERS = {
   relatedSector: '关联板块',
@@ -82,6 +83,7 @@ const MOBILE_COLUMN_HEADERS = {
   sinceAddedChangePercent: '自添加来',
   totalChangePercent: '估算收益',
   holdingCost: '持仓成本',
+  holdingRatio: '持仓占比',
   costNav: '成本净值',
   holdingDays: '持有天数',
   todayProfit: '当日收益',
@@ -739,24 +741,28 @@ export default function MobileFundTable({
     if (typeof window === 'undefined') return;
     const getEffectiveStickyTop = () => {
       const stickySummaryCard = document.querySelector('.group-summary-sticky .group-summary-card');
-      if (!stickySummaryCard) return stickyTop;
+      const marketIndexEl = document.querySelector('.market-index-accordion-root');
+      const currentMarketIndexHeight = marketIndexEl ? marketIndexEl.offsetHeight : 0;
+      const baseStickyTop = stickyTop + currentMarketIndexHeight;
+
+      if (!stickySummaryCard) return baseStickyTop;
 
       const stickySummaryWrapper = stickySummaryCard.closest('.group-summary-sticky');
-      if (!stickySummaryWrapper) return stickyTop;
+      if (!stickySummaryWrapper) return baseStickyTop;
 
       const wrapperRect = stickySummaryWrapper.getBoundingClientRect();
       // 用“实际 DOM 的 top”判断 sticky 是否已生效，避免 mobile 下 stickyTop 入参与 GroupSummary 不一致导致的偏移。
       const computedTopStr = window.getComputedStyle(stickySummaryWrapper).top;
       const computedTop = Number.parseFloat(computedTopStr);
-      const baseTop = Number.isFinite(computedTop) ? computedTop : stickyTop;
+      const baseTop = Number.isFinite(computedTop) ? computedTop : baseStickyTop;
       const isSummaryStuck = wrapperRect.top <= baseTop + 1;
 
       // header 使用固定定位(top)，所以也用视口坐标系下的 wrapperRect.top + 高度，确保不重叠
-      return isSummaryStuck ? wrapperRect.top + stickySummaryWrapper.offsetHeight : stickyTop;
+      return isSummaryStuck ? wrapperRect.top + stickySummaryWrapper.offsetHeight : baseStickyTop;
     };
 
     const updateVerticalState = () => {
-      const nextStickyTop = getEffectiveStickyTop();
+      const nextStickyTop = getEffectiveStickyTop() - 2;
       setEffectiveStickyTop((prev) => (prev === nextStickyTop ? prev : nextStickyTop));
 
       const tableEl = tableContainerRef.current;
@@ -1722,6 +1728,24 @@ export default function MobileFundTable({
         meta: { align: 'right', cellClassName: 'period-return-cell', width: columnWidthMap.period1y ?? 72 },
       },
       {
+        id: 'holdingRatio',
+        header: '持仓占比',
+        cell: (info) => {
+          const original = info.row.original || {};
+          const value = original.holdingRatioValue;
+          if (value == null) {
+            return <div className="muted" style={{ textAlign: 'right', fontSize: '12px' }}>—</div>;
+          }
+          const text = `${(value * 100).toFixed(2)}%`;
+          return (
+            <FitText style={{ fontWeight: 700, textAlign: 'right' }} maxFontSize={14} minFontSize={10}>
+              {masked ? <span className="mask-text">******</span> : text}
+            </FitText>
+          );
+        },
+        meta: { align: 'right', cellClassName: 'holding-ratio-cell', width: columnWidthMap.holdingRatio ?? 72 },
+      },
+      {
         accessorKey: 'holdingCost',
         header: '持仓成本',
         cell: (info) => {
@@ -2203,6 +2227,7 @@ export default function MobileFundTable({
             'holdingProfit': 'holding',
             'holdingDays': 'holdingDays',
             'holdingCost': 'holdingCost',
+            'sinceAddedChangePercent': 'sinceAddedChangePercent',
             'period1w': 'last1Week',
             'period1m': 'last1Month',
             'period3m': 'last3Months',
@@ -2212,7 +2237,7 @@ export default function MobileFundTable({
           const sortKey = sortMap[columnId];
           const isSorted = sortBy && sortKey === sortBy;
           let isSortEnabled = sortKey && sortRules.find(r => r.id === sortKey)?.enabled;
-          
+
           // 选择默认排序的时候，隐藏基金名称表头的排序和箭头
           if (sortBy === 'default' && sortKey === 'name') {
             isSortEnabled = false;

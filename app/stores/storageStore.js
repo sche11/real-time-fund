@@ -64,6 +64,7 @@ export const DEFAULT_SORT_RULES = [
   { id: 'yield', label: '估算涨幅', alias: '涨跌幅', enabled: true },
   { id: 'yesterdayIncrease', label: '最新涨幅', enabled: false },
   { id: 'holdingAmount', label: '持仓金额', enabled: false },
+  { id: 'holdingRatio', label: '持仓占比', enabled: false },
   { id: 'todayProfit', label: '当日收益', enabled: false },
   { id: 'yesterdayProfit', label: '昨日收益', enabled: false },
   { id: 'holdingDays', label: '持有天数', enabled: false },
@@ -75,6 +76,7 @@ export const DEFAULT_SORT_RULES = [
   { id: 'last3Months', label: '近3月', enabled: false },
   { id: 'last6Months', label: '近6月', enabled: false },
   { id: 'last1Year', label: '近1年', enabled: false },
+  { id: 'sinceAddedChangePercent', label: '自添加来', enabled: false },
   { id: 'tags', label: '基金标签', enabled: false },
   { id: 'name', label: '基金名称', alias: '名称', enabled: true },
 ];
