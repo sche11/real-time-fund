@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { isEqual } from 'lodash';
+import { isEqual, isArray } from 'lodash';
 import { getFundCodesFromTagRecord } from '@/app/lib/fundHelpers';
 
 /**
@@ -115,7 +115,8 @@ export const useStorageStore = create((set, get) => ({
 
   initFunds: () => {
     if (typeof window !== 'undefined') {
-      set({ funds: get().getItem('funds', []) });
+      const saved = get().getItem('funds', []);
+      set({ funds: isArray(saved) ? saved : [] });
     }
   },
 
@@ -128,7 +129,7 @@ export const useStorageStore = create((set, get) => ({
   initFavorites: () => {
     if (typeof window !== 'undefined') {
       const saved = get().getItem('favorites', []);
-      set({ favorites: new Set(Array.isArray(saved) ? saved : []) });
+      set({ favorites: new Set(isArray(saved) ? saved : []) });
     }
   },
 

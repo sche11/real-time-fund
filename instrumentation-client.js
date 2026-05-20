@@ -39,15 +39,15 @@ if (SENTRY_DSN) {
       const error = hint.originalException;
       const errorMessage = error?.message || "";
       const isFetchError = errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError");
-      
+
       if (isFetchError) {
         // 检查是否与 Google Analytics 相关
-        const isGA = event.request?.url?.includes("google-analytics.com") || 
+        const isGA = event.request?.url?.includes("google-analytics.com") ||
                      event.request?.url?.includes("googletagmanager.com");
-        
+
         // 检查面包屑中是否有 GA 相关的失败 fetch
-        const hasGAInBreadcrumbs = event.breadcrumbs?.some(b => 
-          b.category === "fetch" && 
+        const hasGAInBreadcrumbs = event.breadcrumbs?.some(b =>
+          b.category === "fetch" &&
           (b.data?.url?.includes("google-analytics.com") || b.data?.url?.includes("googletagmanager.com")) &&
           b.data?.status_code === 0 // 0 通常表示网络错误或被拦截
         );
@@ -55,6 +55,14 @@ if (SENTRY_DSN) {
         if (isGA || hasGAInBreadcrumbs) {
           return null;
         }
+      }
+      // 不上报火狐阅读模式相关的错误
+      if (
+        error &&
+        error.message &&
+        error.message.includes('window.__firefox__.reader')
+      ) {
+        return null; // 丢弃这个报错，不上报
       }
       return event;
     },
