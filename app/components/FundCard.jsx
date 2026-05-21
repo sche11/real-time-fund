@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { getTagThemeBadgeProps } from './AddTagDialog';
 import { cn } from '@/lib/utils';
 import { useStorageStore } from "@/app/stores";
+import { fetchFundHoldings } from '@/app/api/fund';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -92,11 +93,43 @@ export default function FundCard({
 }) {
   const {
     funds,
+    refreshMs,
   } = useStorageStore();
   const f = useMemo(() => funds?.find((item) => item.code === fundCode), [funds, fundCode]);
+  
+  const [topHoldings, setTopHoldings] = useState({ holdings: [], holdingsReportDate: null, holdingsIsLastQuarter: false });
+  
+  useEffect(() => {
+    let timer;
+    let cancelled = false;
+    const fetchHoldings = async () => {
+      try {
+        const res = await fetchFundHoldings(fundCode);
+        if (!cancelled) {
+          setTopHoldings(res);
+        }
+      } catch (e) {
+        console.error('fetchFundHoldings error', e);
+      }
+    };
+    fetchHoldings();
+    const tick = () => {
+      timer = setTimeout(() => {
+        if (!cancelled) {
+          fetchHoldings().finally(tick);
+        }
+      }, refreshMs || 30000);
+    };
+    tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [fundCode, refreshMs]);
+
   const holding = holdings?.[f?.code];
   const profit = getHoldingProfit?.(f, holding) ?? null;
-  const hasHoldings = f?.holdingsIsLastQuarter && Array.isArray(f?.holdings) && f?.holdings.length > 0;
+  const hasHoldings = topHoldings.holdingsIsLastQuarter && Array.isArray(topHoldings.holdings) && topHoldings.holdings.length > 0;
   // “我的收益”(每日收益)只依赖份额；成本价缺失也应可展示
   const hasHoldingShare =
     holding &&
@@ -602,7 +635,7 @@ export default function FundCard({
                 <span className="muted">涨跌幅 / 占比</span>
               </div>
               <div className="list">
-                {f.holdings.map((h, idx) => (
+                {topHoldings.holdings.map((h, idx) => (
                   <div className="item" key={idx}>
                     <span className="name">{h.name}</span>
                     <div className="values">
@@ -686,7 +719,7 @@ export default function FundCard({
                     style={{ overflow: 'hidden' }}
                   >
                     <div className="list">
-                      {f.holdings.map((h, idx) => (
+                      {topHoldings.holdings.map((h, idx) => (
                         <div className="item" key={idx}>
                           <span className="name">{h.name}</span>
                           <div className="values">

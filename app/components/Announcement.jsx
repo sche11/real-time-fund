@@ -77,7 +77,7 @@ export default function Announcement() {
               </svg>
               <span>公告</span>
             </div>
-            <div style={{ color: 'var(--text)', lineHeight: '1.6', fontSize: '15px', overflowY: 'auto', minHeight: 0, flex: 1, paddingRight: '4px' }}>
+            <div className="scrollbar-y-styled" style={{ color: 'var(--text)', lineHeight: '1.6', fontSize: '15px', overflowY: 'auto', minHeight: 0, flex: 1, paddingRight: '4px' }}>
               <p>v1.5.2 更新内容如下：</p>
               <p>1. 新增“自添加来”排序。</p>
               <p>2. 新增持仓占比。</p>
