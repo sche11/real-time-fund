@@ -58,42 +58,6 @@ const getNetValueStaleTime = () => {
 };
 
 /**
- * 获取基金「关联板块」：查询 Supabase `fund_related` 表（fund_code → related_sector），并做 1 天缓存
- * 返回：展示用字符串，无数据或失败时为空字符串
- * @param {string} [options.authSegment] - 与登录态绑定的缓存分段（如 user.id），避免未登录时缓存的空结果被登录后复用
- */
-export const fetchRelatedSectors = async (code, { cacheTime = ONE_DAY_MS, authSegment = 'anon' } = {}) => {
-  if (!code) return '';
-  const normalized = String(code).trim();
-  if (!normalized) return '';
-  if (!isSupabaseConfigured) return '';
-
-  const seg = authSegment != null && authSegment !== '' ? String(authSegment) : 'anon';
-
-  try {
-    const relatedSectors = await getQueryClient().fetchQuery({
-      queryKey: qk.relatedSectors(normalized, seg),
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('fund_related')
-          .select('related_sector')
-          .eq('fund_code', normalized)
-          .maybeSingle();
-
-        if (error || !data) return '';
-        const raw = data.related_sector;
-        return raw != null && raw !== '' ? String(raw).trim() : '';
-      },
-      staleTime: cacheTime,
-    });
-
-    return relatedSectors || '';
-  } catch (e) {
-    return '';
-  }
-};
-
-/**
  * 批量获取基金「关联板块」
  * @param {string[]} codes
  */
@@ -157,35 +121,6 @@ export const fetchRelatedSectorsBatch = async (codes, { cacheTime = ONE_DAY_MS, 
 const SECTOR_QUOTE_CACHE_MS = 60 * 1000;
 
 /**
- * 根据 `fund_secid.related_sector` 查询东方财富 secid（如 2.931066）
- */
-export const fetchFundSecidByRelatedSector = async (relatedSector, { cacheTime = ONE_DAY_MS } = {}) => {
-  const normalized = relatedSector != null ? String(relatedSector).trim() : '';
-  if (!normalized || !isSupabaseConfigured) return '';
-
-  try {
-    const secid = await getQueryClient().fetchQuery({
-      queryKey: qk.fundSecid(normalized),
-      queryFn: async () => {
-        const { data, error } = await supabase
-          .from('fund_secid')
-          .select('secid')
-          .eq('related_sector', normalized)
-          .maybeSingle();
-
-        if (error || !data?.secid) return '';
-        return String(data.secid).trim();
-      },
-      staleTime: cacheTime,
-    });
-
-    return secid || '';
-  } catch (e) {
-    return '';
-  }
-};
-
-/**
  * 批量获取板块 secid
  * @param {string[]} labels
  */
@@ -239,41 +174,6 @@ export const fetchFundSecidsBatch = async (labels, { cacheTime = ONE_DAY_MS } = 
   }
 
   return results;
-};
-
-/**
- * 东方财富 push2delay 板块/指数行情（涨跌幅等）
- * @returns {{ name: string, code: string, pct: number|null }|null}
- */
-export const fetchEastmoneySectorQuote = async (secid, { cacheTime = SECTOR_QUOTE_CACHE_MS } = {}) => {
-  const s = secid != null ? String(secid).trim() : '';
-  if (!s || typeof fetch === 'undefined') return null;
-
-  try {
-    const quote = await getQueryClient().fetchQuery({
-      queryKey: qk.eastSectorQuote(s),
-      queryFn: async () => {
-        const url = `https://push2delay.eastmoney.com/api/qt/stock/get?secid=${encodeURIComponent(s)}&fields=f58,f57,f43,f170,f169,f124,f86`;
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        const json = await res.json();
-        const d = json?.data;
-        if (!d) return null;
-        const f170 = d.f170;
-        const pct = f170 != null && Number.isFinite(Number(f170)) ? Number(f170) / 100 : null;
-        return {
-          name: d.f58 != null ? String(d.f58) : '',
-          code: d.f57 != null ? String(d.f57) : '',
-          pct,
-        };
-      },
-      staleTime: cacheTime,
-    });
-
-    return quote || null;
-  } catch (e) {
-    return null;
-  }
 };
 
 /**
@@ -353,15 +253,6 @@ export const fetchEastmoneySectorQuotesBatch = async (secids, { cacheTime = SECT
   }
 
   return results;
-};
-
-/**
- * 关联板块名称 → 实时涨跌幅（先查 fund_secid，再拉东方财富）
- */
-export const fetchRelatedSectorLiveQuote = async (relatedSectorLabel) => {
-  const secid = await fetchFundSecidByRelatedSector(relatedSectorLabel);
-  if (!secid) return null;
-  return fetchEastmoneySectorQuote(secid);
 };
 
 function normalizeEastmoneyScriptUrl(url) {

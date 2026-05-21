@@ -107,7 +107,7 @@ import { useTradingDay } from './hooks/useTradingDay';
 import { useNavHeights } from './hooks/useNavHeights';
 import { useScanImport } from './hooks/useScanImport';
 import { useIsMobile } from './hooks/useIsMobile';
-import {useUserStore, clearAuthUser, setAuthUser, useStorageStore, storageStore, getFundCodesSignature, DEFAULT_SORT_RULES, SORT_DISPLAY_MODES} from './stores';
+import {useUserStore, clearAuthUser, setAuthUser, useStorageStore, storageStore, getFundCodesSignature, DEFAULT_SORT_RULES, SORT_DISPLAY_MODES, useModalStore, getModalState, useIsAnyModalOpen} from './stores';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -238,7 +238,7 @@ export default function HomePage() {
   const isExplicitLoginRef = useRef(false);
 
   // 刷新频率状态
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsOpen = useModalStore((s) => s.settingsOpen);
   const [tempSeconds, setTempSeconds] = useState(60);
   const [containerWidth, setContainerWidth] = useState(1200);
   const [showMarketIndexPc, setShowMarketIndexPc] = useState(true);
@@ -255,7 +255,7 @@ export default function HomePage() {
       const w = parsed?.pcContainerWidth;
       const num = Number(w);
       if (Number.isFinite(num)) {
-        setContainerWidth(Math.min(2000, Math.max(600, num)));
+        setContainerWidth(Math.min(window.innerWidth, Math.max(600, num)));
       }
       if (typeof parsed?.showMarketIndexPc === 'boolean') setShowMarketIndexPc(parsed.showMarketIndexPc);
       if (typeof parsed?.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(parsed.showMarketIndexMobile);
@@ -273,10 +273,10 @@ export default function HomePage() {
   const [currentTab, setCurrentTab] = useState('all');
   const [isPending, startTransition] = useTransition();
   const hasLocalTabInitRef = useRef(false);
-  const [groupModalOpen, setGroupModalOpen] = useState(false);
-  const [groupManageOpen, setGroupManageOpen] = useState(false);
-  const [addFundToGroupOpen, setAddFundToGroupOpen] = useState(false);
-  const [sortSettingOpen, setSortSettingOpen] = useState(false);
+  const groupModalOpen = useModalStore((s) => s.groupModalOpen);
+  const groupManageOpen = useModalStore((s) => s.groupManageOpen);
+  const addFundToGroupOpen = useModalStore((s) => s.addFundToGroupOpen);
+  const sortSettingOpen = useModalStore((s) => s.sortSettingOpen);
 
   // 调用 store 的 initSort，在 mount 时恢复持久化的排序偏好
   useEffect(() => {
@@ -336,8 +336,8 @@ export default function HomePage() {
       deviceIdRef.current = uuidv4();
     }
   }, []);
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [loginInitialError, setLoginInitialError] = useState('');
+  const loginModalOpen = useModalStore((s) => s.loginModalOpen);
+  const loginInitialError = useModalStore((s) => s.loginInitialError);
 
   const userAvatar = useMemo(() => {
     if (!user?.id) return '';
@@ -348,9 +348,9 @@ export default function HomePage() {
   }, [user?.id]);
 
   // 反馈弹窗状态
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackNonce, setFeedbackNonce] = useState(0);
-  const [weChatOpen, setWeChatOpen] = useState(false);
+  const feedbackOpen = useModalStore((s) => s.feedbackOpen);
+  const feedbackNonce = useModalStore((s) => s.feedbackNonce);
+  const weChatOpen = useModalStore((s) => s.weChatOpen);
 
   // 搜索相关状态
   const [searchTerm, setSearchTerm] = useState('');
@@ -391,31 +391,67 @@ export default function HomePage() {
     }, 350);
   };
 
-  const [holdingModal, setHoldingModal] = useState({ open: false, fund: null });
-  const [actionModal, setActionModal] = useState({ open: false, fund: null });
-  const [tradeModal, setTradeModal] = useState({ open: false, fund: null, type: 'buy' }); // type: 'buy' | 'sell'
-  const [convertModal, setConvertModal] = useState({ open: false, fund: null });
-  const [selectFundSingleModal, setSelectFundSingleModal] = useState({ open: false, excludeCodes: [], initialSelectedCode: '' });
-  const [selectHoldingGroupModal, setSelectHoldingGroupModal] = useState({ open: false, fund: null });
-  const [dataSourceModal, setDataSourceModal] = useState({ open: false, fund: null });
-  const [dcaModal, setDcaModal] = useState({ open: false, fund: null });
-  const [clearConfirm, setClearConfirm] = useState(null); // { fund }
-  const [donateOpen, setDonateOpen] = useState(false);
-  const [holdingMigrateDialog, setHoldingMigrateDialog] = useState({
-    open: false,
-    code: null,
-    name: '',
-    targetGroupId: null,
-  });
-  const [historyModal, setHistoryModal] = useState({ open: false, fund: null });
-  const [addHistoryModal, setAddHistoryModal] = useState({ open: false, fund: null });
+  const holdingModal = useModalStore((s) => s.holdingModal);
+  const actionModal = useModalStore((s) => s.actionModal);
+  const tradeModal = useModalStore((s) => s.tradeModal);
+  const convertModal = useModalStore((s) => s.convertModal);
+  const selectFundSingleModal = useModalStore((s) => s.selectFundSingleModal);
+  const selectHoldingGroupModal = useModalStore((s) => s.selectHoldingGroupModal);
+  const dataSourceModal = useModalStore((s) => s.dataSourceModal);
+  const dcaModal = useModalStore((s) => s.dcaModal);
+  const clearConfirm = useModalStore((s) => s.clearConfirm);
+  const donateOpen = useModalStore((s) => s.donateOpen);
+  const holdingMigrateDialog = useModalStore((s) => s.holdingMigrateDialog);
+  const historyModal = useModalStore((s) => s.historyModal);
+  const addHistoryModal = useModalStore((s) => s.addHistoryModal);
   const [percentModes, setPercentModes] = useState({}); // { [code]: boolean }
   const [todayPercentModes, setTodayPercentModes] = useState({}); // { [code]: boolean }
 
 
   const tabsRef = useRef(null);
-  const [fundDeleteConfirm, setFundDeleteConfirm] = useState(null); // { code, name }
-  const [fundDeleteBulkConfirm, setFundDeleteBulkConfirm] = useState(null); // { codes: string[], count: number, groupId?: string, scope?: 'group' | 'global' }
+  const fundDeleteConfirm = useModalStore((s) => s.fundDeleteConfirm);
+  const fundDeleteBulkConfirm = useModalStore((s) => s.fundDeleteBulkConfirm);
+
+  // ---- Modal store setter compatibility wrappers ----
+  const _ms = useModalStore.setState;
+  const _gs = useModalStore.getState;
+  const setSettingsOpen = (v) => _ms({ settingsOpen: typeof v === 'function' ? v(_gs().settingsOpen) : v });
+  const setGroupModalOpen = (v) => _ms({ groupModalOpen: typeof v === 'function' ? v(_gs().groupModalOpen) : v });
+  const setGroupManageOpen = (v) => _ms({ groupManageOpen: typeof v === 'function' ? v(_gs().groupManageOpen) : v });
+  const setAddFundToGroupOpen = (v) => _ms({ addFundToGroupOpen: typeof v === 'function' ? v(_gs().addFundToGroupOpen) : v });
+  const setSortSettingOpen = (v) => _ms({ sortSettingOpen: typeof v === 'function' ? v(_gs().sortSettingOpen) : v });
+  const setLoginModalOpen = (v) => _ms({ loginModalOpen: typeof v === 'function' ? v(_gs().loginModalOpen) : v });
+  const setLoginInitialError = (v) => _ms({ loginInitialError: typeof v === 'function' ? v(_gs().loginInitialError) : v });
+  const setFeedbackOpen = (v) => _ms({ feedbackOpen: typeof v === 'function' ? v(_gs().feedbackOpen) : v });
+  const setFeedbackNonce = (v) => _ms({ feedbackNonce: typeof v === 'function' ? v(_gs().feedbackNonce) : v });
+  const setWeChatOpen = (v) => _ms({ weChatOpen: typeof v === 'function' ? v(_gs().weChatOpen) : v });
+  const setDonateOpen = (v) => _ms({ donateOpen: typeof v === 'function' ? v(_gs().donateOpen) : v });
+  const setIsLogoutConfirmOpen = (v) => _ms({ isLogoutConfirmOpen: typeof v === 'function' ? v(_gs().isLogoutConfirmOpen) : v });
+  const setPortfolioEarningsOpen = (v) => _ms({ portfolioEarningsOpen: typeof v === 'function' ? v(_gs().portfolioEarningsOpen) : v });
+  const setMobileFundDrawerOpen = (v) => _ms({ mobileFundDrawerOpen: typeof v === 'function' ? v(_gs().mobileFundDrawerOpen) : v });
+  const setTutorialDrawerOpen = (v) => _ms({ tutorialDrawerOpen: typeof v === 'function' ? v(_gs().tutorialDrawerOpen) : v });
+  const setUpdateLogOpen = (v) => _ms({ updateLogOpen: typeof v === 'function' ? v(_gs().updateLogOpen) : v });
+  const setMobileTableSettingModalOpen = (v) => _ms({ mobileTableSettingModalOpen: typeof v === 'function' ? v(_gs().mobileTableSettingModalOpen) : v });
+  const setIsUpdateModalOpen = (v) => _ms({ isUpdateModalOpen: typeof v === 'function' ? v(_gs().isUpdateModalOpen) : v });
+  const setHoldingModal = (v) => _ms({ holdingModal: typeof v === 'function' ? v(_gs().holdingModal) : v });
+  const setActionModal = (v) => _ms({ actionModal: typeof v === 'function' ? v(_gs().actionModal) : v });
+  const setTradeModal = (v) => _ms({ tradeModal: typeof v === 'function' ? v(_gs().tradeModal) : v });
+  const setConvertModal = (v) => _ms({ convertModal: typeof v === 'function' ? v(_gs().convertModal) : v });
+  const setSelectFundSingleModal = (v) => _ms({ selectFundSingleModal: typeof v === 'function' ? v(_gs().selectFundSingleModal) : v });
+  const setSelectHoldingGroupModal = (v) => _ms({ selectHoldingGroupModal: typeof v === 'function' ? v(_gs().selectHoldingGroupModal) : v });
+  const setDataSourceModal = (v) => _ms({ dataSourceModal: typeof v === 'function' ? v(_gs().dataSourceModal) : v });
+  const setDcaModal = (v) => _ms({ dcaModal: typeof v === 'function' ? v(_gs().dcaModal) : v });
+  const setClearConfirm = (v) => _ms({ clearConfirm: typeof v === 'function' ? v(_gs().clearConfirm) : v });
+  const setHoldingMigrateDialog = (v) => _ms({ holdingMigrateDialog: typeof v === 'function' ? v(_gs().holdingMigrateDialog) : v });
+  const setHistoryModal = (v) => _ms({ historyModal: typeof v === 'function' ? v(_gs().historyModal) : v });
+  const setAddHistoryModal = (v) => _ms({ addHistoryModal: typeof v === 'function' ? v(_gs().addHistoryModal) : v });
+  const setFundDeleteConfirm = (v) => _ms({ fundDeleteConfirm: typeof v === 'function' ? v(_gs().fundDeleteConfirm) : v });
+  const setFundDeleteBulkConfirm = (v) => _ms({ fundDeleteBulkConfirm: typeof v === 'function' ? v(_gs().fundDeleteBulkConfirm) : v });
+  const setFundTagsEdit = (v) => _ms({ fundTagsEdit: typeof v === 'function' ? v(_gs().fundTagsEdit) : v });
+  const setSuccessModal = (v) => _ms({ successModal: typeof v === 'function' ? v(_gs().successModal) : v });
+  const setCloudConfigModal = (v) => _ms({ cloudConfigModal: typeof v === 'function' ? v(_gs().cloudConfigModal) : v });
+  const setDeviceConflictModal = (v) => _ms({ deviceConflictModal: typeof v === 'function' ? v(_gs().deviceConflictModal) : v });
+
   const fundDetailDrawerCloseRef = useRef(null); // 由 MobileFundTable 注入，用于确认删除时关闭基金详情 Drawer
   const fundDetailDialogCloseRef = useRef(null); // 由 PcFundTable 注入，用于确认删除时关闭基金详情 Dialog
   const pcBatchClearSelectionRef = useRef(null); // 由 PcFundTable 注入，批量删除二次确认成功后清空表格多选
@@ -426,22 +462,17 @@ export default function HomePage() {
   const todayStr = formatDate();
 
   const isMobile = useIsMobile();
-  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const isLogoutConfirmOpen = useModalStore((s) => s.isLogoutConfirmOpen);
 
   const [mobileMainTab, setMobileMainTab] = useState('home');
   const [mobileBottomNavHidden, setMobileBottomNavHidden] = useState(false);
   const lastScrollYRef = useRef(0);
-  const [portfolioEarningsOpen, setPortfolioEarningsOpen] = useState(false);
-  const [mobileFundDrawerOpen, setMobileFundDrawerOpen] = useState(false);
-  const [tutorialDrawerOpen, setTutorialDrawerOpen] = useState(false);
-  const [updateLogOpen, setUpdateLogOpen] = useState(false);
-  const [mobileTableSettingModalOpen, setMobileTableSettingModalOpen] = useState(false);
-  const [fundTagsEdit, setFundTagsEdit] = useState({
-    open: false,
-    code: null,
-    name: '',
-    tags: [],
-  });
+  const portfolioEarningsOpen = useModalStore((s) => s.portfolioEarningsOpen);
+  const mobileFundDrawerOpen = useModalStore((s) => s.mobileFundDrawerOpen);
+  const tutorialDrawerOpen = useModalStore((s) => s.tutorialDrawerOpen);
+  const updateLogOpen = useModalStore((s) => s.updateLogOpen);
+  const mobileTableSettingModalOpen = useModalStore((s) => s.mobileTableSettingModalOpen);
+  const fundTagsEdit = useModalStore((s) => s.fundTagsEdit);
 
   useEffect(() => {
     if (!isMobile) {
@@ -2332,7 +2363,7 @@ export default function HomePage() {
   }, [groups, funds.length, favorites.size]);
 
   // 成功提示弹窗
-  const [successModal, setSuccessModal] = useState({ open: false, message: '' });
+  const successModal = useModalStore((s) => s.successModal);
   // 轻提示 (Toast)
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' }); // type: 'info' | 'success' | 'error'
   const toastTimeoutRef = useRef(null);
@@ -2355,7 +2386,7 @@ export default function HomePage() {
     setLoginModalOpen(true);
   };
 
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const isUpdateModalOpen = useModalStore((s) => s.isUpdateModalOpen);
 
   // OCR 扫描导入（抽离到 useScanImport）
   const {
@@ -2379,14 +2410,13 @@ export default function HomePage() {
   } = useScanImport({
     setCurrentTab,
     setValuationSeries,
-    setSuccessModal,
     showToast,
     normalizeCode,
     dedupeByCode,
   });
 
-  const [cloudConfigModal, setCloudConfigModal] = useState({ open: false, userId: null });
-  const [deviceConflictModal, setDeviceConflictModal] = useState({ open: false, message: '', userId: null, payload: null, isPartial: false });
+  const cloudConfigModal = useModalStore((s) => s.cloudConfigModal);
+  const deviceConflictModal = useModalStore((s) => s.deviceConflictModal);
   const syncDebounceRef = useRef(null);
 
   const lastSyncedRef = useRef('');
@@ -4908,7 +4938,7 @@ export default function HomePage() {
     if (targetIsMobile) setShowGroupFundSearchMobile(nextShowGroupFundSearch);
     else setShowGroupFundSearchPc(nextShowGroupFundSearch);
 
-    const w = Math.min(2000, Math.max(600, Number(containerWidth) || 1200));
+    const w = Math.min(window.innerWidth, Math.max(600, Number(containerWidth) || 1200));
     setContainerWidth(w);
     try {
       const parsed = customSettings || {};
@@ -6200,7 +6230,7 @@ export default function HomePage() {
               }
             }
             if (typeof mergedSettings.pcContainerWidth === 'number' && Number.isFinite(mergedSettings.pcContainerWidth)) {
-              setContainerWidth(Math.min(2000, Math.max(600, mergedSettings.pcContainerWidth)));
+              setContainerWidth(Math.min(window.innerWidth, Math.max(600, mergedSettings.pcContainerWidth)));
             }
             if (typeof mergedSettings.showMarketIndexPc === 'boolean') setShowMarketIndexPc(mergedSettings.showMarketIndexPc);
             if (typeof mergedSettings.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(mergedSettings.showMarketIndexMobile);
@@ -6255,72 +6285,7 @@ export default function HomePage() {
     }
   };
 
-  const isAnyModalOpen = useMemo(
-    () =>
-      portfolioEarningsOpen ||
-      feedbackOpen ||
-      addFundToGroupOpen ||
-      groupManageOpen ||
-      groupModalOpen ||
-      successModal.open ||
-      cloudConfigModal.open ||
-      isLogoutConfirmOpen ||
-      holdingModal.open ||
-      selectHoldingGroupModal.open ||
-      actionModal.open ||
-      tradeModal.open ||
-      dcaModal.open ||
-      addHistoryModal.open ||
-      historyModal.open ||
-      loginModalOpen ||
-      !!clearConfirm ||
-      donateOpen ||
-      !!fundDeleteConfirm ||
-      !!fundDeleteBulkConfirm ||
-      isUpdateModalOpen ||
-      weChatOpen ||
-      scanModalOpen ||
-      scanConfirmModalOpen ||
-      isScanning ||
-      isScanImporting ||
-      settingsOpen ||
-      sortSettingOpen ||
-      mobileFundDrawerOpen ||
-      mobileTableSettingModalOpen ||
-      fundTagsEdit.open,
-    [
-      portfolioEarningsOpen,
-      feedbackOpen,
-      addFundToGroupOpen,
-      groupManageOpen,
-      groupModalOpen,
-      successModal.open,
-      cloudConfigModal.open,
-      isLogoutConfirmOpen,
-      holdingModal.open,
-      selectHoldingGroupModal.open,
-      actionModal.open,
-      tradeModal.open,
-      dcaModal.open,
-      addHistoryModal.open,
-      historyModal.open,
-      loginModalOpen,
-      clearConfirm,
-      donateOpen,
-      fundDeleteConfirm,
-      isUpdateModalOpen,
-      weChatOpen,
-      scanModalOpen,
-      scanConfirmModalOpen,
-      isScanning,
-      isScanImporting,
-      settingsOpen,
-      sortSettingOpen,
-      mobileFundDrawerOpen,
-      mobileTableSettingModalOpen,
-      fundTagsEdit.open,
-    ]
-  );
+  const isAnyModalOpen = useIsAnyModalOpen();
 
   // 用 ref 同步 isAnyModalOpen，避免 scroll listener 因任意弹窗开关而频繁重注册
   const isAnyModalOpenRef = useRef(false);

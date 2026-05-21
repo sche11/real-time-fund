@@ -18,7 +18,6 @@ Single file (`fund.js`, ~954 lines) containing ALL external data fetching for th
 | `fetchShanghaiIndexDate()` | Shanghai index date for trading day check |
 | `parseFundTextWithLLM(text)` | OCR text → fund codes via LLM (apis.iflow.cn) |
 | `loadScript(url)` | JSONP helper — creates script tag, waits for global var |
-| `fetchRelatedSectors(code)` | Fund sector/track info (unused in main UI) |
 
 ## CONVENTIONS
 
