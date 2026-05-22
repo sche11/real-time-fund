@@ -7351,10 +7351,7 @@ export default function HomePage() {
         onChange={handleFilesUpload}
       />
 
-      {/* 弹框渲染层 - 独立组件，订阅 useModalStore，不触发 page.jsx 重渲染 */}
-      <ModalsLayer callbacksRef={modalCbRef} />
-
-        <div className="footer">
+      <div className="footer">
           {!isMobile && (
             <>
               <p style={{ marginBottom: 8 }}>数据源：实时估值与重仓直连东方财富，仅供个人学习及参考使用。数据可能存在延迟，不作为任何投资建议</p>
@@ -7440,6 +7437,9 @@ export default function HomePage() {
       {isMobile && (
         <MobileBottomNav value={mobileMainTab} onChange={setMobileMainTab} hidden={mobileBottomNavHidden && mobileMainTab === 'home'} />
       )}
+
+      {/* 弹框渲染层 - 独立组件，订阅 useModalStore，不触发 page.jsx 重渲染 */}
+      <ModalsLayer callbacksRef={modalCbRef} />
 
       {/* 全局轻提示 Toast */}
       <GlobalToast toast={toast} />
