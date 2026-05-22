@@ -212,7 +212,9 @@ export default function HomePage() {
       const w = parsed?.pcContainerWidth;
       const num = Number(w);
       if (Number.isFinite(num)) {
-        setContainerWidth(Math.min(window.innerWidth, Math.max(600, num)));
+        // 在移动端时不使用 window.innerWidth 裁剪，防止覆盖 PC 端个性化宽度
+        const maxWidth = window.matchMedia('(max-width: 640px)').matches ? 99999 : window.innerWidth;
+        setContainerWidth(Math.min(maxWidth, Math.max(600, num)));
       }
       if (typeof parsed?.showMarketIndexPc === 'boolean') setShowMarketIndexPc(parsed.showMarketIndexPc);
       if (typeof parsed?.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(parsed.showMarketIndexMobile);
@@ -4862,15 +4864,19 @@ export default function HomePage() {
     if (targetIsMobile) setShowGroupFundSearchMobile(nextShowGroupFundSearch);
     else setShowGroupFundSearchPc(nextShowGroupFundSearch);
 
-    const w = Math.min(window.innerWidth, Math.max(600, Number(containerWidth) || 1200));
-    setContainerWidth(w);
+    // 在移动端不裁剪也不修改 pcContainerWidth，直接保留原值
+    let w = Number(containerWidth) || 1200;
+    if (!targetIsMobile) {
+      w = Math.min(window.innerWidth, Math.max(600, w));
+      setContainerWidth(w);
+    }
+
     try {
       const parsed = customSettings || {};
       if (targetIsMobile) {
-        // 仅更新当前运行端对应的开关键
+        // 仅更新当前运行端对应的开关键，不覆盖 PC 端宽度
         setCustomSettings({
           ...parsed,
-          pcContainerWidth: w,
           showMarketIndexMobile: nextShowMarketIndex,
           showGroupFundSearchMobile: nextShowGroupFundSearch,
         });
@@ -6155,7 +6161,8 @@ export default function HomePage() {
               }
             }
             if (typeof mergedSettings.pcContainerWidth === 'number' && Number.isFinite(mergedSettings.pcContainerWidth)) {
-              setContainerWidth(Math.min(window.innerWidth, Math.max(600, mergedSettings.pcContainerWidth)));
+              const maxWidth = window.matchMedia('(max-width: 640px)').matches ? 99999 : window.innerWidth;
+              setContainerWidth(Math.min(maxWidth, Math.max(600, mergedSettings.pcContainerWidth)));
             }
             if (typeof mergedSettings.showMarketIndexPc === 'boolean') setShowMarketIndexPc(mergedSettings.showMarketIndexPc);
             if (typeof mergedSettings.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(mergedSettings.showMarketIndexMobile);
@@ -6571,7 +6578,7 @@ export default function HomePage() {
   };
 
   return (
-    <div ref={containerRef} className={containerClassName} style={{ width: containerWidth }}>
+    <div ref={containerRef} className={containerClassName} style={{ width: isMobile ? '100%' : containerWidth }}>
       <AnimatePresence>
         {showThemeTransition && (
           <motion.div
