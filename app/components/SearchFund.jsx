@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { X } from "lucide-react"
+import { useMemo, useRef } from "react"
+import { X, Search } from "lucide-react"
 
 import { Field, FieldContent } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -12,41 +12,24 @@ export default function SearchFund({
   placeholder = "筛选当前分组基金名称或代码...",
   disabled = false,
 }) {
-  const [draft, setDraft] = useState(value ?? "")
   const inputRef = useRef(null)
-
-  useEffect(() => {
-    // 外部 value 变化时同步到输入框（避免 tab 切换/外部清空导致 UI 不一致）
-    setDraft(value ?? "")
-  }, [value])
-
-  const canSearch = useMemo(() => {
-    if (disabled) return false
-    const d = String(draft ?? "");
-    return d.trim().length > 0
-  }, [draft, disabled])
-
-  const handleSearch = useCallback(() => {
-    if (!onSearch) return
-    const d = String(draft ?? "");
-    onSearch(d.trim())
-  }, [draft, onSearch])
 
   const showClear = useMemo(() => {
     if (disabled) return false
-    return String(draft ?? "").length > 0
-  }, [draft, disabled])
+    return String(value ?? "").length > 0
+  }, [value, disabled])
 
   return (
     <div className="mt-3 mb-3 w-full sm:max-w-[400px]">
       <Field orientation="horizontal" className="items-stretch gap-2">
         <FieldContent className="relative min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            value={value ?? ""}
+            onChange={(e) => onSearch?.(e.target.value)}
             placeholder={placeholder}
             disabled={disabled}
-            className={showClear ? "pr-9" : undefined}
+            className={`pl-9 ${showClear ? "pr-9" : ""}`}
             ref={inputRef}
             onBlur={() => {
               // 移动端键盘收起时页面可能回弹，失焦后把输入框滚回可见区域
@@ -80,12 +63,6 @@ export default function SearchFund({
                 })
               }, 220)
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                handleSearch()
-              }
-            }}
           />
           {showClear && (
             <button
@@ -98,7 +75,6 @@ export default function SearchFund({
                 e.preventDefault()
               }}
               onClick={() => {
-                setDraft("")
                 onSearch?.("")
                 inputRef.current?.focus()
               }}
@@ -107,19 +83,7 @@ export default function SearchFund({
             </button>
           )}
         </FieldContent>
-
-        <button
-          type="button"
-          className="h-9 shrink-0 rounded-md bg-primary px-3 text-sm text-primary-foreground shadow-xs transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary"
-          disabled={!canSearch}
-          onClick={handleSearch}
-          aria-label="筛选分组内基金"
-          title="筛选"
-        >
-          筛选
-        </button>
       </Field>
     </div>
   )
 }
-
