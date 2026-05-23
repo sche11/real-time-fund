@@ -43,6 +43,14 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
   const refreshingRef = useRef(false);
   const refreshCodesRef = useRef([]);
 
+  const scheduleDcaTradesRef = useRef(scheduleDcaTrades);
+  const processPendingQueueRef = useRef(processPendingQueue);
+
+  useEffect(() => {
+    scheduleDcaTradesRef.current = scheduleDcaTrades;
+    processPendingQueueRef.current = processPendingQueue;
+  }, [scheduleDcaTrades, processPendingQueue]);
+
   // 同步 funds → refreshCodesRef
   const funds = useStorageStore((s) => s.funds);
   useEffect(() => {
@@ -415,18 +423,18 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
       }, currentRefreshMs);
 
       try {
-        await scheduleDcaTrades();
+        if (scheduleDcaTradesRef.current) await scheduleDcaTradesRef.current();
       } catch (e) {
         console.warn('生成定投待处理交易出错', e);
       }
 
       try {
-        await processPendingQueue();
+        if (processPendingQueueRef.current) await processPendingQueueRef.current();
       } catch (e) {
         console.warn('待交易处理出错', e);
       }
     }
-  }, [scheduleDcaTrades, processPendingQueue, deviceConflictModalOpenRef]);
+  }, [deviceConflictModalOpenRef]);
 
   const manualRefresh = useCallback(async () => {
     if (refreshingRef.current) return;
