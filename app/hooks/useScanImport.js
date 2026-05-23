@@ -371,17 +371,6 @@ export function useScanImport({
       if (newFunds.length > 0) {
         setFunds(prev => dedupeByCode([...newFunds, ...prev]));
 
-        if (Object.keys(newHoldings).length > 0) {
-          if (targetGroupId !== 'all' && targetGroupId !== 'fav') {
-            setGroupHoldings(prev => {
-              const bucket = prev[targetGroupId] ? { ...prev[targetGroupId] } : {};
-              return { ...prev, [targetGroupId]: { ...bucket, ...newHoldings } };
-            });
-          } else {
-            setHoldings(prev => ({ ...prev, ...newHoldings }));
-          }
-        }
-
         const nextSeries = {};
         newFunds.forEach(u => {
           if (u?.code != null && !u.noValuation && Number.isFinite(Number(u.gsz))) {
@@ -389,19 +378,30 @@ export function useScanImport({
           }
         });
         if (Object.keys(nextSeries).length > 0) setValuationSeries(prev => ({ ...prev, ...nextSeries }));
+      }
 
-        if (!expandAfterAdd) {
-          setCollapsedCodes(prev => {
-            const next = new Set(prev);
-            newCodesSet.forEach((code) => next.add(code));
-            return next;
+      if (Object.keys(newHoldings).length > 0) {
+        if (targetGroupId !== 'all' && targetGroupId !== 'fav') {
+          setGroupHoldings(prev => {
+            const bucket = prev[targetGroupId] ? { ...prev[targetGroupId] } : {};
+            return { ...prev, [targetGroupId]: { ...bucket, ...newHoldings } };
           });
-          setCollapsedTrends(prev => {
-            const next = new Set(prev);
-            newCodesSet.forEach((code) => next.add(code));
-            return next;
-          });
+        } else {
+          setHoldings(prev => ({ ...prev, ...newHoldings }));
         }
+      }
+
+      if (!expandAfterAdd) {
+        setCollapsedCodes(prev => {
+          const next = new Set(prev);
+          codes.forEach((code) => next.add(code));
+          return next;
+        });
+        setCollapsedTrends(prev => {
+          const next = new Set(prev);
+          codes.forEach((code) => next.add(code));
+          return next;
+        });
       }
 
       if (targetGroupId === 'fav') {
