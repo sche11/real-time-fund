@@ -74,7 +74,7 @@ export default function MobileFundCardDrawer({
           style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}
         >
           {cardSheetRow && getFundCardProps ? (
-            <FundCard {...getFundCardProps(cardSheetRow)} />
+            <FundCard {...getFundCardProps(cardSheetRow)} layoutMode="drawer" />
           ) : null}
         </div>
       </DrawerContent>

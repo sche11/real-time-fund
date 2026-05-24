@@ -167,6 +167,8 @@ export default function HomePage() {
   const [showMarketIndexMobile, setShowMarketIndexMobile] = useState(true);
   const [showGroupFundSearchPc, setShowGroupFundSearchPc] = useState(true);
   const [showGroupFundSearchMobile, setShowGroupFundSearchMobile] = useState(true);
+  const [dynamicStylePc, setDynamicStylePc] = useState(true);
+  const [dynamicStyleMobile, setDynamicStyleMobile] = useState(true);
   const [isGroupSummarySticky, setIsGroupSummarySticky] = useState(false);
 
   useEffect(() => {
@@ -185,6 +187,8 @@ export default function HomePage() {
       if (typeof parsed?.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(parsed.showMarketIndexMobile);
       if (typeof parsed?.showGroupFundSearchPc === 'boolean') setShowGroupFundSearchPc(parsed.showGroupFundSearchPc);
       if (typeof parsed?.showGroupFundSearchMobile === 'boolean') setShowGroupFundSearchMobile(parsed.showGroupFundSearchMobile);
+      if (typeof parsed?.dynamicStylePc === 'boolean') setDynamicStylePc(parsed.dynamicStylePc);
+      if (typeof parsed?.dynamicStyleMobile === 'boolean') setDynamicStyleMobile(parsed.dynamicStyleMobile);
     } catch { }
   }, [customSettings]);
 
@@ -324,6 +328,17 @@ export default function HomePage() {
   const todayStr = formatDate();
 
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const isDynamic = isMobile ? dynamicStyleMobile : dynamicStylePc;
+      if (!isDynamic) {
+        document.documentElement.classList.add('reduce-dynamic-style');
+      } else {
+        document.documentElement.classList.remove('reduce-dynamic-style');
+      }
+    }
+  }, [isMobile, dynamicStyleMobile, dynamicStylePc]);
 
   const [mobileMainTab, setMobileMainTab] = useState('home');
   const [mobileBottomNavHidden, setMobileBottomNavHidden] = useState(false);
@@ -4238,7 +4253,7 @@ export default function HomePage() {
     });
   };
 
-  const saveSettings = (e, secondsOverride, showMarketIndexOverride, showGroupFundSearchOverride, isMobileOverride) => {
+  const saveSettings = (e, secondsOverride, showMarketIndexOverride, showGroupFundSearchOverride, isMobileOverride, dynamicStyleOverride) => {
     e?.preventDefault?.();
     const seconds = secondsOverride ?? tempSeconds;
     const ms = Math.max(30, Number(seconds)) * 1000;
@@ -4262,6 +4277,14 @@ export default function HomePage() {
     if (targetIsMobile) setShowGroupFundSearchMobile(nextShowGroupFundSearch);
     else setShowGroupFundSearchPc(nextShowGroupFundSearch);
 
+    const nextDynamicStyle = typeof dynamicStyleOverride === 'boolean'
+      ? dynamicStyleOverride
+      : targetIsMobile
+        ? dynamicStyleMobile
+        : dynamicStylePc;
+    if (targetIsMobile) setDynamicStyleMobile(nextDynamicStyle);
+    else setDynamicStylePc(nextDynamicStyle);
+
     // 在移动端不裁剪也不修改 pcContainerWidth，直接保留原值
     let w = Number(containerWidth) || 1200;
     if (!targetIsMobile) {
@@ -4277,6 +4300,7 @@ export default function HomePage() {
           ...parsed,
           showMarketIndexMobile: nextShowMarketIndex,
           showGroupFundSearchMobile: nextShowGroupFundSearch,
+          dynamicStyleMobile: nextDynamicStyle,
         });
       } else {
         setCustomSettings({
@@ -4284,6 +4308,7 @@ export default function HomePage() {
           pcContainerWidth: w,
           showMarketIndexPc: nextShowMarketIndex,
           showGroupFundSearchPc: nextShowGroupFundSearch,
+          dynamicStylePc: nextDynamicStyle,
         });
       }
     } catch { }
@@ -4945,6 +4970,8 @@ export default function HomePage() {
     showMarketIndexMobile,
     showGroupFundSearchPc,
     showGroupFundSearchMobile,
+    dynamicStylePc,
+    dynamicStyleMobile,
     scanProgress: scanProgress ?? { stage: 'ocr', current: 0, total: 0 },
     scanImportProgress: scanImportProgress ?? { current: 0, total: 0, success: 0, failed: 0 },
     // Refs
