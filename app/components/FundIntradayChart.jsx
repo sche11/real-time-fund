@@ -370,11 +370,11 @@ export default function FundIntradayChart({ series = [], referenceNav, theme = '
                   paddingBottom: 24
                 }}
               >
-                {isMobile ? '按住图片下滑退出图片查看器' : '点击非图片区域退出图片查看器'}
+                点击非图片区域退出图片查看器
               </div>
             )}
           >
-            <PhotoView 
+            <PhotoView
               src={isMobile ? `https://j4.dfcfw.com/charts/pic6/${fundCode}.png${gztime ? '?v=' + encodeURIComponent(gztime) : ''}` : undefined}
               width={isMobile ? undefined : 817}
               height={isMobile ? undefined : 450}
