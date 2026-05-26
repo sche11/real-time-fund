@@ -4,10 +4,10 @@ let sharedWorker = null;
 
 export async function getOcrWorker(lang = 'chi_sim+eng') {
   if (sharedWorker) return sharedWorker;
-  
+
   const cdnBases = [
-    'https://fastly.jsdelivr.net/npm',
     'https://cdn.jsdelivr.net/npm',
+    'https://fastly.jsdelivr.net/npm',
   ];
   const coreCandidates = [
     'tesseract-core-simd-lstm.wasm.js',

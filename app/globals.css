@@ -4413,3 +4413,8 @@ html::-webkit-scrollbar-thumb:active,
     @apply bg-background text-foreground;
   }
 }
+
+/* react-photo-view portal pointer events fix for Radix UI */
+.PhotoView-Portal {
+  pointer-events: auto !important;
+}
