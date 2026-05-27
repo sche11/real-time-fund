@@ -26,6 +26,7 @@ import { getTagThemeBadgeProps } from './AddTagDialog';
 import { cn } from '@/lib/utils';
 import { useStorageStore } from "@/app/stores";
 import { fetchFundHoldings } from '@/app/api/fund';
+import { useIsMobile } from '@/app/hooks/useIsMobile';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -55,6 +56,147 @@ const formatDisplayDate = (value) => {
 
   return showTime ? d.format('MM-DD HH:mm') : d.format('MM-DD');
 };
+
+/** 格式化阶段涨跌幅 */
+const fmtPeriodReturn = (val) => {
+  if (val == null || !Number.isFinite(val)) return '—';
+  return `${val > 0 ? '+' : ''}${val.toFixed(2)}%`;
+};
+
+function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked, groupTotalHoldingAmount }) {
+  const [expanded, setExpanded] = useState(false);
+  const isMobile = useIsMobile();
+
+  // 是否有阶段涨跌数据
+  const hasPeriodData =
+    fundExtraData &&
+    (fundExtraData.week != null || fundExtraData.month != null || fundExtraData.month3 != null || fundExtraData.month6 != null || fundExtraData.year1 != null);
+
+  // 只要有阶段涨跌或持仓数据，就展示"更多"按钮
+  if (!hasPeriodData && !hasHoldingAmount) return null;
+
+  const costNavValue =
+    holding && isNumber(holding.cost) ? holding.cost : null;
+  const costNav = costNavValue == null ? '—' : Number(costNavValue).toFixed(4);
+
+  const holdingCostValue =
+    holding && isNumber(holding.cost) && isNumber(holding.share)
+      ? holding.cost * holding.share
+      : null;
+  const holdingCost =
+    holdingCostValue == null
+      ? '—'
+      : `¥${Number(holdingCostValue).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const holdingAmount = profit?.amount;
+  const holdingRatioValue =
+    holdingAmount != null && Number.isFinite(holdingAmount) && holdingAmount > 0 && groupTotalHoldingAmount > 0
+      ? holdingAmount / groupTotalHoldingAmount
+      : null;
+  const holdingRatio =
+    holdingRatioValue != null
+      ? `${(holdingRatioValue * 100).toFixed(2)}%`
+      : '—';
+
+  return (
+    <>
+      <div
+        style={{
+          width: '100%',
+          height: '1px',
+          background: 'var(--border, rgba(255,255,255,0.08))',
+          marginBottom: 0,
+        }}
+      />
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4,
+          width: '100%',
+          padding: '8px 0 4px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'var(--muted)',
+          fontSize: '12px',
+          transition: 'color 0.2s ease',
+        }}
+      >
+        <span>{expanded ? '收起' : '更多'}</span>
+        <ChevronIcon
+          width="14"
+          height="14"
+          style={{
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.25s ease',
+          }}
+        />
+      </button>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+            {hasHoldingAmount && (
+              <div className="row" style={{ marginBottom: 10 }}>
+                <Stat
+                  label="成本净值"
+                  value={masked ? '******' : costNav}
+                />
+                <Stat
+                  label="持仓成本"
+                  value={masked ? '******' : holdingCost}
+                />
+                <Stat
+                  label="持仓占比"
+                  value={masked ? '******' : holdingRatio}
+                />
+              </div>
+            )}
+            {hasPeriodData && (
+              <div className="row" style={{ marginBottom: 10 }}>
+                <Stat
+                  label="近1周"
+                  value={fmtPeriodReturn(fundExtraData.week)}
+                  delta={fundExtraData.week}
+                />
+                <Stat
+                  label="近1月"
+                  value={fmtPeriodReturn(fundExtraData.month)}
+                  delta={fundExtraData.month}
+                />
+                <Stat
+                  label="近3月"
+                  value={fmtPeriodReturn(fundExtraData.month3)}
+                  delta={fundExtraData.month3}
+                />
+                <Stat
+                  label="近6月"
+                  value={fmtPeriodReturn(fundExtraData.month6)}
+                  delta={fundExtraData.month6}
+                />
+                {!isMobile && (
+                  <Stat
+                    label="近1年"
+                    value={fmtPeriodReturn(fundExtraData.year1)}
+                    delta={fundExtraData.year1}
+                  />
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
 
 export default function FundCard({
   fundCode,
@@ -90,6 +232,7 @@ export default function FundCard({
   onFundTagsClick,
   fundExtraData,
   onDataSourceClick,
+  groupTotalHoldingAmount = 0,
 }) {
   const {
     funds,
@@ -504,11 +647,13 @@ export default function FundCard({
               <span
                 className={`value ${
                   profit.profitToday != null
-                    ? profit.profitToday > 0
-                      ? 'up'
-                      : profit.profitToday < 0
-                        ? 'down'
-                        : ''
+                    ? masked
+                      ? ''
+                      : profit.profitToday > 0
+                        ? 'up'
+                        : profit.profitToday < 0
+                          ? 'down'
+                          : ''
                     : 'muted'
                 }`}
               >
@@ -547,7 +692,7 @@ export default function FundCard({
                 </span>
                 <span
                   className={`value ${
-                    profit.profitTotal > 0 ? 'up' : profit.profitTotal < 0 ? 'down' : ''
+                    masked ? '' : profit.profitTotal > 0 ? 'up' : profit.profitTotal < 0 ? 'down' : ''
                   }`}
                 >
                   {masked
@@ -568,6 +713,16 @@ export default function FundCard({
           </>
         )}
       </div>
+
+      {/* ── 更多信息展开区 ── */}
+      <MoreSection
+        holding={holding}
+        profit={profit}
+        hasHoldingAmount={hasHoldingAmount}
+        fundExtraData={fundExtraData}
+        masked={masked}
+        groupTotalHoldingAmount={groupTotalHoldingAmount}
+      />
 
       {(() => {
         const showIntraday =

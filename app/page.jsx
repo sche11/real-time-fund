@@ -1421,16 +1421,20 @@ export default function HomePage() {
     return out;
   }, [currentFundDailyEarnings, displayFunds]);
 
+  // 分组内所有基金持仓金额之和，用于持仓占比（PC 端表格 + FundCard 更多区域共用）
+  const groupTotalHoldingAmount = useMemo(() => {
+    let total = 0;
+    for (const ff of displayFunds) {
+      const h = holdingsForTabWithLinked[ff.code];
+      const p = getHoldingProfitForTab(ff, h);
+      if (p && p.amount != null && Number.isFinite(p.amount) && p.amount > 0) total += p.amount;
+    }
+    return total;
+  }, [displayFunds, holdingsForTabWithLinked, getHoldingProfitForTab]);
+
   // PC 端表格数据（用于 PcFundTable）
   const pcFundTableData = useMemo(
     () => {
-      // 计算分组内所有基金持仓金额之和，用于持仓占比
-      let groupTotalHoldingAmount = 0;
-      for (const ff of displayFunds) {
-        const h = holdingsForTabWithLinked[ff.code];
-        const p = getHoldingProfitForTab(ff, h);
-        if (p && p.amount != null && Number.isFinite(p.amount) && p.amount > 0) groupTotalHoldingAmount += p.amount;
-      }
       return displayFunds.map((f) => {
         const hasTodayData = f.jzrq === todayStr;
         const latestNav = f.dwjz != null && f.dwjz !== '' ? (typeof f.dwjz === 'number' ? Number(f.dwjz).toFixed(4) : String(f.dwjz)) : '—';
@@ -1683,6 +1687,7 @@ export default function HomePage() {
       linkedHoldingsForAllFav,
       // fundTagRecords 已移除：fundTagListsByCode 是其派生值，两者同时存在会导致标签变化时双重触发
       fundTagListsByCode,
+      groupTotalHoldingAmount,
     ],
   );
 
@@ -4863,6 +4868,7 @@ export default function HomePage() {
       fundTags: row?.fundTags || [],
       onFundTagsClick: openFundTagsEdit,
       fundExtraData: fundExtraDataByCode[fund.code],
+      groupTotalHoldingAmount,
     };
   }, [
     todayStr,
@@ -4894,6 +4900,7 @@ export default function HomePage() {
     maskAmounts,
     openFundTagsEdit,
     fundExtraDataByCode,
+    groupTotalHoldingAmount,
   ]);
 
   // ModalsLayer 回调 ref：页面级回调与数据通过 ref 注入，不触发重渲染
@@ -5711,6 +5718,7 @@ export default function HomePage() {
                               fundTags={Array.isArray(fundTagListsByCode[f.code]) ? fundTagListsByCode[f.code] : []}
                               onFundTagsClick={openFundTagsEdit}
                               fundExtraData={fundExtraDataByCode[f.code]}
+                              groupTotalHoldingAmount={groupTotalHoldingAmount}
                             />
                         </motion.div>
                       ))}
