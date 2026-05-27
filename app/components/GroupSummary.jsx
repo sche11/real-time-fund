@@ -106,6 +106,7 @@ export default function GroupSummary({
   const [showPercent, setShowPercent] = useState(true);
   const [showTodayPercent, setShowTodayPercent] = useState(false);
   const [isMasked, setIsMasked] = useState(masked ?? false);
+  const [isAssetMasked, setIsAssetMasked] = useState(false);
   const rowRef = useRef(null);
   const [assetSize, setAssetSize] = useState(26);
   const [metricSize, setMetricSize] = useState(20);
@@ -297,9 +298,12 @@ export default function GroupSummary({
                 fontWeight: 700,
                 fontFamily: 'var(--font-mono)',
                 minWidth: 0,
+                cursor: 'pointer',
               }}
+              onClick={() => setIsAssetMasked((v) => !v)}
+              title="点击隐藏/显示资产金额"
             >
-              {isMasked ? (
+              {isMasked || isAssetMasked ? (
                 <span
                   className="mask-text"
                   style={{ fontSize: assetSize, position: 'relative', top: 4 }}
