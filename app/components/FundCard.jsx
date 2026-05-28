@@ -100,41 +100,36 @@ function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked,
 
   return (
     <>
-      <div
-        style={{
-          width: '100%',
-          height: '1px',
-          background: 'var(--border, rgba(255,255,255,0.08))',
-          marginBottom: 0,
-        }}
-      />
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
-          width: '100%',
-          padding: '8px 0 4px',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--muted)',
-          fontSize: '12px',
-          transition: 'color 0.2s ease',
-        }}
-      >
-        <span>{expanded ? '收起' : '更多'}</span>
-        <ChevronIcon
-          width="14"
-          height="14"
+      <div style={{ display: 'flex', alignItems: 'center', margin: '8px 0 4px' }}>
+        <div style={{ flex: 1, height: '1px', background: 'var(--border, rgba(255,255,255,0.08))' }} />
+        <button
+          onClick={() => setExpanded((v) => !v)}
           style={{
-            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.25s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+            padding: '0 12px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--muted)',
+            fontSize: '12px',
+            transition: 'color 0.2s ease',
           }}
-        />
-      </button>
+        >
+          <span>{expanded ? '收起' : '更多'}</span>
+          <ChevronIcon
+            width="14"
+            height="14"
+            style={{
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.25s ease',
+            }}
+          />
+        </button>
+        <div style={{ flex: 1, height: '1px', background: 'var(--border, rgba(255,255,255,0.08))' }} />
+      </div>
       <AnimatePresence>
         {expanded && (
           <motion.div
