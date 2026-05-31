@@ -28,7 +28,7 @@ export default function UpdatePromptModal({ updateContent, open, onClose, onRefr
             更新内容如下：
           </p>
           {updateContent && (
-            <div 
+            <div
               className="scrollbar-y-styled"
               style={{
                 background: 'var(--card)',

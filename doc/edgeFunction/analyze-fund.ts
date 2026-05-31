@@ -1,29 +1,31 @@
 // Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-console.info("server started");
+console.info('server started');
 
-const AINX_API_KEY = Deno.env.get("AINX_API_KEY");
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const AINX_API_KEY = Deno.env.get('AINX_API_KEY');
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
 // ✅ 清洗模型输出（增强版）
 function cleanModelOutput(text: string) {
-  if (!text) return "";
+  if (!text) return '';
 
-  return text
-    .replace(/<think>[\s\S]*?<\/think>/gi, "") // 移除思考过程
-    .replace(/```json/gi, "")                 // 移除 markdown 标记
-    .replace(/```/g, "")
-    // 替换特殊空白字符(如 \u00A0)为普通空格，防止 JSON.parse 报错
-    .replace(/[\u00A0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, " ")
-    .trim();
+  return (
+    text
+      .replace(/<think>[\s\S]*?<\/think>/gi, '') // 移除思考过程
+      .replace(/```json/gi, '') // 移除 markdown 标记
+      .replace(/```/g, '')
+      // 替换特殊空白字符(如 \u00A0)为普通空格，防止 JSON.parse 报错
+      .replace(/[\u00A0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ')
+      .trim()
+  );
 }
 
 // ✅ 提取 JSON
@@ -43,82 +45,82 @@ function extractJSON(text: string) {
   try {
     return JSON.parse(match[0]);
   } catch (err) {
-    console.error("JSON 解析失败:", err, "提取的文本:", match[0]);
+    console.error('JSON 解析失败:', err, '提取的文本:', match[0]);
     return null;
   }
 }
 
 Deno.serve(async (req: Request) => {
   // 处理跨域 OPTIONS 请求
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // ✅ 1. 获取 Authorization header
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get('Authorization');
 
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing Authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: false, error: 'Missing Authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // ✅ 2. 创建 Supabase client（带用户 JWT）
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
         headers: {
-          Authorization: authHeader,
-        },
-      },
+          Authorization: authHeader
+        }
+      }
     });
 
     // ✅ 3. 校验用户登录状态
     const {
       data: { user },
-      error: authError,
+      error: authError
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    console.info("当前用户:", user.id);
+    console.info('当前用户:', user.id);
 
     const body = await req.json().catch(() => ({}));
-    const rawText = body?.text || "";
+    const rawText = body?.text || '';
 
     // 清洗输入文本
     const text = rawText
-      .replace(/\s+/g, " ")
-      .replace(/[^\S\r\n]+/g, " ")
+      .replace(/\s+/g, ' ')
+      .replace(/[^\S\r\n]+/g, ' ')
       .trim();
 
     if (!text) {
-      return new Response(
-        JSON.stringify({ success: false, error: "未提供有效文本" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ success: false, error: '未提供有效文本' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // ✅ 4. 调用 AINX 大模型接口
-    const resp = await fetch("https://api.ainx.cc/v1/chat/completions", {
-      method: "POST",
+    const resp = await fetch('https://api.ainx.cc/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${AINX_API_KEY}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${AINX_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-5.5", // 指定模型
-        temperature: 0,  // 设置为 0 保证 JSON 输出更稳定
+        model: 'gpt-5.5', // 指定模型
+        temperature: 0, // 设置为 0 保证 JSON 输出更稳定
         stream: false,
         messages: [
           {
-            role: "system",
+            role: 'system',
             content: `你是一个专业的基金持仓OCR解析助手。
 
 任务目标：
@@ -179,11 +181,11 @@ Deno.serve(async (req: Request) => {
 ]`
           },
           {
-            role: "user",
+            role: 'user',
             content: text
           }
-        ],
-      }),
+        ]
+      })
     });
 
     // 检查 AI 接口是否请求成功
@@ -195,7 +197,7 @@ Deno.serve(async (req: Request) => {
     const result = await resp.json();
 
     // 提取模型返回的内容
-    const rawContent = result?.choices?.[0]?.message?.content || "";
+    const rawContent = result?.choices?.[0]?.message?.content || '';
 
     // ✅ 5. 解析并清洗 AI 返回的数据
     const cleaned = cleanModelOutput(rawContent);
@@ -205,10 +207,10 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "模型未返回合法 JSON",
+          error: '模型未返回合法 JSON',
           raw: rawContent
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -216,19 +218,19 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "返回结果不是数组",
+          error: '返回结果不是数组',
           data: parsed
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // 格式化确保每个字段的数据类型绝对安全
     const safeData = parsed.map((item: any) => ({
-      fundName: String(item?.fundName || ""),
-      fundCode: String(item?.fundCode || ""),
-      holdAmounts: String(item?.holdAmounts || ""),
-      holdGains: String(item?.holdGains || "")
+      fundName: String(item?.fundName || ''),
+      fundCode: String(item?.fundCode || ''),
+      holdAmounts: String(item?.holdAmounts || ''),
+      holdGains: String(item?.holdGains || '')
     }));
 
     // ✅ 6. 成功响应
@@ -242,19 +244,18 @@ Deno.serve(async (req: Request) => {
         status: 200,
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json'
         }
       }
     );
-
   } catch (err: any) {
-    console.error("服务端错误:", err);
+    console.error('服务端错误:', err);
     return new Response(
       JSON.stringify({
         success: false,
-        error: err.message || "Unknown error"
+        error: err.message || 'Unknown error'
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

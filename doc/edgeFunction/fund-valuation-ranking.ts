@@ -1,16 +1,15 @@
 // Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-console.info("fund-valuation-ranking server started");
+console.info('fund-valuation-ranking server started');
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
 /**
@@ -29,23 +28,23 @@ const corsHeaders = {
  */
 Deno.serve(async (req: Request) => {
   // 处理跨域 OPTIONS 预检请求
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // ✅ 1. 获取 Authorization header
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get('Authorization');
 
     if (!authHeader) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing Authorization header",
+          error: 'Missing Authorization header'
         }),
         {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -54,31 +53,28 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
         headers: {
-          Authorization: authHeader,
-        },
-      },
+          Authorization: authHeader
+        }
+      }
     });
 
     // ✅ 3. 校验用户登录状态
     const {
       data: { user },
-      error: authError,
+      error: authError
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // ✅ 4. 解析请求参数
     const body = await req.json().catch(() => ({}));
     const sort = body?.sort ?? 3;
-    const order = body?.order ?? "desc";
+    const order = body?.order ?? 'desc';
     const page = body?.page ?? 1;
     const pageSize = body?.pageSize ?? 20;
 
@@ -88,17 +84,15 @@ Deno.serve(async (req: Request) => {
     const apiRes = await fetch(apiUrl, {
       headers: {
         // 模拟浏览器请求头，避免被 API 拒绝
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Referer: "https://fund.eastmoney.com/",
-      },
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Referer: 'https://fund.eastmoney.com/'
+      }
     });
 
     if (!apiRes.ok) {
       const errorText = await apiRes.text();
-      throw new Error(
-        `天天基金 API 请求失败 (${apiRes.status}): ${errorText}`
-      );
+      throw new Error(`天天基金 API 请求失败 (${apiRes.status}): ${errorText}`);
     }
 
     const apiData = await apiRes.json();
@@ -107,26 +101,26 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        data: apiData?.Data || null,
+        data: apiData?.Data || null
       }),
       {
         status: 200,
         headers: {
           ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+          'Content-Type': 'application/json'
+        }
       }
     );
   } catch (err: any) {
-    console.error("fund-valuation-ranking 服务端错误:", err);
+    console.error('fund-valuation-ranking 服务端错误:', err);
     return new Response(
       JSON.stringify({
         success: false,
-        error: err.message || "Unknown error",
+        error: err.message || 'Unknown error'
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

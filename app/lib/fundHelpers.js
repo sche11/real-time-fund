@@ -10,7 +10,7 @@ import {
   DCA_SCOPE_GLOBAL,
   SUMMARY_TAB_ID,
   SUMMARY_SOURCE_GLOBAL,
-  DEFAULT_FUND_TAG_THEME,
+  DEFAULT_FUND_TAG_THEME
 } from '@/app/constants';
 
 dayjs.extend(utc);
@@ -59,7 +59,7 @@ export function normalizeFundTagInstanceListFromInput(rows) {
     out.push({
       id,
       name,
-      theme: normalizeFundTagTheme(r.theme),
+      theme: normalizeFundTagTheme(r.theme)
     });
     if (out.length >= 30) break;
   }
@@ -89,7 +89,7 @@ export function sanitizeTagRowForStorage(r) {
     id: String(r.id ?? '').trim() || uuidv4(),
     name,
     theme: String(r.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
-    fundCodes: codes.sort(),
+    fundCodes: codes.sort()
   };
 }
 
@@ -101,9 +101,9 @@ export function serializeTagRecordsForCompare(rows) {
         id: String(r?.id ?? ''),
         name: String(r?.name ?? '').trim(),
         theme: String(r?.theme ?? '').trim(),
-        fundCodes: getFundCodesFromTagRecord(r).slice().sort(),
+        fundCodes: getFundCodesFromTagRecord(r).slice().sort()
       }))
-      .sort((a, b) => a.id.localeCompare(b.id)),
+      .sort((a, b) => a.id.localeCompare(b.id))
   );
 }
 
@@ -123,7 +123,7 @@ export function mergeTagRowsByName(rows) {
         id: String(row.id ?? '').trim(),
         name: nm,
         theme: String(row.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
-        fundCodes: [...codes].sort(),
+        fundCodes: [...codes].sort()
       });
     }
   }
@@ -142,16 +142,8 @@ export function cloneHoldingDeep(src) {
 /** 规范化单条持仓（与 collectLocalPayload 清洗逻辑对齐） */
 export function normalizeHoldingEntryForSeed(value) {
   if (!isPlainObject(value)) return null;
-  const parsedShare = isNumber(value.share)
-    ? value.share
-    : isString(value.share)
-      ? Number(value.share)
-      : NaN;
-  const parsedCost = isNumber(value.cost)
-    ? value.cost
-    : isString(value.cost)
-      ? Number(value.cost)
-      : NaN;
+  const parsedShare = isNumber(value.share) ? value.share : isString(value.share) ? Number(value.share) : NaN;
+  const parsedCost = isNumber(value.cost) ? value.cost : isString(value.cost) ? Number(value.cost) : NaN;
   const nextShare = Number.isFinite(parsedShare) ? parsedShare : null;
   const nextCost = Number.isFinite(parsedCost) ? parsedCost : null;
   if (nextShare === null && nextCost === null) return null;

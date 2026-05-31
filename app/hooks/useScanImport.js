@@ -17,13 +17,7 @@ import { useStorageStore, useUserStore, useModalStore } from '../stores';
  *   dedupeByCode: Function,
  * }} deps
  */
-export function useScanImport({
-  setCurrentTab,
-  setValuationSeries,
-  showToast,
-  normalizeCode,
-  dedupeByCode,
-}) {
+export function useScanImport({ setCurrentTab, setValuationSeries, showToast, normalizeCode, dedupeByCode }) {
   const setSuccessModal = (state) => useModalStore.setState({ successModal: state });
   const user = useUserStore((s) => s.user);
   const funds = useStorageStore((s) => s.funds);
@@ -42,10 +36,18 @@ export function useScanImport({
   const scanConfirmModalOpen = useModalStore((s) => s.scanConfirmModalOpen);
   const isScanning = useModalStore((s) => s.isScanning);
   const isScanImporting = useModalStore((s) => s.isScanImporting);
-  const setScanModalOpen = (v) => useModalStore.setState({ scanModalOpen: typeof v === 'function' ? v(useModalStore.getState().scanModalOpen) : v });
-  const setScanConfirmModalOpen = (v) => useModalStore.setState({ scanConfirmModalOpen: typeof v === 'function' ? v(useModalStore.getState().scanConfirmModalOpen) : v });
-  const setIsScanning = (v) => useModalStore.setState({ isScanning: typeof v === 'function' ? v(useModalStore.getState().isScanning) : v });
-  const setIsScanImporting = (v) => useModalStore.setState({ isScanImporting: typeof v === 'function' ? v(useModalStore.getState().isScanImporting) : v });
+  const setScanModalOpen = (v) =>
+    useModalStore.setState({ scanModalOpen: typeof v === 'function' ? v(useModalStore.getState().scanModalOpen) : v });
+  const setScanConfirmModalOpen = (v) =>
+    useModalStore.setState({
+      scanConfirmModalOpen: typeof v === 'function' ? v(useModalStore.getState().scanConfirmModalOpen) : v
+    });
+  const setIsScanning = (v) =>
+    useModalStore.setState({ isScanning: typeof v === 'function' ? v(useModalStore.getState().isScanning) : v });
+  const setIsScanImporting = (v) =>
+    useModalStore.setState({
+      isScanImporting: typeof v === 'function' ? v(useModalStore.getState().isScanImporting) : v
+    });
   const [scannedFunds, setScannedFunds] = useState([]);
   const [selectedScannedCodes, setSelectedScannedCodes] = useState(new Set());
   const [scanImportProgress, setScanImportProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 });
@@ -97,7 +99,7 @@ export function useScanImport({
       const text = texts[i];
       if (!text) continue;
 
-      setScanProgress(prev => ({ ...prev, current: i + 1 }));
+      setScanProgress((prev) => ({ ...prev, current: i + 1 }));
 
       const fundsResString = await parseFundTextWithLLM(text);
       let fundsRes = null;
@@ -113,9 +115,19 @@ export function useScanImport({
           const name = (fund.fundName || '').trim();
           if (code && !addedFundCodes.has(code)) {
             addedFundCodes.add(code);
-            allFundsData.push({ fundCode: code, fundName: name, holdAmounts: fund.holdAmounts || '', holdGains: fund.holdGains || '' });
+            allFundsData.push({
+              fundCode: code,
+              fundName: name,
+              holdAmounts: fund.holdAmounts || '',
+              holdGains: fund.holdGains || ''
+            });
           } else if (!code && name) {
-            allFundsData.push({ fundCode: '', fundName: name, holdAmounts: fund.holdAmounts || '', holdGains: fund.holdGains || '' });
+            allFundsData.push({
+              fundCode: '',
+              fundName: name,
+              holdAmounts: fund.holdAmounts || '',
+              holdGains: fund.holdGains || ''
+            });
           }
         });
       }
@@ -124,13 +136,13 @@ export function useScanImport({
     if (abortScanRef.current) return;
 
     // 处理没有基金代码但有名称的情况，通过名称搜索基金代码
-    const fundsWithoutCode = allFundsData.filter(f => !f.fundCode && f.fundName);
+    const fundsWithoutCode = allFundsData.filter((f) => !f.fundCode && f.fundName);
     if (fundsWithoutCode.length > 0) {
       setScanProgress({ stage: 'verify', current: 0, total: fundsWithoutCode.length });
       for (let i = 0; i < fundsWithoutCode.length; i++) {
         if (abortScanRef.current) break;
         const fundItem = fundsWithoutCode[i];
-        setScanProgress(prev => ({ ...prev, current: i + 1 }));
+        setScanProgress((prev) => ({ ...prev, current: i + 1 }));
         try {
           const list = await searchFundsWithTimeout(fundItem.fundName, 8000);
           if (Array.isArray(list) && list.length === 1) {
@@ -152,22 +164,22 @@ export function useScanImport({
       }
     }
 
-    const validFunds = allFundsData.filter(f => f.fundCode);
-    const codes = validFunds.map(f => f.fundCode).sort();
+    const validFunds = allFundsData.filter((f) => f.fundCode);
+    const codes = validFunds.map((f) => f.fundCode).sort();
     setScanProgress({ stage: 'verify', current: 0, total: codes.length });
 
-    const existingCodes = new Set(funds.map(f => f.code));
+    const existingCodes = new Set(funds.map((f) => f.code));
     const results = [];
     for (let i = 0; i < codes.length; i++) {
       if (abortScanRef.current) break;
       const code = codes[i];
-      const fundInfo = validFunds.find(f => f.fundCode === code);
-      setScanProgress(prev => ({ ...prev, current: i + 1 }));
+      const fundInfo = validFunds.find((f) => f.fundCode === code);
+      setScanProgress((prev) => ({ ...prev, current: i + 1 }));
 
       let found = null;
       try {
         const list = await searchFundsWithTimeout(code, 8000);
-        found = Array.isArray(list) ? list.find(d => d.CODE === code) : null;
+        found = Array.isArray(list) ? list.find((d) => d.CODE === code) : null;
       } catch (e) {
         found = null;
       }
@@ -176,17 +188,17 @@ export function useScanImport({
       const ok = !!found && !alreadyAdded;
       results.push({
         code,
-        name: found ? (found.NAME || found.SHORTNAME || '') : (fundInfo?.fundName || ''),
-        status: alreadyAdded ? 'added' : (ok ? 'ok' : 'invalid'),
+        name: found ? found.NAME || found.SHORTNAME || '' : fundInfo?.fundName || '',
+        status: alreadyAdded ? 'added' : ok ? 'ok' : 'invalid',
         holdAmounts: fundInfo?.holdAmounts || '',
-        holdGains: fundInfo?.holdGains || '',
+        holdGains: fundInfo?.holdGains || ''
       });
     }
 
     if (abortScanRef.current) return;
 
     setScannedFunds(results);
-    setSelectedScannedCodes(new Set(results.filter(r => r.status === 'ok').map(r => r.code)));
+    setSelectedScannedCodes(new Set(results.filter((r) => r.status === 'ok').map((r) => r.code)));
     setIsOcrScan(true);
     setScanConfirmModalOpen(true);
   };
@@ -200,7 +212,7 @@ export function useScanImport({
     setIsScanning(true);
     abortScanRef.current = false;
     setScanProgress({ stage: 'ocr', current: 0, total: lastOcrTexts.length });
-    
+
     try {
       await processTextsInternal(lastOcrTexts);
     } catch (err) {
@@ -258,7 +270,7 @@ export function useScanImport({
         if (abortScanRef.current) break;
 
         const f = files[i];
-        setScanProgress(prev => ({ ...prev, current: i + 1 }));
+        setScanProgress((prev) => ({ ...prev, current: i + 1 }));
 
         let text = '';
         try {
@@ -283,7 +295,7 @@ export function useScanImport({
       if (abortScanRef.current) return;
 
       setLastOcrTexts(extractedTexts);
-      
+
       if (extractedTexts.length > 0) {
         setScanProgress({ stage: 'ocr', current: 0, total: extractedTexts.length });
         await processTextsInternal(extractedTexts);
@@ -314,7 +326,7 @@ export function useScanImport({
   };
 
   const toggleScannedCode = (code) => {
-    setSelectedScannedCodes(prev => {
+    setSelectedScannedCodes((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
       else next.add(code);
@@ -340,7 +352,7 @@ export function useScanImport({
 
     const codes = rawCodes.filter((c) => {
       const exists = targetExists(c);
-      const scannedFund = scannedFunds.find(f => f.code === c);
+      const scannedFund = scannedFunds.find((f) => f.code === c);
       const holdAmounts = parseAmount(scannedFund?.holdAmounts);
       const holdGains = parseAmount(scannedFund?.holdGains);
       const hasHoldingData = holdAmounts !== null && holdGains !== null;
@@ -363,14 +375,14 @@ export function useScanImport({
 
       for (let i = 0; i < codes.length; i++) {
         const code = codes[i];
-        setScanImportProgress(prev => ({ ...prev, current: i + 1 }));
+        setScanImportProgress((prev) => ({ ...prev, current: i + 1 }));
 
-        const existed = funds.some(existing => existing.code === code);
+        const existed = funds.some((existing) => existing.code === code);
         try {
-          const data = existed ? (funds.find((f) => f.code === code) || null) : await fetchFundData(code);
+          const data = existed ? funds.find((f) => f.code === code) || null : await fetchFundData(code);
           if (!existed && data) newFunds.push(data);
 
-          const scannedFund = scannedFunds.find(f => f.code === code);
+          const scannedFund = scannedFunds.find((f) => f.code === code);
           const holdAmounts = parseAmount(scannedFund?.holdAmounts);
           const holdGains = parseAmount(scannedFund?.holdGains);
           const dwjz = data?.dwjz || data?.gsz || 0;
@@ -382,15 +394,15 @@ export function useScanImport({
             const cost = share > 0 ? principal / share : 0;
             newHoldings[code] = {
               share: Number(share.toFixed(2)),
-              cost: Number(cost.toFixed(4)),
+              cost: Number(cost.toFixed(4))
             };
           }
 
           successCount++;
-          setScanImportProgress(prev => ({ ...prev, success: prev.success + 1 }));
+          setScanImportProgress((prev) => ({ ...prev, success: prev.success + 1 }));
         } catch (e) {
           failedCount++;
-          setScanImportProgress(prev => ({ ...prev, failed: prev.failed + 1 }));
+          setScanImportProgress((prev) => ({ ...prev, failed: prev.failed + 1 }));
         }
       }
 
@@ -398,35 +410,35 @@ export function useScanImport({
       const allSelectedSet = new Set(codes);
 
       if (newFunds.length > 0) {
-        setFunds(prev => dedupeByCode([...newFunds, ...prev]));
+        setFunds((prev) => dedupeByCode([...newFunds, ...prev]));
 
         const nextSeries = {};
-        newFunds.forEach(u => {
+        newFunds.forEach((u) => {
           if (u?.code != null && !u.noValuation && Number.isFinite(Number(u.gsz))) {
             nextSeries[u.code] = recordValuation(u.code, { gsz: u.gsz, gztime: u.gztime });
           }
         });
-        if (Object.keys(nextSeries).length > 0) setValuationSeries(prev => ({ ...prev, ...nextSeries }));
+        if (Object.keys(nextSeries).length > 0) setValuationSeries((prev) => ({ ...prev, ...nextSeries }));
       }
 
       if (Object.keys(newHoldings).length > 0) {
         if (targetGroupId !== 'all' && targetGroupId !== 'fav') {
-          setGroupHoldings(prev => {
+          setGroupHoldings((prev) => {
             const bucket = prev[targetGroupId] ? { ...prev[targetGroupId] } : {};
             return { ...prev, [targetGroupId]: { ...bucket, ...newHoldings } };
           });
         } else {
-          setHoldings(prev => ({ ...prev, ...newHoldings }));
+          setHoldings((prev) => ({ ...prev, ...newHoldings }));
         }
       }
 
       if (!expandAfterAdd) {
-        setCollapsedCodes(prev => {
+        setCollapsedCodes((prev) => {
           const next = new Set(prev);
           codes.forEach((code) => next.add(code));
           return next;
         });
-        setCollapsedTrends(prev => {
+        setCollapsedTrends((prev) => {
           const next = new Set(prev);
           codes.forEach((code) => next.add(code));
           return next;
@@ -434,19 +446,24 @@ export function useScanImport({
       }
 
       if (targetGroupId === 'fav') {
-        setFavorites(prev => {
+        setFavorites((prev) => {
           const next = new Set(prev);
-          codes.map(normalizeCode).filter(Boolean).forEach(code => next.add(code));
+          codes
+            .map(normalizeCode)
+            .filter(Boolean)
+            .forEach((code) => next.add(code));
           return next;
         });
         setCurrentTab('fav');
       } else if (targetGroupId && targetGroupId !== 'all') {
-        setGroups(prev => prev.map(g => {
-          if (g.id === targetGroupId) {
-            return { ...g, codes: Array.from(new Set([...(g.codes || []), ...codes])) };
-          }
-          return g;
-        }));
+        setGroups((prev) =>
+          prev.map((g) => {
+            if (g.id === targetGroupId) {
+              return { ...g, codes: Array.from(new Set([...(g.codes || []), ...codes])) };
+            }
+            return g;
+          })
+        );
         setCurrentTab(targetGroupId);
       } else {
         setCurrentTab('all');
@@ -471,15 +488,20 @@ export function useScanImport({
 
   return {
     // 状态
-    scanModalOpen, setScanModalOpen,
-    scanConfirmModalOpen, setScanConfirmModalOpen,
-    scannedFunds, setScannedFunds,
-    selectedScannedCodes, setSelectedScannedCodes,
+    scanModalOpen,
+    setScanModalOpen,
+    scanConfirmModalOpen,
+    setScanConfirmModalOpen,
+    scannedFunds,
+    setScannedFunds,
+    selectedScannedCodes,
+    setSelectedScannedCodes,
     isScanning,
     isScanImporting,
     scanImportProgress,
     scanProgress,
-    isOcrScan, setIsOcrScan,
+    isOcrScan,
+    setIsOcrScan,
     fileInputRef,
     // 操作
     handleScanClick,
@@ -489,6 +511,6 @@ export function useScanImport({
     handleFilesUpload,
     handleFilesDrop,
     toggleScannedCode,
-    confirmScanImport,
+    confirmScanImport
   };
 }

@@ -5,14 +5,9 @@ import { AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog';
 import ConfirmModal from './ConfirmModal';
 import { DragIcon, PlusIcon, SettingsIcon, TrashIcon } from './Icons';
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
-
-function GroupManageReorderItem({
-  item,
-  onRename,
-  onDeleteClick,
-}) {
+function GroupManageReorderItem({ item, onRename, onDeleteClick }) {
   const dragControls = useDragControls();
 
   return (
@@ -41,7 +36,7 @@ function GroupManageReorderItem({
           display: 'flex',
           alignItems: 'center',
           padding: '0 8px',
-          touchAction: 'none',
+          touchAction: 'none'
         }}
         onPointerDown={(e) => {
           dragControls.start(e);
@@ -65,20 +60,19 @@ function GroupManageReorderItem({
         }}
       />
       <Tooltip>
-<TooltipTrigger asChild>
-<button
-        className="icon-button danger"
-        onClick={() => onDeleteClick(item.id, item.name)}
-        
-        style={{ width: '36px', height: '36px', flexShrink: 0 }}
-      >
-        <TrashIcon width="16" height="16" />
-      </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>删除分组</p>
-</TooltipContent>
-</Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            className="icon-button danger"
+            onClick={() => onDeleteClick(item.id, item.name)}
+            style={{ width: '36px', height: '36px', flexShrink: 0 }}
+          >
+            <TrashIcon width="16" height="16" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>删除分组</p>
+        </TooltipContent>
+      </Tooltip>
     </Reorder.Item>
   );
 }
@@ -93,16 +87,16 @@ export default function GroupManageModal({ groups, onClose, onSave }) {
 
   const handleRename = (id, newName) => {
     const truncatedName = (newName || '').slice(0, 8);
-    setItems(prev => prev.map(item => item.id === id ? { ...item, name: truncatedName } : item));
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, name: truncatedName } : item)));
   };
 
   const handleDeleteClick = (id, name) => {
-    const itemToDelete = items.find(it => it.id === id);
-    const isNew = !groups.find(g => g.id === id);
+    const itemToDelete = items.find((it) => it.id === id);
+    const isNew = !groups.find((g) => g.id === id);
     const isEmpty = itemToDelete && (!itemToDelete.codes || itemToDelete.codes.length === 0);
 
     if (isNew || isEmpty) {
-      setItems(prev => prev.filter(item => item.id !== id));
+      setItems((prev) => prev.filter((item) => item.id !== id));
     } else {
       setDeleteConfirm({ id, name });
     }
@@ -110,7 +104,7 @@ export default function GroupManageModal({ groups, onClose, onSave }) {
 
   const handleConfirmDelete = () => {
     if (deleteConfirm) {
-      setItems(prev => prev.filter(item => item.id !== deleteConfirm.id));
+      setItems((prev) => prev.filter((item) => item.id !== deleteConfirm.id));
       setDeleteConfirm(null);
     }
   };
@@ -121,17 +115,17 @@ export default function GroupManageModal({ groups, onClose, onSave }) {
       name: '',
       codes: []
     };
-    setItems(prev => [...prev, newGroup]);
+    setItems((prev) => [...prev, newGroup]);
   };
 
   const handleConfirm = () => {
-    const hasEmpty = items.some(it => !it.name.trim());
+    const hasEmpty = items.some((it) => !it.name.trim());
     if (hasEmpty) return;
     onSave(items);
     onClose();
   };
 
-  const isAllValid = items.every(it => it.name.trim() !== '');
+  const isAllValid = items.every((it) => it.name.trim() !== '');
 
   return (
     <>
@@ -164,7 +158,10 @@ export default function GroupManageModal({ groups, onClose, onSave }) {
             </div>
           </DialogTitle>
 
-          <div className="group-manage-list-container scrollbar-y-styled" style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+          <div
+            className="group-manage-list-container scrollbar-y-styled"
+            style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}
+          >
             {items.length === 0 ? (
               <div className="empty-state muted" style={{ textAlign: 'center', padding: '40px 0' }}>
                 <div style={{ fontSize: '32px', marginBottom: 12, opacity: 0.5 }}>📂</div>
@@ -230,19 +227,12 @@ export default function GroupManageModal({ groups, onClose, onSave }) {
       <AnimatePresence>
         {deleteConfirm && (
           <div onPointerDown={(e) => e.stopPropagation()}>
-            <Tooltip>
-<TooltipTrigger asChild>
-<ConfirmModal
-              
+            <ConfirmModal
+              title="删除确认"
               message={`确定要删除分组 "${deleteConfirm.name}" 吗？分组内的基金数据会被删除。`}
               onConfirm={handleConfirmDelete}
               onCancel={() => setDeleteConfirm(null)}
             />
-</TooltipTrigger>
-<TooltipContent>
-<p>删除确认</p>
-</TooltipContent>
-</Tooltip>
           </div>
         )}
       </AnimatePresence>

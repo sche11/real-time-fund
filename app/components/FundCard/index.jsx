@@ -13,21 +13,14 @@ import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useStorageStore } from "@/app/stores";
+import { useStorageStore } from '@/app/stores';
 import { fetchFundHoldings, fetchFundData } from '@/app/api/fund';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { Stat, ConsecutiveTrendBadge } from '../Common';
 import FundTrendChart from '../FundTrendChart';
 import FundIntradayChart from '../FundIntradayChart';
 import FundDailyEarnings from '../FundDailyEarnings';
-import {
-  ChevronIcon,
-  SettingsIcon,
-  StarIcon,
-  SwitchIcon,
-  TrashIcon,
-  LinkIcon,
-} from '../Icons';
+import { ChevronIcon, SettingsIcon, StarIcon, SwitchIcon, TrashIcon, LinkIcon } from '../Icons';
 import { getTagThemeBadgeProps } from '../AddTagDialog';
 
 dayjs.extend(utc);
@@ -65,26 +58,35 @@ const fmtPeriodReturn = (val) => {
   return `${val > 0 ? '+' : ''}${val.toFixed(2)}%`;
 };
 
-function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked, groupTotalHoldingAmount, isAdded = true }) {
+function MoreSection({
+  holding,
+  profit,
+  hasHoldingAmount,
+  fundExtraData,
+  masked,
+  groupTotalHoldingAmount,
+  isAdded = true
+}) {
   const [expanded, setExpanded] = useState(false);
   const isMobile = useIsMobile();
 
   // 是否有阶段涨跌数据
   const hasPeriodData =
     fundExtraData &&
-    (fundExtraData.week != null || fundExtraData.month != null || fundExtraData.month3 != null || fundExtraData.month6 != null || fundExtraData.year1 != null);
+    (fundExtraData.week != null ||
+      fundExtraData.month != null ||
+      fundExtraData.month3 != null ||
+      fundExtraData.month6 != null ||
+      fundExtraData.year1 != null);
 
   // 只要有阶段涨跌或持仓数据，就展示"更多"按钮
   if (!hasPeriodData && !hasHoldingAmount) return null;
 
-  const costNavValue =
-    holding && isNumber(holding.cost) ? holding.cost : null;
+  const costNavValue = holding && isNumber(holding.cost) ? holding.cost : null;
   const costNav = costNavValue == null ? '—' : Number(costNavValue).toFixed(4);
 
   const holdingCostValue =
-    holding && isNumber(holding.cost) && isNumber(holding.share)
-      ? holding.cost * holding.share
-      : null;
+    holding && isNumber(holding.cost) && isNumber(holding.share) ? holding.cost * holding.share : null;
   const holdingCost =
     holdingCostValue == null
       ? '—'
@@ -95,69 +97,31 @@ function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked,
     holdingAmount != null && Number.isFinite(holdingAmount) && holdingAmount > 0 && groupTotalHoldingAmount > 0
       ? holdingAmount / groupTotalHoldingAmount
       : null;
-  const holdingRatio =
-    holdingRatioValue != null
-      ? `${(holdingRatioValue * 100).toFixed(2)}%`
-      : '—';
+  const holdingRatio = holdingRatioValue != null ? `${(holdingRatioValue * 100).toFixed(2)}%` : '—';
 
   const content = (
     <>
       {hasHoldingAmount && (
         <div className="row" style={{ marginBottom: 10 }}>
-          <Stat
-            label="成本净值"
-            value={masked ? '******' : costNav}
-          />
-          <Stat
-            label="持仓成本"
-            value={masked ? '******' : holdingCost}
-          />
-          <Stat
-            label="持仓占比"
-            value={masked ? '******' : holdingRatio}
-          />
+          <Stat label="成本净值" value={masked ? '******' : costNav} />
+          <Stat label="持仓成本" value={masked ? '******' : holdingCost} />
+          <Stat label="持仓占比" value={masked ? '******' : holdingRatio} />
         </div>
       )}
       {hasPeriodData && (
         <div className="row" style={{ marginBottom: 10 }}>
-          <Stat
-            label="近1周"
-            value={fmtPeriodReturn(fundExtraData.week)}
-            delta={fundExtraData.week}
-          />
-          <Stat
-            label="近1月"
-            value={fmtPeriodReturn(fundExtraData.month)}
-            delta={fundExtraData.month}
-          />
-          <Stat
-            label="近3月"
-            value={fmtPeriodReturn(fundExtraData.month3)}
-            delta={fundExtraData.month3}
-          />
-          <Stat
-            label="近6月"
-            value={fmtPeriodReturn(fundExtraData.month6)}
-            delta={fundExtraData.month6}
-          />
-          {!isMobile && (
-            <Stat
-              label="近1年"
-              value={fmtPeriodReturn(fundExtraData.year1)}
-              delta={fundExtraData.year1}
-            />
-          )}
+          <Stat label="近1周" value={fmtPeriodReturn(fundExtraData.week)} delta={fundExtraData.week} />
+          <Stat label="近1月" value={fmtPeriodReturn(fundExtraData.month)} delta={fundExtraData.month} />
+          <Stat label="近3月" value={fmtPeriodReturn(fundExtraData.month3)} delta={fundExtraData.month3} />
+          <Stat label="近6月" value={fmtPeriodReturn(fundExtraData.month6)} delta={fundExtraData.month6} />
+          {!isMobile && <Stat label="近1年" value={fmtPeriodReturn(fundExtraData.year1)} delta={fundExtraData.year1} />}
         </div>
       )}
     </>
   );
 
   if (!isAdded) {
-    return (
-      <div style={{ marginTop: 12 }}>
-        {content}
-      </div>
-    );
+    return <div style={{ marginTop: 12 }}>{content}</div>;
   }
 
   return (
@@ -177,7 +141,7 @@ function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked,
             cursor: 'pointer',
             color: 'var(--muted)',
             fontSize: '12px',
-            transition: 'color 0.2s ease',
+            transition: 'color 0.2s ease'
           }}
         >
           <span>{expanded ? '收起' : '更多'}</span>
@@ -186,7 +150,7 @@ function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked,
             height="14"
             style={{
               transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.25s ease',
+              transition: 'transform 0.25s ease'
             }}
           />
         </button>
@@ -245,12 +209,9 @@ export default function Index({
   onDataSourceClick,
   groupTotalHoldingAmount = 0,
   fallbackFund,
-  onAddFund,
+  onAddFund
 }) {
-  const {
-    funds,
-    refreshMs,
-  } = useStorageStore();
+  const { funds, refreshMs } = useStorageStore();
 
   const [fetchedValuation, setFetchedValuation] = useState(null);
 
@@ -274,13 +235,17 @@ export default function Index({
 
   const isAdded = useMemo(() => funds?.some((item) => item.code === f?.code), [funds, f?.code]);
 
-  const [topHoldings, setTopHoldings] = useState({ holdings: [], holdingsReportDate: null, holdingsIsLastQuarter: false });
+  const [topHoldings, setTopHoldings] = useState({
+    holdings: [],
+    holdingsReportDate: null,
+    holdingsIsLastQuarter: false
+  });
 
   useEffect(() => {
     const handler = (e) => {
       if (e.detail?.fundCode === fundCode) {
         const sourceId = e.detail.sourceId;
-        setFetchedValuation(prev => ({
+        setFetchedValuation((prev) => ({
           ...(prev || {}),
           dataSource: sourceId,
           gsz: null,
@@ -291,13 +256,15 @@ export default function Index({
         }));
 
         // Fetch immediately using the new data source
-        fetchFundData(fundCode, sourceId).then(res => {
-          if (res) {
-            setFetchedValuation(prev => ({ ...prev, ...res, dataSource: sourceId }));
-          }
-        }).catch(err => {
-          console.error('fetchFundData error on ds change', err);
-        });
+        fetchFundData(fundCode, sourceId)
+          .then((res) => {
+            if (res) {
+              setFetchedValuation((prev) => ({ ...prev, ...res, dataSource: sourceId }));
+            }
+          })
+          .catch((err) => {
+            console.error('fetchFundData error on ds change', err);
+          });
       }
     };
     window.addEventListener('rtf_unadded_datasource_change', handler);
@@ -311,7 +278,7 @@ export default function Index({
         try {
           const res = await fetchFundData(fundCode, f?.dataSource);
           if (!cancelled && res) {
-            setFetchedValuation(prev => ({ ...prev, ...res, dataSource: f?.dataSource || 1 }));
+            setFetchedValuation((prev) => ({ ...prev, ...res, dataSource: f?.dataSource || 1 }));
           }
         } catch (e) {
           console.error('fetchFundData error', e);
@@ -322,7 +289,7 @@ export default function Index({
         cancelled = true;
       };
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdded, fundCode]);
 
   useEffect(() => {
@@ -355,21 +322,14 @@ export default function Index({
 
   const holding = holdings?.[f?.code];
   const profit = getHoldingProfit?.(f, holding) ?? null;
-  const hasHoldings = topHoldings.holdingsIsLastQuarter && Array.isArray(topHoldings.holdings) && topHoldings.holdings.length > 0;
+  const hasHoldings =
+    topHoldings.holdingsIsLastQuarter && Array.isArray(topHoldings.holdings) && topHoldings.holdings.length > 0;
   // “我的收益”(每日收益)只依赖份额；成本价缺失也应可展示
-  const hasHoldingShare =
-    holding &&
-    isNumber(holding.share) &&
-    holding.share > 0;
+  const hasHoldingShare = holding && isNumber(holding.share) && holding.share > 0;
 
   // 兼容旧逻辑：部分 UI 仍需要“持仓金额/成本”完整信息
   const hasHoldingAmount =
-    !!profit &&
-    holding &&
-    isNumber(holding.share) &&
-    holding.share > 0 &&
-    isNumber(holding.cost) &&
-    holding.cost > 0;
+    !!profit && holding && isNumber(holding.share) && holding.share > 0 && isNumber(holding.cost) && holding.cost > 0;
 
   const dailyEarningsSeries = useMemo(() => {
     if (!hasHoldingShare) return [];
@@ -386,9 +346,7 @@ export default function Index({
 
   const showFavoriteButton = currentTab === 'all' || currentTab === 'fav';
   const relatedSectorRaw = f?.relatedSector != null ? String(f.relatedSector).trim() : '';
-  const relatedSectorQuoteName = f?.relatedSectorQuoteName != null
-    ? String(f.relatedSectorQuoteName).trim()
-    : '';
+  const relatedSectorQuoteName = f?.relatedSectorQuoteName != null ? String(f.relatedSectorQuoteName).trim() : '';
   const relatedSectorDisplay = relatedSectorQuoteName || relatedSectorRaw;
   const relatedSectorPctValue = f?.relatedSectorQuotePct == null ? null : Number(f.relatedSectorQuotePct);
   const hasRelatedSectorPct = relatedSectorPctValue != null && Number.isFinite(relatedSectorPctValue);
@@ -399,13 +357,16 @@ export default function Index({
   const holdingLocked = (currentTab === 'all' || currentTab === 'fav') && isHoldingLinked;
   const holdingLinkedTitle = '持仓来自自定义分组汇总，点击选择分组后操作';
 
-  const style = layoutMode === 'drawer' ? {
-    border: 'none',
-    boxShadow: 'none',
-    paddingLeft: 0,
-    paddingRight: 0,
-    background: theme === 'light'  ? 'rgb(250,250,250)' : 'none',
-  } : {};
+  const style =
+    layoutMode === 'drawer'
+      ? {
+          border: 'none',
+          boxShadow: 'none',
+          paddingLeft: 0,
+          paddingRight: 0,
+          background: theme === 'light' ? 'rgb(250,250,250)' : 'none'
+        }
+      : {};
 
   return (
     <motion.div
@@ -413,87 +374,91 @@ export default function Index({
       style={{
         position: 'relative',
         zIndex: 1,
-        ...style,
+        ...style
       }}
     >
-      <div className="row" style={{ marginBottom: 10, alignItems: 'center', flexWrap: 'nowrap', alignContent: 'center' }}>
+      <div
+        className="row"
+        style={{ marginBottom: 10, alignItems: 'center', flexWrap: 'nowrap', alignContent: 'center' }}
+      >
         <div className="title" style={{ flex: '1 1 auto', minWidth: 0 }}>
           {!isAdded ? (
             <Tooltip>
-<TooltipTrigger asChild>
-<button
-              className="icon-button fav-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddFund?.({ code: f.code, name: f.name });
-              }}
-              
-              style={{ color: 'var(--muted-foreground)', opacity: 0.5, transition: 'all 0.2s' }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--primary)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = 'var(--muted-foreground)'; }}
-            >
-              <PlusCircle size={18} />
-            </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>添加到主页</p>
-</TooltipContent>
-</Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="icon-button fav-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddFund?.({ code: f.code, name: f.name });
+                  }}
+                  style={{ color: 'var(--muted-foreground)', opacity: 0.5, transition: 'all 0.2s' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.color = 'var(--primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '0.5';
+                    e.currentTarget.style.color = 'var(--muted-foreground)';
+                  }}
+                >
+                  <PlusCircle size={18} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>添加到主页</p>
+              </TooltipContent>
+            </Tooltip>
           ) : showFavoriteButton ? (
             <Tooltip>
-<TooltipTrigger asChild>
-<button
-              className={`icon-button fav-button ${favorites?.has(f.code) ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite?.(f.code);
-              }}
-              
-            >
-              <StarIcon width="18" height="18" filled={favorites?.has(f.code)} />
-            </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>{favorites?.has(f.code) ? '取消自选' : '添加自选'}</p>
-</TooltipContent>
-</Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={`icon-button fav-button ${favorites?.has(f.code) ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFavorite?.(f.code);
+                  }}
+                >
+                  <StarIcon width="18" height="18" filled={favorites?.has(f.code)} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{favorites?.has(f.code) ? '取消自选' : '添加自选'}</p>
+              </TooltipContent>
+            </Tooltip>
           ) : null}
           <div className="title-text" style={{ minWidth: 0 }}>
             <Tooltip>
-<TooltipTrigger asChild>
-<span
-              className="name-text"
-              
-            >
-              {isHoldingLinked ? (
-                <Tooltip delayDuration={150}>
-                  <TooltipTrigger asChild>
-                    <span
-                      aria-label="已关联持仓"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        marginRight: 6,
-                        color: 'var(--primary)',
-                        verticalAlign: 'middle',
-                        position: 'relative',
-                        bottom: 2,
-                      }}
-                    >
-                      <LinkIcon width="14" height="14" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>持仓来自自定义分组汇总</TooltipContent>
-                </Tooltip>
-              ) : null}
-              <ConsecutiveTrendBadge trend={fundExtraData?.consecutiveTrend} />
-              {f.name}
-            </span>
-</TooltipTrigger>
-<TooltipContent>
-<p>{f.jzrq === todayStr ? '今日净值已更新' : ''}</p>
-</TooltipContent>
-</Tooltip>
+              <TooltipTrigger asChild>
+                <span className="name-text">
+                  {isHoldingLinked ? (
+                    <Tooltip delayDuration={150}>
+                      <TooltipTrigger asChild>
+                        <span
+                          aria-label="已关联持仓"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            marginRight: 6,
+                            color: 'var(--primary)',
+                            verticalAlign: 'middle',
+                            position: 'relative',
+                            bottom: 2
+                          }}
+                        >
+                          <LinkIcon width="14" height="14" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>持仓来自自定义分组汇总</TooltipContent>
+                    </Tooltip>
+                  ) : null}
+                  <ConsecutiveTrendBadge trend={fundExtraData?.consecutiveTrend} />
+                  {f.name}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{f.jzrq === todayStr ? '今日净值已更新' : ''}</p>
+              </TooltipContent>
+            </Tooltip>
             <span className="muted">
               #{f.code}
               {dcaPlans?.[f.code]?.enabled === true && <span className="dca-indicator">定</span>}
@@ -505,7 +470,7 @@ export default function Index({
                     flexWrap: 'wrap',
                     gap: 2,
                     marginLeft: 4,
-                    verticalAlign: 'middle',
+                    verticalAlign: 'middle'
                   }}
                 >
                   {fundTags.map((raw, idx) => {
@@ -513,7 +478,7 @@ export default function Index({
                       raw && typeof raw === 'object' && raw.name != null
                         ? {
                             name: String(raw.name).trim(),
-                            theme: String(raw.theme ?? 'default').trim() || 'default',
+                            theme: String(raw.theme ?? 'default').trim() || 'default'
                           }
                         : { name: String(raw).trim(), theme: 'default' };
                     if (!item.name) return null;
@@ -541,52 +506,53 @@ export default function Index({
           </div>
         </div>
 
-        <div className="actions" style={{ flex: '0 0 auto', flexWrap: 'nowrap', alignSelf: 'center', marginLeft: 'auto' }}>
+        <div
+          className="actions"
+          style={{ flex: '0 0 auto', flexWrap: 'nowrap', alignSelf: 'center', marginLeft: 'auto' }}
+        >
           <Tooltip>
-<TooltipTrigger asChild>
-<div
-            className="badge-v"
-            style={{ cursor: 'pointer', background: 'var(--primary-light, rgba(34, 211, 238, 0.1))', color: 'var(--primary)' }}
-            onClick={() => onDataSourceClick?.(f)}
-            
-          >
-            <span>数据源</span>
-            <strong>{f.dataSource || 1}</strong>
-          </div>
-</TooltipTrigger>
-<TooltipContent>
-<p>点击切换估值数据源</p>
-</TooltipContent>
-</Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className="badge-v"
+                style={{
+                  cursor: 'pointer',
+                  background: 'var(--primary-light, rgba(34, 211, 238, 0.1))',
+                  color: 'var(--primary)'
+                }}
+                onClick={() => onDataSourceClick?.(f)}
+              >
+                <span>数据源</span>
+                <strong>{f.dataSource || 1}</strong>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>点击切换估值数据源</p>
+            </TooltipContent>
+          </Tooltip>
           <div className="badge-v">
             <span>{f.noValuation ? '净值日期' : '估值时间'}</span>
-            <strong>
-              {f.noValuation
-                ? formatDisplayDate(f.jzrq)
-                : formatDisplayDate(f.gztime || f.time)}
-            </strong>
+            <strong>{f.noValuation ? formatDisplayDate(f.jzrq) : formatDisplayDate(f.gztime || f.time)}</strong>
           </div>
           <div className="row" style={{ gap: 4 }}>
             <Tooltip>
-<TooltipTrigger asChild>
-<button
-              className="icon-button danger"
-              onClick={() => onRemoveFund?.(f)}
-              
-              style={{
-                width: '28px',
-                height: '28px',
-                opacity: 1,
-                cursor: 'pointer',
-              }}
-            >
-              <TrashIcon width="14" height="14" />
-            </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>删除</p>
-</TooltipContent>
-</Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="icon-button danger"
+                  onClick={() => onRemoveFund?.(f)}
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    opacity: 1,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <TrashIcon width="14" height="14" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>删除</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -594,20 +560,12 @@ export default function Index({
       <div className="row" style={{ marginBottom: 12 }}>
         <Stat
           label="最新净值"
-          value={
-            f.dwjz != null && !isNaN(Number(f.dwjz))
-              ? Number(f.dwjz).toFixed(4)
-              : (f.dwjz ?? '—')
-          }
+          value={f.dwjz != null && !isNaN(Number(f.dwjz)) ? Number(f.dwjz).toFixed(4) : (f.dwjz ?? '—')}
         />
         {f.noValuation ? (
           <Stat
             label="涨跌幅"
-            value={
-              f.zzl !== undefined && f.zzl !== null
-                ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%`
-                : '—'
-            }
+            value={f.zzl !== undefined && f.zzl !== null ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%` : '—'}
             delta={f.zzl}
           />
         ) : (
@@ -626,8 +584,7 @@ export default function Index({
                   isPreviousTradingDay = true;
                 }
               }
-              const shouldHideChange =
-                isTradingDay && !hasTodayData && !isYesterdayChange && !isPreviousTradingDay;
+              const shouldHideChange = isTradingDay && !hasTodayData && !isYesterdayChange && !isPreviousTradingDay;
 
               if (shouldHideChange) return null;
 
@@ -635,30 +592,18 @@ export default function Index({
               return (
                 <Stat
                   label={changeLabel}
-                  value={
-                    f.zzl !== undefined
-                      ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%`
-                      : ''
-                  }
+                  value={f.zzl !== undefined ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%` : ''}
                   delta={f.zzl}
                 />
               );
             })()}
             <Stat
               label="估算净值"
-              value={
-                f.gsz != null && !isNaN(Number(f.gsz))
-                  ? Number(f.gsz).toFixed(4)
-                  : (f.gsz ?? '—')
-              }
+              value={f.gsz != null && !isNaN(Number(f.gsz)) ? Number(f.gsz).toFixed(4) : (f.gsz ?? '—')}
             />
             <Stat
               label="估算涨幅"
-              value={
-                isNumber(f.gszzl)
-                  ? `${f.gszzl > 0 ? '+' : ''}${f.gszzl.toFixed(2)}%`
-                  : f.gszzl ?? '—'
-              }
+              value={isNumber(f.gszzl) ? `${f.gszzl > 0 ? '+' : ''}${f.gszzl.toFixed(2)}%` : (f.gszzl ?? '—')}
               delta={Number(f.gszzl) || 0}
             />
           </>
@@ -671,34 +616,29 @@ export default function Index({
             <div className="stat" style={{ flexDirection: 'column', gap: 4, minWidth: 0 }}>
               <span className="label">关联板块</span>
               <Tooltip>
-<TooltipTrigger asChild>
-<span
-                className="value"
-                
-                style={{
-                  fontSize: '15px',
-                  lineHeight: 1.2,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: '100%',
-                }}
-              >
-                {relatedSectorDisplay}
-              </span>
-</TooltipTrigger>
-<TooltipContent>
-<p>{relatedSectorDisplay}</p>
-</TooltipContent>
-</Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="value"
+                    style={{
+                      fontSize: '15px',
+                      lineHeight: 1.2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '100%'
+                    }}
+                  >
+                    {relatedSectorDisplay}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{relatedSectorDisplay}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           ) : null}
           {hasRelatedSectorPct ? (
-            <Stat
-              label="关联涨幅"
-              value={relatedSectorPctText}
-              delta={relatedSectorPctValue}
-            />
+            <Stat label="关联涨幅" value={relatedSectorPctText} delta={relatedSectorPctValue} />
           ) : null}
         </div>
       )}
@@ -706,187 +646,176 @@ export default function Index({
       {isAdded && (
         <div className="row" style={{ marginBottom: 12 }}>
           {!profit ? (
-          <div
-            className="stat"
-            style={{ flexDirection: 'column', gap: 4 }}
-          >
-            <span className="label">持仓金额</span>
-            <Tooltip>
-<TooltipTrigger asChild>
-<div
-              className="value muted"
-              style={{
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                cursor: 'pointer',
-              }}
-              
-              onClick={() => {
-                onHoldingClick?.(f);
-              }}
-            >
-              未设置 <SettingsIcon width="12" height="12" />
+            <div className="stat" style={{ flexDirection: 'column', gap: 4 }}>
+              <span className="label">持仓金额</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="value muted"
+                    style={{
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      onHoldingClick?.(f);
+                    }}
+                  >
+                    未设置 <SettingsIcon width="12" height="12" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-</TooltipTrigger>
-<TooltipContent>
-<p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
-</TooltipContent>
-</Tooltip>
-          </div>
-        ) : (
-          <>
-            <Tooltip>
-<TooltipTrigger asChild>
-<div
-              className="stat"
-              style={{
-                cursor: 'pointer',
-                flexDirection: 'column',
-                gap: 4,
-              }}
-              
-              onClick={() => {
-                onActionClick?.(f);
-              }}
-            >
-              <span
-                className="label"
-                style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                持仓金额 <SettingsIcon width="12" height="12" style={{ opacity: 0.7 }} />
-              </span>
-              <span className="value">
-                {masked ? '******' : `${Number(profit.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </span>
-            </div>
-</TooltipTrigger>
-<TooltipContent>
-<p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
-</TooltipContent>
-</Tooltip>
-            {holding?.firstPurchaseDate && !masked && (() => {
-              const today = dayjs.tz(todayStr, TZ);
-              const purchaseDate = dayjs.tz(holding.firstPurchaseDate, TZ);
-              if (!purchaseDate.isValid()) return null;
-              const days = today.diff(purchaseDate, 'day');
-              return (
-                <div className="stat" style={{ flexDirection: 'column', gap: 4 }}>
-                  <span className="label">持有天数</span>
-                  <span className="value">
-                    {days}天
-                  </span>
-                </div>
-              );
-            })()}
-            <div
-              className="stat"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (profit.profitToday != null) {
-                  onTodayPercentModeToggle?.(f.code);
-                }
-              }}
-              style={{
-                cursor: profit.profitToday != null ? 'pointer' : 'default',
-                flexDirection: 'column',
-                gap: 4,
-              }}
-            >
-              <span
-                className="label"
-                style={{ display: 'flex', alignItems: 'center', gap: 1 }}
-              >
-                当日收益{todayPercentModes?.[f.code] ? '(%)' : ''}
-                {profit.profitToday != null && <SwitchIcon />}
-              </span>
-              {profit.profitToday != null ? (
-                <Tooltip>
-<TooltipTrigger asChild>
-<span
-                  className={`value ${
-                    masked
-                      ? ''
-                      : profit.profitToday > 0
-                        ? 'up'
-                        : profit.profitToday < 0
-                          ? 'down'
-                          : ''
-                  }`}
-                  style={{ display: 'inline-block' }}
-                >
-                  {masked
-                    ? '******'
-                    : <>
-                        {profit.profitToday > 0 ? '+' : profit.profitToday < 0 ? '-' : ''}
-                        {todayPercentModes?.[f.code]
-                          ? `${Math.abs(
-                              holding?.cost * holding?.share
-                                ? (profit.profitToday / (holding.cost * holding.share)) * 100
-                                : 0,
-                            ).toFixed(2)}%`
-                          : `${Math.abs(profit.profitToday).toFixed(2)}`}
-                      </>}
-                </span>
-</TooltipTrigger>
-<TooltipContent>
-<p>点击切换金额/百分比</p>
-</TooltipContent>
-</Tooltip>
-              ) : (
-                <span className="value muted" style={{ display: 'inline-block' }}>
-                  --
-                </span>
-              )}
-            </div>
-            {profit.profitTotal !== null && (
+          ) : (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="stat"
+                    style={{
+                      cursor: 'pointer',
+                      flexDirection: 'column',
+                      gap: 4
+                    }}
+                    onClick={() => {
+                      onActionClick?.(f);
+                    }}
+                  >
+                    <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      持仓金额 <SettingsIcon width="12" height="12" style={{ opacity: 0.7 }} />
+                    </span>
+                    <span className="value">
+                      {masked
+                        ? '******'
+                        : `${Number(profit.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
+                </TooltipContent>
+              </Tooltip>
+              {holding?.firstPurchaseDate &&
+                !masked &&
+                (() => {
+                  const today = dayjs.tz(todayStr, TZ);
+                  const purchaseDate = dayjs.tz(holding.firstPurchaseDate, TZ);
+                  if (!purchaseDate.isValid()) return null;
+                  const days = today.diff(purchaseDate, 'day');
+                  return (
+                    <div className="stat" style={{ flexDirection: 'column', gap: 4 }}>
+                      <span className="label">持有天数</span>
+                      <span className="value">{days}天</span>
+                    </div>
+                  );
+                })()}
               <div
                 className="stat"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onPercentModeToggle?.(f.code);
+                  if (profit.profitToday != null) {
+                    onTodayPercentModeToggle?.(f.code);
+                  }
                 }}
-                style={{ cursor: 'pointer', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}
+                style={{
+                  cursor: profit.profitToday != null ? 'pointer' : 'default',
+                  flexDirection: 'column',
+                  gap: 4
+                }}
               >
-                <span
-                  className="label"
-                  style={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}
-                >
-                  持有收益{percentModes?.[f.code] ? '(%)' : ''}
-                  <SwitchIcon />
+                <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  当日收益{todayPercentModes?.[f.code] ? '(%)' : ''}
+                  {profit.profitToday != null && <SwitchIcon />}
                 </span>
-                <Tooltip>
-<TooltipTrigger asChild>
-<span
-                  className={`value ${
-                    masked ? '' : profit.profitTotal > 0 ? 'up' : profit.profitTotal < 0 ? 'down' : ''
-                  }`}
-                  style={{ display: 'inline-block' }}
-                >
-                  {masked
-                    ? '******'
-                    : <>
-                        {profit.profitTotal > 0 ? '+' : profit.profitTotal < 0 ? '-' : ''}
-                        {percentModes?.[f.code]
-                          ? `${Math.abs(
-                              holding?.cost * holding?.share
-                                ? (profit.profitTotal / (holding.cost * holding.share)) * 100
-                                : 0,
-                            ).toFixed(2)}%`
-                          : `${Math.abs(profit.profitTotal).toFixed(2)}`}
-                      </>}
-                </span>
-</TooltipTrigger>
-<TooltipContent>
-<p>点击切换金额/百分比</p>
-</TooltipContent>
-</Tooltip>
+                {profit.profitToday != null ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={`value ${
+                          masked ? '' : profit.profitToday > 0 ? 'up' : profit.profitToday < 0 ? 'down' : ''
+                        }`}
+                        style={{ display: 'inline-block' }}
+                      >
+                        {masked ? (
+                          '******'
+                        ) : (
+                          <>
+                            {profit.profitToday > 0 ? '+' : profit.profitToday < 0 ? '-' : ''}
+                            {todayPercentModes?.[f.code]
+                              ? `${Math.abs(
+                                  holding?.cost * holding?.share
+                                    ? (profit.profitToday / (holding.cost * holding.share)) * 100
+                                    : 0
+                                ).toFixed(2)}%`
+                              : `${Math.abs(profit.profitToday).toFixed(2)}`}
+                          </>
+                        )}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>点击切换金额/百分比</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span className="value muted" style={{ display: 'inline-block' }}>
+                    --
+                  </span>
+                )}
               </div>
-            )}
-          </>
-        )}
-      </div>
+              {profit.profitTotal !== null && (
+                <div
+                  className="stat"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPercentModeToggle?.(f.code);
+                  }}
+                  style={{ cursor: 'pointer', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}
+                >
+                  <span
+                    className="label"
+                    style={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}
+                  >
+                    持有收益{percentModes?.[f.code] ? '(%)' : ''}
+                    <SwitchIcon />
+                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={`value ${
+                          masked ? '' : profit.profitTotal > 0 ? 'up' : profit.profitTotal < 0 ? 'down' : ''
+                        }`}
+                        style={{ display: 'inline-block' }}
+                      >
+                        {masked ? (
+                          '******'
+                        ) : (
+                          <>
+                            {profit.profitTotal > 0 ? '+' : profit.profitTotal < 0 ? '-' : ''}
+                            {percentModes?.[f.code]
+                              ? `${Math.abs(
+                                  holding?.cost * holding?.share
+                                    ? (profit.profitTotal / (holding.cost * holding.share)) * 100
+                                    : 0
+                                ).toFixed(2)}%`
+                              : `${Math.abs(profit.profitTotal).toFixed(2)}`}
+                          </>
+                        )}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>点击切换金额/百分比</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* ── 更多信息展开区 ── */}
@@ -902,22 +831,14 @@ export default function Index({
 
       {(() => {
         const currentSeries = f.fundValuationTimeseries?.[f.code] || valuationSeries?.[f.code];
-        const showIntraday =
-          !f.noValuation && Array.isArray(currentSeries) && currentSeries.length >= 1;
+        const showIntraday = !f.noValuation && Array.isArray(currentSeries) && currentSeries.length >= 1;
         if (!showIntraday) return null;
 
-        if (
-          f.gztime &&
-          toTz(todayStr).startOf('day').isAfter(toTz(f.gztime).startOf('day'))
-        ) {
+        if (f.gztime && toTz(todayStr).startOf('day').isAfter(toTz(f.gztime).startOf('day'))) {
           return null;
         }
 
-        if (
-          f.jzrq &&
-          f.gztime &&
-          toTz(f.jzrq).startOf('day').isSameOrAfter(toTz(f.gztime).startOf('day'))
-        ) {
+        if (f.jzrq && f.gztime && toTz(f.jzrq).startOf('day').isSameOrAfter(toTz(f.gztime).startOf('day'))) {
           return null;
         }
 
@@ -938,18 +859,11 @@ export default function Index({
       })()}
 
       {layoutMode === 'drawer' ? (
-        <Tabs
-          defaultValue={hasHoldings ? 'holdings' : 'trend'}
-          className="w-full"
-        >
+        <Tabs defaultValue={hasHoldings ? 'holdings' : 'trend'} className="w-full">
           <TabsList className="w-full flex">
-            {hasHoldings && (
-              <TabsTrigger value="holdings">前10重仓股票</TabsTrigger>
-            )}
+            {hasHoldings && <TabsTrigger value="holdings">前10重仓股票</TabsTrigger>}
             <TabsTrigger value="trend">业绩走势</TabsTrigger>
-            {hasHoldingAmount && (
-              <TabsTrigger value="earnings">我的收益</TabsTrigger>
-            )}
+            {hasHoldingAmount && <TabsTrigger value="earnings">我的收益</TabsTrigger>}
           </TabsList>
           {hasHoldings && (
             <TabsContent value="holdings" className="mt-3 outline-none">
@@ -957,7 +871,7 @@ export default function Index({
                 style={{
                   display: 'flex',
                   justifyContent: 'flex-end',
-                  marginBottom: 4,
+                  marginBottom: 4
                 }}
               >
                 <span className="muted">涨跌幅 / 占比</span>
@@ -1004,7 +918,7 @@ export default function Index({
               isExpanded
               onToggleExpand={() => onToggleTrendCollapse?.(f.code)}
               // 未设置持仓金额时，不展示买入/卖出标记与标签
-              transactions={profit ? (transactions?.[f.code] || []) : []}
+              transactions={profit ? transactions?.[f.code] || [] : []}
               theme={theme}
               hideHeader
             />
@@ -1027,10 +941,8 @@ export default function Index({
                       height="16"
                       className="muted"
                       style={{
-                        transform: collapsedCodes?.has(f.code)
-                          ? 'rotate(-90deg)'
-                          : 'rotate(0deg)',
-                        transition: 'transform 0.2s ease',
+                        transform: collapsedCodes?.has(f.code) ? 'rotate(-90deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s ease'
                       }}
                     />
                   </div>
@@ -1076,7 +988,7 @@ export default function Index({
             isExpanded={!collapsedTrends?.has(f.code)}
             onToggleExpand={() => onToggleTrendCollapse?.(f.code)}
             // 未设置持仓金额时，不展示买入/卖出标记与标签
-            transactions={profit ? (transactions?.[f.code] || []) : []}
+            transactions={profit ? transactions?.[f.code] || [] : []}
             theme={theme}
           />
           {hasHoldingAmount && (
@@ -1095,7 +1007,7 @@ export default function Index({
                       className="muted"
                       style={{
                         transform: !collapsedEarnings?.has(f.code) ? 'rotate(0deg)' : 'rotate(-90deg)',
-                        transition: 'transform 0.2s ease',
+                        transition: 'transform 0.2s ease'
                       }}
                     />
                   </div>

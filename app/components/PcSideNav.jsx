@@ -7,7 +7,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 
 const TABS = [
   { id: 'home', label: '首页', Icon: Home },
-  { id: 'market', label: '行情', Icon: TrendingUp },
+  { id: 'market', label: '行情', Icon: TrendingUp }
 ];
 
 export default function PcSideNav({ value, onChange }) {
@@ -20,16 +20,12 @@ export default function PcSideNav({ value, onChange }) {
 
   if (!mounted || isMobile) return null;
 
-  const spring = reduceMotion
-    ? { duration: 0.2 }
-    : { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 };
+  const spring = reduceMotion ? { duration: 0.2 } : { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 };
 
-  const tapSpring = reduceMotion
-    ? { duration: 0.15 }
-    : { type: 'spring', stiffness: 600, damping: 32 };
+  const tapSpring = reduceMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 600, damping: 32 };
 
   return (
-    <div 
+    <div
       className={`pc-side-nav-container ${isHovered ? '' : 'collapsed'}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -60,17 +56,13 @@ export default function PcSideNav({ value, onChange }) {
                   )}
                   <span className="pc-side-nav-item-inner">
                     <span className="pc-side-nav-icon-wrap">
-                      <Icon
-                        className="pc-side-nav-icon"
-                        aria-hidden
-                        strokeWidth={2}
-                      />
+                      <Icon className="pc-side-nav-icon" aria-hidden strokeWidth={2} />
                     </span>
                     <motion.span
                       className="pc-side-nav-label"
                       animate={{
                         opacity: active ? 1 : 0.5,
-                        fontWeight: active ? 600 : 500,
+                        fontWeight: active ? 600 : 500
                       }}
                       transition={tapSpring}
                     >

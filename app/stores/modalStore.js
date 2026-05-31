@@ -21,7 +21,7 @@ const DEFAULTS = {
   holdingMigrateDialog: { open: false, code: null, name: '', targetGroupId: null },
   cloudConfigModal: { open: false, userId: null, type: null, cloudData: null },
   deviceConflictModal: { open: false, message: '', userId: null, payload: null, isPartial: false },
-  successModal: { open: false, message: '' },
+  successModal: { open: false, message: '' }
 };
 
 export const useModalStore = create((set, get) => ({
@@ -131,8 +131,8 @@ export const useModalStore = create((set, get) => ({
           open: true,
           excludeCodes: excludeCodes || [],
           initialSelectedCode: initialSelectedCode || '',
-          _nonce: nonce,
-        },
+          _nonce: nonce
+        }
       });
     });
   },
@@ -149,7 +149,7 @@ export const useModalStore = create((set, get) => ({
       }
     }
     set({ selectFundSingleModal: { ...DEFAULTS.selectFundSingleModal } });
-  },
+  }
 }));
 
 // ---- Non-React accessor for use in callbacks ----

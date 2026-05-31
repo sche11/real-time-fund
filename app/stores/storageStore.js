@@ -3,7 +3,6 @@ import { isEqual, isArray } from 'lodash';
 import { getFundCodesFromTagRecord } from '@/app/lib/fundHelpers';
 import { DEFAULT_SORT_RULES, SORT_DISPLAY_MODES } from '@/app/constants';
 
-
 /**
  * 签名函数：用于检测 funds 列表是否发生实质性变更（jzrq, dwjz 等核心字段）
  */
@@ -11,18 +10,16 @@ export const getFundCodesSignature = (value, extraFields = []) => {
   try {
     const list = Array.isArray(value) ? value : JSON.parse(value || '[]');
     if (!Array.isArray(list)) return '';
-    const fields = Array.from(new Set([
-      'jzrq',
-      'dwjz',
-      'dataSource',
-      'showImageChart',
-      ...(Array.isArray(extraFields) ? extraFields : [])
-    ]));
-    const items = list.map((item) => {
-      if (!item?.code) return null;
-      const extras = fields.map((field) => item?.[field] ?? '').join(':');
-      return `${item.code}:${extras}`;
-    }).filter(Boolean);
+    const fields = Array.from(
+      new Set(['jzrq', 'dwjz', 'dataSource', 'showImageChart', ...(Array.isArray(extraFields) ? extraFields : [])])
+    );
+    const items = list
+      .map((item) => {
+        if (!item?.code) return null;
+        const extras = fields.map((field) => item?.[field] ?? '').join(':');
+        return `${item.code}:${extras}`;
+      })
+      .filter(Boolean);
     return Array.from(new Set(items)).join('|');
   } catch (e) {
     return '';
@@ -52,10 +49,22 @@ export const getTagsStoreSignature = (value) => {
  * 仅以下 key 参与云端同步
  */
 const SYNC_KEYS = new Set([
-  'funds', 'tags', 'favorites', 'groups', 
-  'collapsedCodes', 'collapsedTrends', 'collapsedEarnings', 
-  'refreshMs', 'holdings', 'groupHoldings', 'pendingTrades', 
-  'transactions', 'dcaPlans', 'customSettings', 'fundDailyEarnings', 'fundDividends'
+  'funds',
+  'tags',
+  'favorites',
+  'groups',
+  'collapsedCodes',
+  'collapsedTrends',
+  'collapsedEarnings',
+  'refreshMs',
+  'holdings',
+  'groupHoldings',
+  'pendingTrades',
+  'transactions',
+  'dcaPlans',
+  'customSettings',
+  'fundDailyEarnings',
+  'fundDividends'
 ]);
 
 export { SORT_DISPLAY_MODES, DEFAULT_SORT_RULES };
@@ -66,7 +75,7 @@ export { SORT_DISPLAY_MODES, DEFAULT_SORT_RULES };
 export const useStorageStore = create((set, get) => ({
   // 云端同步回调，由 Page 组件注入
   onSync: null,
-  
+
   /** 注入同步回调 */
   setOnSync: (callback) => set({ onSync: callback }),
 
@@ -189,7 +198,7 @@ export const useStorageStore = create((set, get) => ({
       set({
         collapsedCodes: new Set(Array.isArray(cc) ? cc : []),
         collapsedTrends: new Set(Array.isArray(ct) ? ct : []),
-        collapsedEarnings: new Set(Array.isArray(ce) ? ce : []),
+        collapsedEarnings: new Set(Array.isArray(ce) ? ce : [])
       });
     }
   },
@@ -212,14 +221,23 @@ export const useStorageStore = create((set, get) => ({
       const settings = get().getItem('customSettings', {});
       if (settings && typeof settings === 'object') {
         // 展示模式：优先读取按端口分别存储的字段，向后兼容旧版单一字段
-        if (typeof settings.localSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(settings.localSortDisplayMode)) {
+        if (
+          typeof settings.localSortDisplayMode === 'string' &&
+          SORT_DISPLAY_MODES.has(settings.localSortDisplayMode)
+        ) {
           nextState.pcSortDisplayMode = settings.localSortDisplayMode;
           nextState.mobileSortDisplayMode = settings.localSortDisplayMode;
         } else {
-          if (typeof settings.pcLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(settings.pcLocalSortDisplayMode)) {
+          if (
+            typeof settings.pcLocalSortDisplayMode === 'string' &&
+            SORT_DISPLAY_MODES.has(settings.pcLocalSortDisplayMode)
+          ) {
             nextState.pcSortDisplayMode = settings.pcLocalSortDisplayMode;
           }
-          if (typeof settings.mobileLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(settings.mobileLocalSortDisplayMode)) {
+          if (
+            typeof settings.mobileLocalSortDisplayMode === 'string' &&
+            SORT_DISPLAY_MODES.has(settings.mobileLocalSortDisplayMode)
+          ) {
             nextState.mobileSortDisplayMode = settings.mobileLocalSortDisplayMode;
           }
         }
@@ -243,7 +261,7 @@ export const useStorageStore = create((set, get) => ({
             merged.push({
               ...base,
               enabled: typeof stored.enabled === 'boolean' ? stored.enabled : base.enabled,
-              alias: typeof stored.alias === 'string' && stored.alias.trim() ? stored.alias.trim() : base.alias,
+              alias: typeof stored.alias === 'string' && stored.alias.trim() ? stored.alias.trim() : base.alias
             });
           }
           // 追加新版本新增但本地未记录的规则
@@ -332,7 +350,8 @@ export const useStorageStore = create((set, get) => ({
   },
 
   setCustomSettings: (nextCustomSettings) => {
-    const next = typeof nextCustomSettings === 'function' ? nextCustomSettings(get().customSettings) : nextCustomSettings;
+    const next =
+      typeof nextCustomSettings === 'function' ? nextCustomSettings(get().customSettings) : nextCustomSettings;
     set({ customSettings: next });
     get().setItem('customSettings', JSON.stringify(next));
   },
@@ -377,8 +396,10 @@ export const useStorageStore = create((set, get) => ({
       const next = {
         ...current,
         localSortRules: patch.sortRules !== undefined ? patch.sortRules : get().sortRules,
-        pcLocalSortDisplayMode: patch.pcSortDisplayMode !== undefined ? patch.pcSortDisplayMode : get().pcSortDisplayMode,
-        mobileLocalSortDisplayMode: patch.mobileSortDisplayMode !== undefined ? patch.mobileSortDisplayMode : get().mobileSortDisplayMode,
+        pcLocalSortDisplayMode:
+          patch.pcSortDisplayMode !== undefined ? patch.pcSortDisplayMode : get().pcSortDisplayMode,
+        mobileLocalSortDisplayMode:
+          patch.mobileSortDisplayMode !== undefined ? patch.mobileSortDisplayMode : get().mobileSortDisplayMode
       };
       // 删除旧字段兼容历史数据
       delete next.localSortDisplayMode;
@@ -390,7 +411,10 @@ export const useStorageStore = create((set, get) => ({
   },
 
   setFundDailyEarnings: (nextFundDailyEarnings) => {
-    const next = typeof nextFundDailyEarnings === 'function' ? nextFundDailyEarnings(get().fundDailyEarnings) : nextFundDailyEarnings;
+    const next =
+      typeof nextFundDailyEarnings === 'function'
+        ? nextFundDailyEarnings(get().fundDailyEarnings)
+        : nextFundDailyEarnings;
     set({ fundDailyEarnings: next });
     get().setItem('fundDailyEarnings', JSON.stringify(next));
   },
@@ -402,18 +426,19 @@ export const useStorageStore = create((set, get) => ({
   },
 
   setValuationSeries: (nextValuationSeries) => {
-    const next = typeof nextValuationSeries === 'function' ? nextValuationSeries(get().valuationSeries) : nextValuationSeries;
+    const next =
+      typeof nextValuationSeries === 'function' ? nextValuationSeries(get().valuationSeries) : nextValuationSeries;
     set({ valuationSeries: next });
   },
 
   /**
    * 核心写入方法：同步更新 localStorage 和 Store 状态，并触发同步
-   * @param {string} key 
+   * @param {string} key
    * @param {string} value JSON 字符串或普通字符串
    */
   setItem: (key, value) => {
     const prevValue = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
-    
+
     // 检查内容是否真的发生了变化 (使用 lodash isEqual 进行深对比)
     if (prevValue !== null) {
       try {
@@ -474,7 +499,7 @@ export const useStorageStore = create((set, get) => ({
           return;
         }
       }
-      
+
       onSync(key, prevValue, value);
     }
   },
@@ -483,9 +508,9 @@ export const useStorageStore = create((set, get) => ({
    * 删除 key
    */
   removeItem: (key) => {
-    const prevValue = (key === 'funds' || key === 'tags') ? window.localStorage.getItem(key) : null;
+    const prevValue = key === 'funds' || key === 'tags' ? window.localStorage.getItem(key) : null;
     window.localStorage.removeItem(key);
-    
+
     const { onSync } = get();
     if (onSync && SYNC_KEYS.has(key)) {
       onSync(key, prevValue, null);
@@ -522,5 +547,5 @@ export const storageStore = {
   setItem: (key, val) => useStorageStore.getState().setItem(key, val),
   getItem: (key, def) => useStorageStore.getState().getItem(key, def),
   removeItem: (key) => useStorageStore.getState().removeItem(key),
-  clear: () => useStorageStore.getState().clear(),
+  clear: () => useStorageStore.getState().clear()
 };

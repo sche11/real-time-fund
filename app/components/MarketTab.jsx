@@ -2,7 +2,19 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Filter, ChevronDown, ChevronRight, LogIn, Lock, TrendingUp, BarChart3, Activity, CheckCircle, PlusCircle } from 'lucide-react';
+import {
+  Star,
+  Filter,
+  ChevronDown,
+  ChevronRight,
+  LogIn,
+  Lock,
+  TrendingUp,
+  BarChart3,
+  Activity,
+  CheckCircle,
+  PlusCircle
+} from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useReactTable, getCoreRowModel, flexRender } from '@tanstack/react-table';
 import { fetchFundValuationRanking, fetchFundPeriodReturns } from '../api/fund';
@@ -20,7 +32,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function FundDetailDialog({ cardDialogRow, getFundCardProps, setCardDialogRow}) {
+function FundDetailDialog({ cardDialogRow, getFundCardProps, setCardDialogRow }) {
   return (
     <Dialog
       open
@@ -28,36 +40,32 @@ function FundDetailDialog({ cardDialogRow, getFundCardProps, setCardDialogRow}) 
         if (!open) setCardDialogRow(null);
       }}
     >
-      <DialogContent
-        className="sm:max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden"
-      >
+      <DialogContent className="sm:max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="flex-shrink-0 flex flex-row items-center justify-between gap-2 space-y-0 px-6 pb-4 pt-6 text-left border-b border-[var(--border)]">
-          <DialogTitle className="text-base font-semibold text-[var(--text)]">
-            基金详情
-          </DialogTitle>
+          <DialogTitle className="text-base font-semibold text-[var(--text)]">基金详情</DialogTitle>
         </DialogHeader>
-        <div
-          className="flex-1 min-h-0 overflow-y-auto px-6 py-4 scrollbar-y-styled"
-        >
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 scrollbar-y-styled">
           {cardDialogRow && getFundCardProps ? (
             <FundCard {...getFundCardProps(cardDialogRow)} layoutMode="drawer" />
           ) : null}
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
-export default function MarketTab({ onAddFund, getFundCardProps }) {
+export default function MarketTab({ onAddFund, getFundCardProps, isActive }) {
   const [detailFund, setDetailFund] = useState(null);
   const [detailFundExtra, setDetailFundExtra] = useState(null);
 
   useEffect(() => {
     if (detailFund) {
       setDetailFundExtra(null);
-      fetchFundPeriodReturns(detailFund.bzdm).then(data => {
-        setDetailFundExtra(data);
-      }).catch(() => {});
+      fetchFundPeriodReturns(detailFund.bzdm)
+        .then((data) => {
+          setDetailFundExtra(data);
+        })
+        .catch(() => {});
     }
   }, [detailFund]);
 
@@ -88,6 +96,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
       }
     },
     refetchInterval: 300000,
+    enabled: !!isActive
   });
 
   const filteredAndSortedSectors = useMemo(() => {
@@ -95,7 +104,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
 
     let result = sectorEstimates;
     if (sectorFilter !== 'all') {
-      result = result.filter(s => s.sector_type === sectorFilter);
+      result = result.filter((s) => s.sector_type === sectorFilter);
     }
 
     result = [...result].sort((a, b) => {
@@ -125,11 +134,11 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
         order = 'desc';
       }
 
-
       const res = await fetchFundValuationRanking(sort, order, 1, 20);
       return res?.Data?.list || [];
     },
-    refetchInterval: 60000,
+    refetchInterval: 300000,
+    enabled: !!isActive
   });
 
   const formatPercent = (val) => {
@@ -167,8 +176,10 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                         }
                       }}
                       className={cn(
-                        "focus:outline-none flex-shrink-0 mt-[2px]", 
-                        isAdded ? "text-[var(--success)] cursor-default" : "text-muted-foreground opacity-50 hover:opacity-100 hover:text-primary transition-colors cursor-pointer"
+                        'focus:outline-none flex-shrink-0 mt-[2px]',
+                        isAdded
+                          ? 'text-[var(--success)] cursor-default'
+                          : 'text-muted-foreground opacity-50 hover:opacity-100 hover:text-primary transition-colors cursor-pointer'
                       )}
                       disabled={isAdded}
                     >
@@ -179,7 +190,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                     <p>{isAdded ? '已添加' : '添加'}</p>
                   </TooltipContent>
                 </Tooltip>
-                <span 
+                <span
                   className="font-medium text-sm whitespace-normal break-all leading-snug cursor-pointer hover:text-primary transition-colors"
                   onClick={() => setDetailFund(fund)}
                 >
@@ -206,9 +217,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
           const fund = info.row.original;
           return (
             <div className="flex flex-col items-end justify-center w-full">
-              <span className={cn("text-sm font-medium", getColorClass(fund.jzzzl))}>
-                {formatPercent(fund.jzzzl)}
-              </span>
+              <span className={cn('text-sm font-medium', getColorClass(fund.jzzzl))}>{formatPercent(fund.jzzzl)}</span>
               <span className="text-xs opacity-50 mt-0.5">{fund.gxrq?.slice(5)}</span>
             </div>
           );
@@ -224,15 +233,11 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
         const fund = info.row.original;
         return (
           <div className="flex flex-col items-end justify-center w-full">
-            <span className={cn("text-sm font-bold", getColorClass(fund.gszzl))}>
-              {formatPercent(fund.gszzl)}
-            </span>
+            <span className={cn('text-sm font-bold', getColorClass(fund.gszzl))}>{formatPercent(fund.gszzl)}</span>
           </div>
         );
       }
     });
-
-
 
     return columns;
   }, [funds, activeTab, onAddFund]);
@@ -240,7 +245,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
   const rankingTable = useReactTable({
     data: rankingData || [],
     columns: rankingTableColumns,
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: getCoreRowModel()
   });
 
   return (
@@ -250,7 +255,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
             className="glass max-w-md w-full p-6 sm:p-8 flex flex-col items-center text-center relative overflow-hidden"
           >
             {/* Removed background decorative blurs per user request */}
@@ -259,7 +264,9 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
               <Lock className="size-8" strokeWidth={1.5} />
             </div>
 
-            <h3 className="text-xl font-semibold mb-2 text-foreground relative z-10 tracking-tight">需要登录解锁行情</h3>
+            <h3 className="text-xl font-semibold mb-2 text-foreground relative z-10 tracking-tight">
+              需要登录解锁行情
+            </h3>
 
             <p className="text-sm text-muted-foreground mb-8 relative z-10 leading-relaxed">
               登录后即可查看实时热门板块、资金流入排行及大盘估值数据，快来探索更多专属功能吧。
@@ -313,11 +320,15 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                   <ToggleGroupItem
                     value="industry"
                     className="h-6 px-2 text-[10px] rounded-sm border-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm transition-all cursor-pointer"
-                  >行业</ToggleGroupItem>
+                  >
+                    行业
+                  </ToggleGroupItem>
                   <ToggleGroupItem
                     value="concept"
                     className="h-6 px-2 text-[10px] rounded-sm border-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm transition-all cursor-pointer"
-                  >概念</ToggleGroupItem>
+                  >
+                    概念
+                  </ToggleGroupItem>
                 </ToggleGroup>
 
                 <ToggleGroup
@@ -325,7 +336,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                   value={sectorSort}
                   onValueChange={(v) => {
                     if (!v) {
-                      setSectorSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                      setSectorSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
                     } else {
                       setSectorSort(v);
                       setSectorSortOrder('desc');
@@ -349,8 +360,12 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                         opacity: sectorSort === 'change_pct' ? 1 : 0.3
                       }}
                     >
-                      <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
-                      <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
+                      <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>
+                        ▲
+                      </span>
+                      <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>
+                        ▼
+                      </span>
                     </span>
                   </ToggleGroupItem>
                   <ToggleGroupItem
@@ -369,20 +384,26 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                         opacity: sectorSort === 'net_inflow' ? 1 : 0.3
                       }}
                     >
-                      <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
-                      <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
+                      <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>
+                        ▲
+                      </span>
+                      <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>
+                        ▼
+                      </span>
                     </span>
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
               <button
                 className="market-section-more"
-                onClick={() => useModalStore.setState({
-                  allSectorsModalOpen: true,
-                  allSectorsFilter: sectorFilter,
-                  allSectorsSort: sectorSort,
-                  allSectorsSortOrder: sectorSortOrder
-                })}
+                onClick={() =>
+                  useModalStore.setState({
+                    allSectorsModalOpen: true,
+                    allSectorsFilter: sectorFilter,
+                    allSectorsSort: sectorSort,
+                    allSectorsSortOrder: sectorSortOrder
+                  })
+                }
               >
                 全部 <ChevronRight size={14} />
               </button>
@@ -390,63 +411,67 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
 
             <motion.div layout className="market-sector-grid">
               <AnimatePresence mode="popLayout">
-                {sectorsLoading ? (
-                  Array.from({ length: isMobile ? 4 : 10 }).map((_, i) => (
-                    <motion.div
-                      key={`skeleton-sector-${i}`}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 1 }}
-                      className="market-sector-card glass"
-                    >
-                      <div className="market-sector-main items-center mt-0.5">
-                        <Skeleton className="h-5 w-16" />
-                        <Skeleton className="h-4 w-12" />
-                      </div>
-                      <div className="market-sector-leader flex items-center mt-1 h-[18px]">
-                        <Skeleton className="h-3 w-20" />
-                      </div>
-                    </motion.div>
-                  ))
-                ) : filteredAndSortedSectors?.map(sector => {
-                  const pctStr = sector.change_pct != null ? String(sector.change_pct) : '0.00';
-                  const pctNum = parseFloat(pctStr);
-                  const isUp = pctNum > 0;
-                  const isDown = pctNum < 0;
+                {sectorsLoading
+                  ? Array.from({ length: isMobile ? 4 : 10 }).map((_, i) => (
+                      <motion.div
+                        key={`skeleton-sector-${i}`}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 1 }}
+                        className="market-sector-card glass"
+                      >
+                        <div className="market-sector-main items-center mt-0.5">
+                          <Skeleton className="h-5 w-16" />
+                          <Skeleton className="h-4 w-12" />
+                        </div>
+                        <div className="market-sector-leader flex items-center mt-1 h-[18px]">
+                          <Skeleton className="h-3 w-20" />
+                        </div>
+                      </motion.div>
+                    ))
+                  : filteredAndSortedSectors?.map((sector) => {
+                      const pctStr = sector.change_pct != null ? String(sector.change_pct) : '0.00';
+                      const pctNum = parseFloat(pctStr);
+                      const isUp = pctNum > 0;
+                      const isDown = pctNum < 0;
 
-                  return (
-                    <motion.div
-                      layout
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 1 }}
-                      key={sector.id || sector.sector_id}
-                      className="market-sector-card glass"
-                    >
-                      <div className="market-sector-main">
-                        <span className="market-sector-name">{sector.sector_name}</span>
-                        {sectorSort === 'change_pct' ? (
-                          <span className={cn("market-sector-pct", getColorClass(pctStr))}>
-                            {formatPercent(pctStr)}
-                          </span>
-                        ) : (
-                          <span className={cn("market-sector-pct", getColorClass(sector.net_inflow))}>
-                            {sector.net_inflow ? (sector.net_inflow / 100000000).toFixed(2) + '亿' : '--'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="market-sector-leader">
-                        {sectorSort === 'change_pct' ? (
-                          <>资金流入: {sector.net_inflow ? (sector.net_inflow / 100000000).toFixed(2) + '亿' : '--'}</>
-                        ) : (
-                          <>涨跌幅: <span className={getColorClass(pctStr)}>{formatPercent(pctStr)}</span></>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                      return (
+                        <motion.div
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 1 }}
+                          key={sector.id || sector.sector_id}
+                          className="market-sector-card glass"
+                        >
+                          <div className="market-sector-main">
+                            <span className="market-sector-name">{sector.sector_name}</span>
+                            {sectorSort === 'change_pct' ? (
+                              <span className={cn('market-sector-pct', getColorClass(pctStr))}>
+                                {formatPercent(pctStr)}
+                              </span>
+                            ) : (
+                              <span className={cn('market-sector-pct', getColorClass(sector.net_inflow))}>
+                                {sector.net_inflow ? (sector.net_inflow / 100000000).toFixed(2) + '亿' : '--'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="market-sector-leader">
+                            {sectorSort === 'change_pct' ? (
+                              <>
+                                资金流入: {sector.net_inflow ? (sector.net_inflow / 100000000).toFixed(2) + '亿' : '--'}
+                              </>
+                            ) : (
+                              <>
+                                涨跌幅: <span className={getColorClass(pctStr)}>{formatPercent(pctStr)}</span>
+                              </>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
               </AnimatePresence>
             </motion.div>
           </div>
@@ -464,7 +489,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
                         key="increase"
-                        className={cn("tab", activeTab === 'increase' && "active")}
+                        className={cn('tab', activeTab === 'increase' && 'active')}
                         onClick={() => setActiveTab('increase')}
                         transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                       >
@@ -476,7 +501,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
                         key="decrease"
-                        className={cn("tab", activeTab === 'decrease' && "active")}
+                        className={cn('tab', activeTab === 'decrease' && 'active')}
                         onClick={() => setActiveTab('decrease')}
                         transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                       >
@@ -488,7 +513,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
                         key="hot"
-                        className={cn("tab", activeTab === 'hot' && "active")}
+                        className={cn('tab', activeTab === 'hot' && 'active')}
                         onClick={() => setActiveTab('hot')}
                         transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                       >
@@ -500,13 +525,12 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
                         key="actual"
-                        className={cn("tab", activeTab === 'actual' && "active")}
+                        className={cn('tab', activeTab === 'actual' && 'active')}
                         onClick={() => setActiveTab('actual')}
                         transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
                       >
                         实际涨幅
                       </motion.button>
-
                     </AnimatePresence>
                   </div>
                 </div>
@@ -548,9 +572,9 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                 }
               `}</style>
 
-              {rankingTable.getHeaderGroups().map(hg => (
+              {rankingTable.getHeaderGroups().map((hg) => (
                 <div key={hg.id} className="table-header-row market-ranking-table-header">
-                  {hg.headers.map(header => {
+                  {hg.headers.map((header) => {
                     const align = header.column.columnDef.meta?.align || 'text-center';
                     const flex = header.column.columnDef.meta?.flex || 1;
                     const isRight = align === 'text-right';
@@ -559,9 +583,24 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                       <div
                         key={header.id}
                         className={`table-header-cell ${align}`}
-                        style={{ flex, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: isRight ? 'flex-end' : 'flex-start' }}
+                        style={{
+                          flex,
+                          padding: '0 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: isRight ? 'flex-end' : 'flex-start'
+                        }}
                       >
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, letterSpacing: '0.5px' }}>
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            letterSpacing: '0.5px'
+                          }}
+                        >
                           {flexRender(header.column.columnDef.header, header.getContext())}
                         </div>
                       </div>
@@ -577,7 +616,10 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                       key={`skeleton-ranking-${index}`}
                       className={`table-row market-ranking-table-row ${index % 2 === 1 ? 'row-even' : ''}`}
                     >
-                      <div className="table-cell text-left" style={{ flex: 2, padding: '0 8px', display: 'flex', alignItems: 'center' }}>
+                      <div
+                        className="table-cell text-left"
+                        style={{ flex: 2, padding: '0 8px', display: 'flex', alignItems: 'center' }}
+                      >
                         <div className="w-full">
                           <div className="flex items-center gap-1.5 mb-1.5 mt-0.5">
                             <Skeleton className="size-4 rounded-full flex-shrink-0" />
@@ -589,11 +631,32 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                           </div>
                         </div>
                       </div>
-                      <div className="table-cell text-right" style={{ flex: 1, padding: '0 8px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: '4px' }}>
+                      <div
+                        className="table-cell text-right"
+                        style={{
+                          flex: 1,
+                          padding: '0 8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                          justifyContent: 'center',
+                          gap: '4px'
+                        }}
+                      >
                         <Skeleton className="h-[18px] w-14 sm:w-16" />
                         <Skeleton className="h-3 w-10 sm:w-12" />
                       </div>
-                      <div className="table-cell text-right" style={{ flex: 1, padding: '0 8px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                      <div
+                        className="table-cell text-right"
+                        style={{
+                          flex: 1,
+                          padding: '0 8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                          justifyContent: 'center'
+                        }}
+                      >
                         <Skeleton className="h-[18px] w-14 sm:w-16" />
                       </div>
                     </div>
@@ -604,7 +667,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                       key={row.id}
                       className={`table-row market-ranking-table-row ${index % 2 === 1 ? 'row-even' : ''}`}
                     >
-                      {row.getVisibleCells().map(cell => {
+                      {row.getVisibleCells().map((cell) => {
                         const align = cell.column.columnDef.meta?.align || 'text-center';
                         const flex = cell.column.columnDef.meta?.flex || 1;
                         const isRight = align === 'text-right';
@@ -613,7 +676,13 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
                           <div
                             key={cell.id}
                             className={`table-cell ${align}`}
-                            style={{ flex, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: isRight ? 'flex-end' : 'flex-start' }}
+                            style={{
+                              flex,
+                              padding: '0 8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: isRight ? 'flex-end' : 'flex-start'
+                            }}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </div>
@@ -631,22 +700,26 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
       )}
       {/* 基金详情弹框 */}
       {(() => {
-        const mappedFund = detailFund ? {
-          code: detailFund.bzdm,
-          name: detailFund.jjjc,
-          dwjz: detailFund.dwjz === '---' || !detailFund.dwjz ? null : detailFund.dwjz,
-          gsz: detailFund.gsz === '---' || !detailFund.gsz ? null : detailFund.gsz,
-          gszzl: !isNaN(parseFloat(detailFund.gszzl)) ? parseFloat(detailFund.gszzl) : null,
-          gztime: detailFund.gztime || null,
-          jzrq: detailFund.gxrq || detailFund.jzrq || null,
-          zzl: !isNaN(parseFloat(detailFund.jzzzl)) ? parseFloat(detailFund.jzzzl) : null,
-          fundExtraData: detailFundExtra,
-        } : null;
+        const mappedFund = detailFund
+          ? {
+              code: detailFund.bzdm,
+              name: detailFund.jjjc,
+              dwjz: detailFund.dwjz === '---' || !detailFund.dwjz ? null : detailFund.dwjz,
+              gsz: detailFund.gsz === '---' || !detailFund.gsz ? null : detailFund.gsz,
+              gszzl: !isNaN(parseFloat(detailFund.gszzl)) ? parseFloat(detailFund.gszzl) : null,
+              gztime: detailFund.gztime || null,
+              jzrq: detailFund.gxrq || detailFund.jzrq || null,
+              zzl: !isNaN(parseFloat(detailFund.jzzzl)) ? parseFloat(detailFund.jzzzl) : null,
+              fundExtraData: detailFundExtra
+            }
+          : null;
 
         const detailCardProps = mappedFund && getFundCardProps ? getFundCardProps({ rawFund: mappedFund }) : null;
 
-        return detailFund && detailCardProps && (
-          isMobile ? (
+        return (
+          detailFund &&
+          detailCardProps &&
+          (isMobile ? (
             <MobileFundCardDrawer
               open={!!detailFund}
               onOpenChange={(open) => !open && setDetailFund(null)}
@@ -659,7 +732,7 @@ export default function MarketTab({ onAddFund, getFundCardProps }) {
               getFundCardProps={() => detailCardProps}
               setCardDialogRow={(row) => setDetailFund(row)}
             />
-          )
+          ))
         );
       })()}
     </div>

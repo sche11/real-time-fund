@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback, useTransition, useDeferredValue } from 'react';
 import dynamic from 'next/dynamic';
-import ScanButton from './components/ScanButton';
+import SearchBar from './components/SearchBar';
+import SummaryTabContent from './components/SummaryTabContent';
+import FundListView from './components/FundListView';
+import NavLayout from './components/NavLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 
@@ -12,47 +15,35 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
-import { isNumber, isString, isPlainObject, isNil, isArray } from 'lodash';
+import { isNumber, isString, isPlainObject, isArray } from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
 import { toast as sonnerToast } from 'sonner';
 
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "@/components/ui/empty";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import Announcement from "./components/Announcement";
-import EmptyStateCard from "./components/EmptyStateCard";
-import FundCard from "./components/FundCard";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from '@/components/ui/empty';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Announcement from './components/Announcement';
+import EmptyStateCard from './components/EmptyStateCard';
+import FundCard from './components/FundCard';
 
-import GroupSummary from "./components/GroupSummary";
-import GroupAccountSummaryCard from "./components/GroupAccountSummaryCard";
-import {
-  CloseIcon,
-  GridIcon,
-  ListIcon,
-  MoonIcon,
-  PlusIcon,
-  SettingsIcon,
-  SortIcon,
-  SunIcon,
-} from "./components/Icons";
-import UserMenu from "./components/UserMenu";
-import RefreshButton from "./components/RefreshButton";
+import GroupSummary from './components/GroupSummary';
+import GroupAccountSummaryCard from './components/GroupAccountSummaryCard';
+import { CloseIcon, GridIcon, ListIcon, MoonIcon, PlusIcon, SettingsIcon, SortIcon, SunIcon } from './components/Icons';
+import UserMenu from './components/UserMenu';
+import RefreshButton from './components/RefreshButton';
 const UpdateChecker = dynamic(() => import('./components/UpdateChecker'), { ssr: false });
-import MarketIndexAccordion from "./components/MarketIndexAccordion";
-import githubImg from "./assets/github.svg";
+import MarketIndexAccordion from './components/MarketIndexAccordion';
+import githubImg from './assets/github.svg';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { recordValuation, setValuationSeries as persistValuationSeries, getAllValuationSeries, clearFund } from './lib/valuationTimeseries';
-import {
-  aggregatePortfolioDailyEarnings,
-} from './lib/dailyEarnings';
+import { getAllValuationSeries, clearFund } from './lib/valuationTimeseries';
+import { aggregatePortfolioDailyEarnings } from './lib/dailyEarnings';
 import { loadHolidaysForYears, isTradingDay as isDateTradingDay } from './lib/tradingCalendar';
-import { asyncPool, withRetry } from './lib/asyncHelper';
-import { fetchFundData, fetchNetValueRangeFromTrend, fetchSmartFundNetValue, fetchSmartFundNetValueBackward, fetchFundPeriodReturns, searchFunds } from './api/fund';
+import { asyncPool } from './lib/asyncHelper';
+import {
+  fetchSmartFundNetValue,
+  fetchSmartFundNetValueBackward,
+  fetchFundPeriodReturns,
+  searchFunds
+} from './api/fund';
 import PcFundTable from './components/PcFundTable';
 import MobileFundTable from './components/MobileFundTable';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -62,12 +53,24 @@ import PcSideNav from './components/PcSideNav';
 import SearchFund from './components/SearchFund';
 import { useTheme } from './hooks/useTheme';
 import { useTradingDay } from './hooks/useTradingDay';
+import { useHoldingProfit } from './hooks/useHoldingProfit';
+import { useGroupActions } from './hooks/useGroupActions';
+import { useSummaryCalculations } from './hooks/useSummaryCalculations';
 import { useNavHeights } from './hooks/useNavHeights';
 import { useScanImport } from './hooks/useScanImport';
 import { useRefreshManager } from './hooks/useRefreshManager';
 import { useSyncManager, normalizeFundDailyEarningsScoped } from './hooks/useSyncManager';
 import { useIsMobile } from './hooks/useIsMobile';
-import {useUserStore, clearAuthUser, setAuthUser, useStorageStore, storageStore, getFundCodesSignature, useModalStore, useIsAnyModalOpen} from './stores';
+import {
+  useUserStore,
+  clearAuthUser,
+  setAuthUser,
+  useStorageStore,
+  storageStore,
+  useModalStore,
+  useIsAnyModalOpen,
+  useSettingsStore
+} from './stores';
 import ModalsLayer from './components/ModalsLayer';
 
 import {
@@ -77,7 +80,7 @@ import {
   SUMMARY_TAB_ID,
   SUMMARY_SOURCE_GLOBAL,
   DAILY_EARNINGS_SCOPE_ALL,
-  DEFAULT_FUND_TAG_THEME,
+  DEFAULT_FUND_TAG_THEME
 } from '@/app/constants';
 
 dayjs.extend(utc);
@@ -85,58 +88,80 @@ dayjs.extend(timezone);
 dayjs.extend(isSameOrAfter);
 
 import {
-  getBrowserTimeZone,
   TZ,
   nowInTz,
   toTz,
   formatDate,
-  hasOwn,
   normalizeFundTagTheme,
   normalizeFundTagInstanceListFromInput,
   stripLegacyTagsFromFundObject,
   getFundCodesFromTagRecord,
   sanitizeTagRowForStorage,
   serializeTagRecordsForCompare,
-  mergeTagRowsByName,
   cloneHoldingDeep,
-  normalizeHoldingEntryForSeed,
   seedGroupHoldingsFromGlobal,
   migrateDcaPlansToScoped
 } from './lib/fundHelpers';
 
-import { dedupeByCode, normalizeCode, cleanCodeArray, normalizeNumber } from './lib/normalize';
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-
+import { dedupeByCode, normalizeCode, cleanCodeArray } from './lib/normalize';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export default function HomePage() {
   const {
-    funds, setFunds, initFunds,
-    groups, setGroups, initGroups,
-    favorites, setFavorites, initFavorites,
-    collapsedCodes, setCollapsedCodes,
-    collapsedTrends, setCollapsedTrends,
-    collapsedEarnings, setCollapsedEarnings,
-    refreshMs, setRefreshMs,
-    holdings, setHoldings,
-    groupHoldings, setGroupHoldings,
-    pendingTrades, setPendingTrades,
-    transactions, setTransactions,
-    dcaPlans, setDcaPlans,
-    customSettings, setCustomSettings,
-    fundDailyEarnings, setFundDailyEarnings,
-    valuationSeries, setValuationSeries,
-    initCollapsed, initRefreshMs,
-    initHoldings, initGroupHoldings,
-    initPendingTrades, initTransactions,
-    initDcaPlans, initCustomSettings,
+    funds,
+    setFunds,
+    initFunds,
+    groups,
+    setGroups,
+    initGroups,
+    favorites,
+    setFavorites,
+    initFavorites,
+    collapsedCodes,
+    setCollapsedCodes,
+    collapsedTrends,
+    setCollapsedTrends,
+    collapsedEarnings,
+    setCollapsedEarnings,
+    refreshMs,
+    setRefreshMs,
+    holdings,
+    setHoldings,
+    groupHoldings,
+    setGroupHoldings,
+    pendingTrades,
+    setPendingTrades,
+    transactions,
+    setTransactions,
+    dcaPlans,
+    setDcaPlans,
+    customSettings,
+    setCustomSettings,
+    fundDailyEarnings,
+    setFundDailyEarnings,
+    valuationSeries,
+    setValuationSeries,
+    initCollapsed,
+    initRefreshMs,
+    initHoldings,
+    initGroupHoldings,
+    initPendingTrades,
+    initTransactions,
+    initDcaPlans,
+    initCustomSettings,
     initFundDailyEarnings,
     initFundDividends,
-    sortBy, setSortBy,
-    sortOrder, setSortOrder,
-    pcSortDisplayMode, setPcSortDisplayMode,
-    mobileSortDisplayMode, setMobileSortDisplayMode,
-    sortRules, setSortRules,
-    initSort,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    pcSortDisplayMode,
+    setPcSortDisplayMode,
+    mobileSortDisplayMode,
+    setMobileSortDisplayMode,
+    sortRules,
+    setSortRules,
+    initSort
   } = useStorageStore();
   /** 基金标签（独立 localStorage 键 `tags`）：{ id, name, theme, fundCodes: string[] }[] */
   const [fundTagRecords, setFundTagRecords] = useState([]);
@@ -164,46 +189,42 @@ export default function HomePage() {
     });
     return out;
   }, [fundTagRecords, funds]);
-  const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState('');
   const isLoggingOutRef = useRef(false);
   const isExplicitLoginRef = useRef(false);
 
-  // 刷新频率状态
-  const [tempSeconds, setTempSeconds] = useState(60);
-  const [containerWidth, setContainerWidth] = useState(1200);
-  const [showMarketIndexPc, setShowMarketIndexPc] = useState(true);
-  const [showMarketIndexMobile, setShowMarketIndexMobile] = useState(true);
-  const [showGroupFundSearchPc, setShowGroupFundSearchPc] = useState(true);
-  const [showGroupFundSearchMobile, setShowGroupFundSearchMobile] = useState(true);
-  const [dynamicStylePc, setDynamicStylePc] = useState(true);
-  const [dynamicStyleMobile, setDynamicStyleMobile] = useState(true);
-  const [isGroupSummarySticky, setIsGroupSummarySticky] = useState(false);
+  // 刷新频率与布局配置状态
+  const {
+    tempSeconds,
+    setTempSeconds,
+    containerWidth,
+    setContainerWidth,
+    showMarketIndexPc,
+    setShowMarketIndexPc,
+    showMarketIndexMobile,
+    setShowMarketIndexMobile,
+    showGroupFundSearchPc,
+    setShowGroupFundSearchPc,
+    showGroupFundSearchMobile,
+    setShowGroupFundSearchMobile,
+    dynamicStylePc,
+    setDynamicStylePc,
+    dynamicStyleMobile,
+    setDynamicStyleMobile,
+    isGroupSummarySticky,
+    setIsGroupSummarySticky,
+    syncFromCustomSettings
+  } = useSettingsStore();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      const parsed = customSettings;
-      if (!parsed || typeof parsed !== 'object') return;
-      const w = parsed?.pcContainerWidth;
-      const num = Number(w);
-      if (Number.isFinite(num)) {
-        // 在移动端时不使用 window.innerWidth 裁剪，防止覆盖 PC 端个性化宽度
-        const maxWidth = window.matchMedia('(max-width: 640px)').matches ? 99999 : window.innerWidth;
-        setContainerWidth(Math.min(maxWidth, Math.max(600, num)));
-      }
-      if (typeof parsed?.showMarketIndexPc === 'boolean') setShowMarketIndexPc(parsed.showMarketIndexPc);
-      if (typeof parsed?.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(parsed.showMarketIndexMobile);
-      if (typeof parsed?.showGroupFundSearchPc === 'boolean') setShowGroupFundSearchPc(parsed.showGroupFundSearchPc);
-      if (typeof parsed?.showGroupFundSearchMobile === 'boolean') setShowGroupFundSearchMobile(parsed.showGroupFundSearchMobile);
-      if (typeof parsed?.dynamicStylePc === 'boolean') setDynamicStylePc(parsed.dynamicStylePc);
-      if (typeof parsed?.dynamicStyleMobile === 'boolean') setDynamicStyleMobile(parsed.dynamicStyleMobile);
-    } catch { }
-  }, [customSettings]);
+    syncFromCustomSettings(customSettings);
+  }, [customSettings, syncFromCustomSettings]);
 
   // 自选状态
   const [currentTab, setCurrentTab] = useState('all');
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const hasLocalTabInitRef = useRef(false);
 
   // 调用 store 的 initSort，在 mount 时恢复持久化的排序偏好
@@ -211,7 +232,7 @@ export default function HomePage() {
     if (typeof window !== 'undefined') {
       initSort();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 当用户关闭某个排序规则时，如果当前 sortBy 不再可用，则自动切换到第一个启用的规则
@@ -251,7 +272,6 @@ export default function HomePage() {
   const [searchResults, setSearchResults] = useState([]);
   const [selectedFunds, setSelectedFunds] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const searchTimeoutRef = useRef(null);
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -266,12 +286,7 @@ export default function HomePage() {
   // 动态计算 Navbar 和 FilterBar 高度（抽离到 useNavHeights）
   // 注意：isMobile 在此处尚未声明，shouldShowMarketIndex 由 page.jsx 内独立 useEffect 处理
   const containerRef = useRef(null);
-  const {
-    navbarRef,
-    filterBarRef,
-    navbarHeight,
-    filterBarHeight,
-  } = useNavHeights({ groups, currentTab });
+  const { navbarRef, filterBarRef, navbarHeight, filterBarHeight } = useNavHeights({ groups, currentTab });
 
   const handleMobileSearchClick = (e) => {
     e?.preventDefault();
@@ -286,7 +301,6 @@ export default function HomePage() {
   const [percentModes, setPercentModes] = useState({}); // { [code]: boolean }
   const [todayPercentModes, setTodayPercentModes] = useState({}); // { [code]: boolean }
 
-
   const tabsRef = useRef(null);
 
   // ---- Modal store setter compatibility wrappers ----
@@ -295,36 +309,47 @@ export default function HomePage() {
   const setSettingsOpen = (v) => _ms({ settingsOpen: typeof v === 'function' ? v(_gs().settingsOpen) : v });
   const setGroupModalOpen = (v) => _ms({ groupModalOpen: typeof v === 'function' ? v(_gs().groupModalOpen) : v });
   const setGroupManageOpen = (v) => _ms({ groupManageOpen: typeof v === 'function' ? v(_gs().groupManageOpen) : v });
-  const setAddFundToGroupOpen = (v) => _ms({ addFundToGroupOpen: typeof v === 'function' ? v(_gs().addFundToGroupOpen) : v });
+  const setAddFundToGroupOpen = (v) =>
+    _ms({ addFundToGroupOpen: typeof v === 'function' ? v(_gs().addFundToGroupOpen) : v });
   const setSortSettingOpen = (v) => _ms({ sortSettingOpen: typeof v === 'function' ? v(_gs().sortSettingOpen) : v });
   const setLoginModalOpen = (v) => _ms({ loginModalOpen: typeof v === 'function' ? v(_gs().loginModalOpen) : v });
-  const setLoginInitialError = (v) => _ms({ loginInitialError: typeof v === 'function' ? v(_gs().loginInitialError) : v });
+  const setLoginInitialError = (v) =>
+    _ms({ loginInitialError: typeof v === 'function' ? v(_gs().loginInitialError) : v });
   const setFeedbackOpen = (v) => _ms({ feedbackOpen: typeof v === 'function' ? v(_gs().feedbackOpen) : v });
   const setFeedbackNonce = (v) => _ms({ feedbackNonce: typeof v === 'function' ? v(_gs().feedbackNonce) : v });
-  const setWeChatOpen = (v) => _ms({ weChatOpen: typeof v === 'function' ? v(_gs().weChatOpen) : v });
   const setDonateOpen = (v) => _ms({ donateOpen: typeof v === 'function' ? v(_gs().donateOpen) : v });
-  const setIsLogoutConfirmOpen = (v) => _ms({ isLogoutConfirmOpen: typeof v === 'function' ? v(_gs().isLogoutConfirmOpen) : v });
-  const setPortfolioEarningsOpen = (v) => _ms({ portfolioEarningsOpen: typeof v === 'function' ? v(_gs().portfolioEarningsOpen) : v });
-  const setMobileFundDrawerOpen = (v) => _ms({ mobileFundDrawerOpen: typeof v === 'function' ? v(_gs().mobileFundDrawerOpen) : v });
-  const setTutorialDrawerOpen = (v) => _ms({ tutorialDrawerOpen: typeof v === 'function' ? v(_gs().tutorialDrawerOpen) : v });
+  const setIsLogoutConfirmOpen = (v) =>
+    _ms({ isLogoutConfirmOpen: typeof v === 'function' ? v(_gs().isLogoutConfirmOpen) : v });
+  const setPortfolioEarningsOpen = (v) =>
+    _ms({ portfolioEarningsOpen: typeof v === 'function' ? v(_gs().portfolioEarningsOpen) : v });
+  const setMobileFundDrawerOpen = (v) =>
+    _ms({ mobileFundDrawerOpen: typeof v === 'function' ? v(_gs().mobileFundDrawerOpen) : v });
+  const setTutorialDrawerOpen = (v) =>
+    _ms({ tutorialDrawerOpen: typeof v === 'function' ? v(_gs().tutorialDrawerOpen) : v });
   const setUpdateLogOpen = (v) => _ms({ updateLogOpen: typeof v === 'function' ? v(_gs().updateLogOpen) : v });
-  const setMobileTableSettingModalOpen = (v) => _ms({ mobileTableSettingModalOpen: typeof v === 'function' ? v(_gs().mobileTableSettingModalOpen) : v });
-  const setIsUpdateModalOpen = (v) => _ms({ isUpdateModalOpen: typeof v === 'function' ? v(_gs().isUpdateModalOpen) : v });
+  const setMobileTableSettingModalOpen = (v) =>
+    _ms({ mobileTableSettingModalOpen: typeof v === 'function' ? v(_gs().mobileTableSettingModalOpen) : v });
+  const setIsUpdateModalOpen = (v) =>
+    _ms({ isUpdateModalOpen: typeof v === 'function' ? v(_gs().isUpdateModalOpen) : v });
   const setHoldingModal = (v) => _ms({ holdingModal: typeof v === 'function' ? v(_gs().holdingModal) : v });
   const setActionModal = (v) => _ms({ actionModal: typeof v === 'function' ? v(_gs().actionModal) : v });
   const setTradeModal = (v) => _ms({ tradeModal: typeof v === 'function' ? v(_gs().tradeModal) : v });
   const setConvertModal = (v) => _ms({ convertModal: typeof v === 'function' ? v(_gs().convertModal) : v });
-  const setDividendMethodModal = (v) => _ms({ dividendMethodModal: typeof v === 'function' ? v(_gs().dividendMethodModal) : v });
-  const setSelectFundSingleModal = (v) => _ms({ selectFundSingleModal: typeof v === 'function' ? v(_gs().selectFundSingleModal) : v });
-  const setSelectHoldingGroupModal = (v) => _ms({ selectHoldingGroupModal: typeof v === 'function' ? v(_gs().selectHoldingGroupModal) : v });
+  const setDividendMethodModal = (v) =>
+    _ms({ dividendMethodModal: typeof v === 'function' ? v(_gs().dividendMethodModal) : v });
+  const setSelectHoldingGroupModal = (v) =>
+    _ms({ selectHoldingGroupModal: typeof v === 'function' ? v(_gs().selectHoldingGroupModal) : v });
   const setDataSourceModal = (v) => _ms({ dataSourceModal: typeof v === 'function' ? v(_gs().dataSourceModal) : v });
   const setDcaModal = (v) => _ms({ dcaModal: typeof v === 'function' ? v(_gs().dcaModal) : v });
   const setClearConfirm = (v) => _ms({ clearConfirm: typeof v === 'function' ? v(_gs().clearConfirm) : v });
-  const setHoldingMigrateDialog = (v) => _ms({ holdingMigrateDialog: typeof v === 'function' ? v(_gs().holdingMigrateDialog) : v });
+  const setHoldingMigrateDialog = (v) =>
+    _ms({ holdingMigrateDialog: typeof v === 'function' ? v(_gs().holdingMigrateDialog) : v });
   const setHistoryModal = (v) => _ms({ historyModal: typeof v === 'function' ? v(_gs().historyModal) : v });
   const setAddHistoryModal = (v) => _ms({ addHistoryModal: typeof v === 'function' ? v(_gs().addHistoryModal) : v });
-  const setFundDeleteConfirm = (v) => _ms({ fundDeleteConfirm: typeof v === 'function' ? v(_gs().fundDeleteConfirm) : v });
-  const setFundDeleteBulkConfirm = (v) => _ms({ fundDeleteBulkConfirm: typeof v === 'function' ? v(_gs().fundDeleteBulkConfirm) : v });
+  const setFundDeleteConfirm = (v) =>
+    _ms({ fundDeleteConfirm: typeof v === 'function' ? v(_gs().fundDeleteConfirm) : v });
+  const setFundDeleteBulkConfirm = (v) =>
+    _ms({ fundDeleteBulkConfirm: typeof v === 'function' ? v(_gs().fundDeleteBulkConfirm) : v });
   const setFundTagsEdit = (v) => _ms({ fundTagsEdit: typeof v === 'function' ? v(_gs().fundTagsEdit) : v });
   const setSuccessModal = (v) => _ms({ successModal: typeof v === 'function' ? v(_gs().successModal) : v });
 
@@ -380,8 +405,6 @@ export default function HomePage() {
   const shouldShowMarketIndex = (isMobile ? showMarketIndexMobile : showMarketIndexPc) || mainTab === 'market';
   const shouldShowGroupFundSearch = isMobile ? showGroupFundSearchMobile : showGroupFundSearchPc;
 
-
-
   // 交易日检测（抽离到 useTradingDay）
   const { isTradingDay } = useTradingDay();
 
@@ -393,460 +416,18 @@ export default function HomePage() {
       ? currentTab
       : null;
 
-  // 计算持仓收益；可选第三参为分组作用域（汇总卡片/合并列表按分组计算当日收益）
-  const getHoldingProfit = useCallback((fund, holding, scopeGroupIdOverride) => {
-    if (!holding || !isNumber(holding.share)) return null;
+  // 计算持仓收益（抽离至自定义 Hook 管理）
+  const { getHoldingProfit } = useHoldingProfit({ activeGroupId });
 
-    const txScope = scopeGroupIdOverride !== undefined ? scopeGroupIdOverride : activeGroupId;
-
-    const hasTodayData = fund.jzrq === todayStr;
-    const hasTodayValuation = isString(fund.gztime) && fund.gztime.startsWith(todayStr);
-    const canCalcTodayProfit = hasTodayData || hasTodayValuation;
-
-    // 分红计算逻辑
-    let dividendCash = 0;
-    let extraShares = 0;
-    let effectiveShare = holding.share;
-    const currentStore = useStorageStore.getState();
-    const cachedDivs = currentStore.fundDividends?.[fund.code]?.list;
-    const txs = currentStore.transactions?.[fund.code] || [];
-    
-    if (cachedDivs && Array.isArray(cachedDivs)) {
-      let earliestDate = holding.firstPurchaseDate;
-      if (!earliestDate) {
-         for (const tx of txs) {
-           if (tx.type !== 'buy' || !tx.date) continue;
-           const gid = tx.groupId || null;
-           if (txScope !== undefined ? (txScope ? gid !== txScope : gid) : (activeGroupId ? gid !== activeGroupId : gid)) continue;
-           if (!earliestDate || tx.date < earliestDate) earliestDate = tx.date;
-         }
-      }
-
-      if (earliestDate) {
-        const getShareAtDate = (date) => {
-          let s = 0;
-          let hasTx = false;
-          for (const tx of txs) {
-            const gid = tx.groupId || null;
-            if (txScope !== undefined ? (txScope ? gid !== txScope : gid) : (activeGroupId ? gid !== activeGroupId : gid)) continue;
-            if (tx.isHistoryOnly) continue;
-            if (tx.date <= date) {
-               hasTx = true;
-               if (tx.type === 'buy') s += Number(tx.share) || 0;
-               if (tx.type === 'sell') s -= Number(tx.share) || 0;
-            }
-          }
-          if (hasTx) return Math.max(0, s);
-          if (date >= earliestDate) return holding.share;
-          return 0;
-        };
-
-        const sortedDivs = [...cachedDivs].sort((a,b) => a.date.localeCompare(b.date));
-        for (const div of sortedDivs) {
-           if (div.date < earliestDate) continue;
-           if (div.date > todayStr) continue;
-           const baseShare = getShareAtDate(div.date);
-           if (baseShare > 0) {
-              const actualShare = baseShare + extraShares;
-              if (!holding.dividendMethod || holding.dividendMethod === 'reinvest') {
-                 if (div.nav > 0) {
-                    extraShares += (actualShare * div.dividend) / div.nav;
-                 }
-              } else { // 现金分红 (cash)
-                 dividendCash += actualShare * div.dividend;
-              }
-           }
-        }
-      }
-    }
-
-    if (!holding.dividendMethod || holding.dividendMethod === 'reinvest') {
-       effectiveShare += extraShares;
-    }
-
-    // 如果是交易日且9点以后，且今日净值未出，则强制使用估值（隐藏涨跌幅列模式）
-    const useValuation = isTradingDay && !hasTodayData;
-
-    let currentNav;
-    let profitToday;
-    let shareForTodayProfit = effectiveShare; // 基于有效份额计算当日收益
-
-    if (canCalcTodayProfit) {
-      // 当日收益口径：按“昨日收盘时持有份额”计算，避免把当日买入份额算进当日收益。
-      // 份额基数 = 当前份额 - 当日买入份额 + 当日卖出份额（卖出份额在开盘前仍持有，应计入当日涨跌）
-      let buyToday = 0;
-      let sellToday = 0;
-      const list = txs;
-      for (const tx of list) {
-        if (!tx || tx.date !== todayStr) continue;
-        const gid = tx.groupId || null;
-        if (txScope) {
-          if (gid !== txScope) continue;
-        } else {
-          if (gid) continue;
-        }
-        if (tx.isHistoryOnly) continue;
-        const s = Number(tx.share);
-        if (!Number.isFinite(s) || s <= 0) continue;
-        if (tx.type === 'buy') buyToday += s;
-        else if (tx.type === 'sell') sellToday += s;
-      }
-      shareForTodayProfit = Math.max(0, effectiveShare - buyToday + sellToday);
-    }
-
-    if (!useValuation) {
-      // 使用确权净值 (dwjz)
-      currentNav = Number(fund.dwjz);
-      if (!currentNav) return null;
-
-      if (canCalcTodayProfit) {
-        const amount = shareForTodayProfit * currentNav;
-        // 优先使用昨日净值直接计算（更精确，避免涨跌幅四舍五入误差）
-        const lastNav = fund.lastNav != null && fund.lastNav !== '' ? Number(fund.lastNav) : null;
-        if (lastNav && Number.isFinite(lastNav) && lastNav > 0) {
-          profitToday = (currentNav - lastNav) * shareForTodayProfit;
-        } else {
-          const gz = isString(fund.gztime) ? toTz(fund.gztime) : null;
-          const jz = isString(fund.jzrq) ? toTz(fund.jzrq) : null;
-          const preferGszzl =
-            !!gz &&
-            !!jz &&
-            gz.isValid() &&
-            jz.isValid() &&
-            gz.startOf('day').isAfter(jz.startOf('day'));
-
-          let rate;
-          if (preferGszzl) {
-            rate = Number(fund.gszzl);
-          } else {
-            const zzl = fund.zzl !== undefined ? Number(fund.zzl) : Number.NaN;
-            rate = Number.isFinite(zzl) ? zzl : Number(fund.gszzl);
-          }
-          if (!Number.isFinite(rate)) rate = 0;
-          profitToday = amount - (amount / (1 + rate / 100));
-        }
-      } else {
-        profitToday = null;
-      }
-    } else {
-      // 否则使用估值
-      currentNav = isNumber(fund.gsz) ? fund.gsz : Number(fund.dwjz);
-
-      if (!currentNav) return null;
-
-      if (canCalcTodayProfit) {
-        const amount = shareForTodayProfit * currentNav;
-        // 估算涨幅
-        const gzChange = Number(fund.gszzl) || 0;
-        profitToday = amount - (amount / (1 + gzChange / 100));
-      } else {
-        profitToday = null;
-      }
-    }
-
-    // 持仓金额强制使用确权净值
-    const exactNav = Number(fund.dwjz) || currentNav;
-    const amount = effectiveShare * exactNav;
-
-    // 总收益 = (确权净值 * 当前有效份额) - 成本总额 + 现金分红
-    const profitTotal = isNumber(holding.cost)
-      ? (exactNav * effectiveShare) - (holding.cost * holding.share) + dividendCash
-      : null;
-
-    return {
-      amount,
-      nav: exactNav,
-      profitToday,
-      profitTotal,
-      principalToday: isNumber(holding.cost) ? holding.cost * shareForTodayProfit : 0
-    };
-  }, [isTradingDay, todayStr, transactions, activeGroupId]);
-
-  const groupsWithHoldings = useMemo(() => {
-    const fundByCode = new Map((isArray(funds) ? funds : []).map((f) => [f.code, f]));
-    return (groups || []).filter((g) => {
-      if (!g?.id || !Array.isArray(g.codes)) return false;
-      const bucket = groupHoldings[g.id] || {};
-      return g.codes.some((code) => {
-        const fund = fundByCode.get(code);
-        const h = bucket[code];
-        if (!fund || !h) return false;
-        const p = getHoldingProfit(fund, h, g.id);
-        return p && Number.isFinite(p.amount) && p.amount > 0;
-      });
-    });
-  }, [groups, groupHoldings, funds, getHoldingProfit]);
-
-  /** 「全部」全局 + 各自定义分组账本，逐笔累加（同一基金可同时计入全局与分组） */
-  const summaryTabPortfolioTotals = useMemo(() => {
-    const fundByCode = new Map((isArray(funds) ? funds : []).map((f) => [f.code, f]));
-    let totalAsset = 0;
-    let totalProfitToday = 0;
-    let totalHoldingReturn = 0;
-    let totalCost = 0;
-    let totalPrincipalToday = 0;
-    let hasHolding = false;
-    let hasAnyTodayData = false;
-
-    const accumulate = (fund, holding, scopeGid) => {
-      if (!fund || !holding) return;
-      const p = getHoldingProfit(fund, holding, scopeGid);
-      if (!p || !Number.isFinite(p.amount) || p.amount <= 0) return;
-      hasHolding = true;
-      totalAsset += Math.round(p.amount * 100) / 100;
-      if (p.profitToday != null) {
-        totalProfitToday += p.profitToday;
-        totalPrincipalToday += (p.principalToday || 0);
-        hasAnyTodayData = true;
-      }
-      if (p.profitTotal != null) {
-        totalHoldingReturn += p.profitTotal;
-        if (typeof holding.cost === 'number' && typeof holding.share === 'number') {
-          totalCost += holding.cost * holding.share;
-        }
-      }
-    };
-
-    Object.entries(holdings || {}).forEach(([code, h]) => {
-      accumulate(fundByCode.get(code), h, null);
-    });
-    (groups || []).forEach((g) => {
-      if (!g?.id) return;
-      const bucket = groupHoldings[g.id] || {};
-      Object.entries(bucket).forEach(([code, h]) => {
-        accumulate(fundByCode.get(code), h, g.id);
-      });
-    });
-
-    const roundedTotalProfitToday = Math.round(totalProfitToday * 100) / 100;
-    const returnRate = totalCost > 0 ? (totalHoldingReturn / totalCost) * 100 : 0;
-    const todayReturnRate = totalPrincipalToday > 0 ? (roundedTotalProfitToday / totalPrincipalToday) * 100 : 0;
-
-    return {
-      totalAsset,
-      totalProfitToday: roundedTotalProfitToday,
-      totalHoldingReturn,
-      hasHolding,
-      returnRate,
-      todayReturnRate,
-      hasAnyTodayData,
-    };
-  }, [funds, holdings, groupHoldings, groups, getHoldingProfit]);
-
-  const hasGlobalPortfolioForSummary = useMemo(() => {
-    const fundByCode = new Map((isArray(funds) ? funds : []).map((f) => [f.code, f]));
-    return Object.entries(holdings || {}).some(([code, h]) => {
-      const fund = fundByCode.get(code);
-      if (!fund || !h) return false;
-      const p = getHoldingProfit(fund, h, null);
-      return p && Number.isFinite(p.amount) && p.amount > 0;
-    });
-  }, [funds, holdings, getHoldingProfit]);
-
-  const showPortfolioSummaryTab = summaryTabPortfolioTotals.hasHolding;
-
-  const { summaryMergedHoldings, summaryHoldingSourceGroupByCode } = useMemo(() => {
-    const fundByCode = new Map((isArray(funds) ? funds : []).map((f) => [f.code, f]));
-    const merged = {};
-    const sourceByCode = {};
-    const codes = new Set();
-    Object.entries(holdings || {}).forEach(([code, h]) => {
-      const fund = fundByCode.get(code);
-      if (!fund || !h) return;
-      const p = getHoldingProfit(fund, h, null);
-      if (p && Number.isFinite(p.amount) && p.amount > 0) codes.add(code);
-    });
-    for (const g of groupsWithHoldings) {
-      for (const c of g.codes || []) codes.add(c);
-    }
-    for (const code of codes) {
-      const fund = fundByCode.get(code);
-      if (!fund) continue;
-      let bestAmt = -Infinity;
-      let bestH = null;
-      let bestGid = null;
-      const globalH = holdings[code];
-      if (globalH) {
-        const p = getHoldingProfit(fund, globalH, null);
-        const amt = p?.amount;
-        if (Number.isFinite(amt) && amt > bestAmt) {
-          bestAmt = amt;
-          bestH = globalH;
-          bestGid = SUMMARY_SOURCE_GLOBAL;
-        }
-      }
-      for (const g of groupsWithHoldings) {
-        const h = groupHoldings[g.id]?.[code];
-        if (!h) continue;
-        const p = getHoldingProfit(fund, h, g.id);
-        const amt = p?.amount;
-        if (!Number.isFinite(amt)) continue;
-        if (amt > bestAmt) {
-          bestAmt = amt;
-          bestH = h;
-          bestGid = g.id;
-        }
-      }
-      if (bestH != null && bestGid != null) {
-        merged[code] = bestH;
-        sourceByCode[code] = bestGid;
-      }
-    }
-    return { summaryMergedHoldings: merged, summaryHoldingSourceGroupByCode: sourceByCode };
-  }, [groupsWithHoldings, groupHoldings, funds, getHoldingProfit, holdings]);
-
-  useEffect(() => {
-    if (currentTab === SUMMARY_TAB_ID && !summaryTabPortfolioTotals.hasHolding) {
-      setCurrentTab('all');
-    }
-  }, [currentTab, summaryTabPortfolioTotals.hasHolding]);
-
-  const summaryCardItems = useMemo(() => {
-    if (currentTab !== SUMMARY_TAB_ID) return [];
-    const fundByCode = new Map((isArray(funds) ? funds : []).map((f) => [f.code, f]));
-    const items = [];
-
-    if (hasGlobalPortfolioForSummary) {
-      let totalAsset = 0;
-      let totalHoldingReturn = 0;
-      let totalCost = 0;
-      let totalProfitToday = 0;
-      let totalPrincipalToday = 0;
-      let hasAnyTodayData = false;
-      let upCount = 0;
-      let downCount = 0;
-
-      for (const fund of funds || []) {
-        const holding = holdings[fund.code];
-        if (!holding) continue;
-        const profit = getHoldingProfit(fund, holding, null);
-        if (!profit) continue;
-        totalAsset += Math.round(profit.amount * 100) / 100;
-        if (profit.profitToday != null) {
-          totalProfitToday += profit.profitToday;
-          totalPrincipalToday += (profit.principalToday || 0);
-          hasAnyTodayData = true;
-        }
-        if (profit.profitTotal !== null) {
-          totalHoldingReturn += profit.profitTotal;
-          if (typeof holding.cost === 'number' && typeof holding.share === 'number') {
-            totalCost += holding.cost * holding.share;
-          }
-        }
-        const ev = fund.noValuation
-          ? null
-          : (isNumber(fund.gszzl) ? Number(fund.gszzl) : null);
-        if (ev != null && Number.isFinite(ev)) {
-          if (ev > 0) upCount += 1;
-          else if (ev < 0) downCount += 1;
-        }
-      }
-
-      const roundedToday = Math.round(totalProfitToday * 100) / 100;
-      const returnRate = totalCost > 0 ? (totalHoldingReturn / totalCost) * 100 : 0;
-      const todayReturnRate = totalPrincipalToday > 0 ? (roundedToday / totalPrincipalToday) * 100 : 0;
-      const scopeDaily = isPlainObject(fundDailyEarnings?.[DAILY_EARNINGS_SCOPE_ALL])
-        ? fundDailyEarnings[DAILY_EARNINGS_SCOPE_ALL]
-        : {};
-      const dailySeries = aggregatePortfolioDailyEarnings(scopeDaily);
-      let cum = 0;
-      const sparkSeries = dailySeries.map((pt) => {
-        cum += pt.earnings;
-        return { date: pt.date, earnings: cum };
-      });
-
-      items.push({
-        groupId: SUMMARY_SOURCE_GLOBAL,
-        groupName: '全部',
-        totalAsset,
-        holdingReturn: totalHoldingReturn,
-        holdingReturnPercent: returnRate,
-        accountReturn: roundedToday,
-        accountReturnPercent: todayReturnRate,
-        hasAnyTodayData,
-        upCount,
-        downCount,
-        sparkSeries,
-      });
-    }
-
-    items.push(
-      ...groupsWithHoldings.map((g) => {
-      const bucket = groupHoldings[g.id] || {};
-      const groupFunds = (isArray(funds) ? funds : []).filter((f) => g.codes.includes(f.code));
-      let totalAsset = 0;
-      let totalHoldingReturn = 0;
-      let totalCost = 0;
-      let totalProfitToday = 0;
-      let totalPrincipalToday = 0;
-      let hasAnyTodayData = false;
-      let upCount = 0;
-      let downCount = 0;
-
-      for (const fund of groupFunds) {
-        const holding = bucket[fund.code];
-        const profit = getHoldingProfit(fund, holding, g.id);
-        if (profit) {
-          totalAsset += Math.round(profit.amount * 100) / 100;
-          if (profit.profitToday != null) {
-            totalProfitToday += profit.profitToday;
-            totalPrincipalToday += (profit.principalToday || 0);
-            hasAnyTodayData = true;
-          }
-          if (profit.profitTotal !== null) {
-            totalHoldingReturn += profit.profitTotal;
-            if (holding && typeof holding.cost === 'number' && typeof holding.share === 'number') {
-              totalCost += holding.cost * holding.share;
-            }
-          }
-        }
-        const ev = fund.noValuation
-          ? null
-          : (isNumber(fund.gszzl) ? Number(fund.gszzl) : null);
-        if (ev != null && Number.isFinite(ev)) {
-          if (ev > 0) upCount += 1;
-          else if (ev < 0) downCount += 1;
-        }
-      }
-
-      const roundedToday = Math.round(totalProfitToday * 100) / 100;
-      const returnRate = totalCost > 0 ? (totalHoldingReturn / totalCost) * 100 : 0;
-      const todayReturnRate = totalPrincipalToday > 0 ? (roundedToday / totalPrincipalToday) * 100 : 0;
-
-      const scopeDaily = isPlainObject(fundDailyEarnings?.[g.id]) ? fundDailyEarnings[g.id] : {};
-      const dailySeries = aggregatePortfolioDailyEarnings(scopeDaily);
-      let cum = 0;
-      const sparkSeries = dailySeries.map((pt) => {
-        cum += pt.earnings;
-        return { date: pt.date, earnings: cum };
-      });
-
-      return {
-        groupId: g.id,
-        groupName: g.name || '分组',
-        totalAsset,
-        holdingReturn: totalHoldingReturn,
-        holdingReturnPercent: returnRate,
-        accountReturn: roundedToday,
-        accountReturnPercent: todayReturnRate,
-        hasAnyTodayData,
-        upCount,
-        downCount,
-        sparkSeries,
-      };
-      })
-    );
-    return items;
-  }, [
-    currentTab,
+  const {
     groupsWithHoldings,
-    funds,
-    groupHoldings,
-    holdings,
-    getHoldingProfit,
-    fundDailyEarnings,
+    summaryTabPortfolioTotals,
     hasGlobalPortfolioForSummary,
-  ]);
+    showPortfolioSummaryTab,
+    summaryMergedHoldings,
+    summaryHoldingSourceGroupByCode,
+    summaryCardItems
+  } = useSummaryCalculations({ currentTab, setCurrentTab, getHoldingProfit });
 
   const getHoldingProfitForTab = useCallback(
     (fund, holding) => {
@@ -873,8 +454,7 @@ export default function HomePage() {
     const linked = new Set();
     const groupIdsByCode = {};
 
-    const hasGlobalHolding = (h) =>
-      !!h && isNumber(h.share) && Number(h.share) > 0;
+    const hasGlobalHolding = (h) => !!h && isNumber(h.share) && Number(h.share) > 0;
 
     for (const fund of funds || []) {
       const code = fund?.code;
@@ -906,7 +486,7 @@ export default function HomePage() {
       if (totalShare > 0) {
         derived[code] = {
           share: totalShare,
-          cost: hasAnyCost ? totalCostShare / totalShare : null,
+          cost: hasAnyCost ? totalCostShare / totalShare : null
         };
         linked.add(code);
         groupIdsByCode[code] = sourceGroupIds;
@@ -1001,7 +581,13 @@ export default function HomePage() {
           const baseCostAmount = Number(item?.baseCostAmount);
           if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
           if (!Number.isFinite(earnings)) continue;
-          const prev = byDate.get(date) || { earnings: 0, rowCount: 0, singleRate: null, rateCount: 0, baseCostAmount: 0 };
+          const prev = byDate.get(date) || {
+            earnings: 0,
+            rowCount: 0,
+            singleRate: null,
+            rateCount: 0,
+            baseCostAmount: 0
+          };
           prev.earnings += earnings;
           prev.rowCount += 1;
           if (Number.isFinite(rate)) {
@@ -1020,9 +606,8 @@ export default function HomePage() {
           .sort((a, b) => a[0].localeCompare(b[0]))
           .map(([date, row]) => {
             const earnings = row.earnings;
-            const baseCostAmount = Number.isFinite(row.baseCostAmount) && row.baseCostAmount > 0
-              ? row.baseCostAmount
-              : null;
+            const baseCostAmount =
+              Number.isFinite(row.baseCostAmount) && row.baseCostAmount > 0 ? row.baseCostAmount : null;
             let rate = null;
             if (baseCostAmount != null) {
               rate = (earnings / baseCostAmount) * 100;
@@ -1038,36 +623,27 @@ export default function HomePage() {
     }
 
     return out;
-  }, [
-    fundDailyEarnings,
-    activeGroupId,
-    currentTab,
-    summaryHoldingSourceGroupByCode,
-    linkedHoldingsForAllFav,
-  ]);
-  const portfolioDailySeries = useMemo(
-    () => {
-      if (!isPlainObject(fundDailyEarnings)) return [];
-      const byDate = new Map();
-      Object.values(fundDailyEarnings).forEach((bucket) => {
-        if (!isPlainObject(bucket)) return;
-        Object.values(bucket).forEach((list) => {
-          if (!Array.isArray(list) || list.length === 0) return;
-          list.forEach((item) => {
-            const date = item?.date ? String(item.date) : '';
-            const earnings = Number(item?.earnings);
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-            if (!Number.isFinite(earnings)) return;
-            byDate.set(date, (byDate.get(date) ?? 0) + earnings);
-          });
+  }, [fundDailyEarnings, activeGroupId, currentTab, summaryHoldingSourceGroupByCode, linkedHoldingsForAllFav]);
+  const portfolioDailySeries = useMemo(() => {
+    if (!isPlainObject(fundDailyEarnings)) return [];
+    const byDate = new Map();
+    Object.values(fundDailyEarnings).forEach((bucket) => {
+      if (!isPlainObject(bucket)) return;
+      Object.values(bucket).forEach((list) => {
+        if (!Array.isArray(list) || list.length === 0) return;
+        list.forEach((item) => {
+          const date = item?.date ? String(item.date) : '';
+          const earnings = Number(item?.earnings);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+          if (!Number.isFinite(earnings)) return;
+          byDate.set(date, (byDate.get(date) ?? 0) + earnings);
         });
       });
-      return [...byDate.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, earnings]) => ({ date, earnings, rate: null }));
-    },
-    [fundDailyEarnings]
-  );
+    });
+    return [...byDate.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, earnings]) => ({ date, earnings, rate: null }));
+  }, [fundDailyEarnings]);
 
   const holdingsForTabWithLinked = useMemo(() => {
     if (currentTab === SUMMARY_TAB_ID) return summaryMergedHoldings;
@@ -1077,14 +653,7 @@ export default function HomePage() {
     const keys = Object.keys(derived);
     if (keys.length === 0) return holdings;
     return { ...(holdings || {}), ...derived };
-  }, [
-    currentTab,
-    activeGroupId,
-    summaryMergedHoldings,
-    holdings,
-    groupHoldings,
-    linkedHoldingsForAllFav,
-  ]);
+  }, [currentTab, activeGroupId, summaryMergedHoldings, holdings, groupHoldings, linkedHoldingsForAllFav]);
 
   const dcaPlansForTab = useMemo(() => {
     const scoped = migrateDcaPlansToScoped(dcaPlans);
@@ -1112,9 +681,8 @@ export default function HomePage() {
     return map;
   }, [groups]);
 
-  const getScopedGroupId = (groupIdOverride) => (
-    groupIdOverride !== undefined ? groupIdOverride : (activeGroupId || null)
-  );
+  const getScopedGroupId = (groupIdOverride) =>
+    groupIdOverride !== undefined ? groupIdOverride : activeGroupId || null;
 
   const getScopedHolding = (code, groupIdOverride) => {
     if (!code) return undefined;
@@ -1165,11 +733,10 @@ export default function HomePage() {
 
   const [fundExtraDataByCode, setFundExtraDataByCode] = useState({});
   const fundExtraDataCacheRef = useRef(new Map());
-  const needsSortPeriodReturns = ['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy);
 
   useEffect(() => {
     // 始终尝试为当前列表基金获取额外数据（阶段涨跌幅、连涨连跌），用于展示图标或排序
-    const codes = scopedFunds.map(f => f.code);
+    const codes = scopedFunds.map((f) => f.code);
     if (codes.length === 0) return;
 
     let cancelled = false;
@@ -1219,275 +786,300 @@ export default function HomePage() {
   }, [scopedFunds]);
 
   // 过滤和排序后的基金列表（包含“列表搜索”过滤）
-  const displayFundsRaw = useMemo(
-    () => {
-      let filtered = [...scopedFunds];
+  const displayFundsRaw = useMemo(() => {
+    let filtered = [...scopedFunds];
 
-      const q = String(shouldShowGroupFundSearch ? (deferredGroupFundSearchTerm ?? '') : '').trim();
-      if (q) {
-        const qLower = q.toLowerCase();
-        filtered = filtered.filter((f) => {
-          const name = String(f?.name ?? '').toLowerCase();
-          const code = String(f?.code ?? '').toLowerCase();
-          return name.includes(qLower) || code.includes(qLower);
+    const q = String(shouldShowGroupFundSearch ? (deferredGroupFundSearchTerm ?? '') : '').trim();
+    if (q) {
+      const qLower = q.toLowerCase();
+      filtered = filtered.filter((f) => {
+        const name = String(f?.name ?? '').toLowerCase();
+        const code = String(f?.code ?? '').toLowerCase();
+        return name.includes(qLower) || code.includes(qLower);
+      });
+    }
+
+    if (currentTab !== 'all' && currentTab !== 'fav' && currentTab !== SUMMARY_TAB_ID && sortBy === 'default') {
+      const group = groups.find((g) => g.id === currentTab);
+      if (group && group.codes) {
+        const codeMap = new Map(group.codes.map((code, index) => [code, index]));
+        filtered.sort((a, b) => {
+          const indexA = codeMap.get(a.code) ?? Number.MAX_SAFE_INTEGER;
+          const indexB = codeMap.get(b.code) ?? Number.MAX_SAFE_INTEGER;
+          return indexA - indexB;
         });
       }
+    }
 
-      if (currentTab !== 'all' && currentTab !== 'fav' && currentTab !== SUMMARY_TAB_ID && sortBy === 'default') {
-        const group = groups.find(g => g.id === currentTab);
-        if (group && group.codes) {
-          const codeMap = new Map(group.codes.map((code, index) => [code, index]));
-          filtered.sort((a, b) => {
-            const indexA = codeMap.get(a.code) ?? Number.MAX_SAFE_INTEGER;
-            const indexB = codeMap.get(b.code) ?? Number.MAX_SAFE_INTEGER;
-            return indexA - indexB;
-          });
-        }
-      }
+    const profitByCode =
+      sortBy === 'holdingAmount' || sortBy === 'holdingRatio' || sortBy === 'todayProfit' || sortBy === 'holding'
+        ? new Map(filtered.map((f) => [f.code, getHoldingProfitForTab(f, holdingsForTabWithLinked[f.code])]))
+        : null;
 
-      const profitByCode =
-        sortBy === 'holdingAmount' || sortBy === 'holdingRatio' || sortBy === 'todayProfit' || sortBy === 'holding'
-          ? new Map(filtered.map((f) => [f.code, getHoldingProfitForTab(f, holdingsForTabWithLinked[f.code])]))
-          : null;
-
-      return filtered.sort((a, b) => {
-        if (sortBy === 'yield') {
-          const getYieldValue = (fund) => {
-            // 与 estimateChangePercent 展示逻辑对齐：
-            // - noValuation 为 true 一律视为无“估算涨幅”
-            // - 仅在 gszzl 为数字时使用 gszzl
-            if (fund.noValuation) {
-              return { value: 0, hasValue: false };
-            }
-            if (isNumber(fund.gszzl)) {
-              return { value: Number(fund.gszzl), hasValue: true };
-            }
+    return filtered.sort((a, b) => {
+      if (sortBy === 'yield') {
+        const getYieldValue = (fund) => {
+          // 与 estimateChangePercent 展示逻辑对齐：
+          // - noValuation 为 true 一律视为无“估算涨幅”
+          // - 仅在 gszzl 为数字时使用 gszzl
+          if (fund.noValuation) {
             return { value: 0, hasValue: false };
-          };
+          }
+          if (isNumber(fund.gszzl)) {
+            return { value: Number(fund.gszzl), hasValue: true };
+          }
+          return { value: 0, hasValue: false };
+        };
 
-          const { value: valA, hasValue: hasA } = getYieldValue(a);
-          const { value: valB, hasValue: hasB } = getYieldValue(b);
+        const { value: valA, hasValue: hasA } = getYieldValue(a);
+        const { value: valB, hasValue: hasB } = getYieldValue(b);
 
-          // 无“估算涨幅”展示值（界面为 `—`）的基金统一排在最后
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
+        // 无“估算涨幅”展示值（界面为 `—`）的基金统一排在最后
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
 
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holdingAmount') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const amountA = pa?.amount ?? Number.NEGATIVE_INFINITY;
-          const amountB = pb?.amount ?? Number.NEGATIVE_INFINITY;
-          return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
-        }
-        if (sortBy === 'holdingRatio') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const amountA = pa?.amount;
-          const amountB = pb?.amount;
-          const hasA = amountA != null && Number.isFinite(amountA) && amountA > 0;
-          const hasB = amountB != null && Number.isFinite(amountB) && amountB > 0;
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          // holdingRatio sort is equivalent to holdingAmount sort (same denominator within group)
-          return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
-        }
-        if (sortBy === 'yesterdayIncrease') {
-          const valA = Number(a.zzl);
-          const valB = Number(b.zzl);
-          const hasA = Number.isFinite(valA);
-          const hasB = Number.isFinite(valB);
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'holdingAmount') {
+        const pa = profitByCode?.get(a.code);
+        const pb = profitByCode?.get(b.code);
+        const amountA = pa?.amount ?? Number.NEGATIVE_INFINITY;
+        const amountB = pb?.amount ?? Number.NEGATIVE_INFINITY;
+        return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
+      }
+      if (sortBy === 'holdingRatio') {
+        const pa = profitByCode?.get(a.code);
+        const pb = profitByCode?.get(b.code);
+        const amountA = pa?.amount;
+        const amountB = pb?.amount;
+        const hasA = amountA != null && Number.isFinite(amountA) && amountA > 0;
+        const hasB = amountB != null && Number.isFinite(amountB) && amountB > 0;
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        // holdingRatio sort is equivalent to holdingAmount sort (same denominator within group)
+        return sortOrder === 'asc' ? amountA - amountB : amountB - amountA;
+      }
+      if (sortBy === 'yesterdayIncrease') {
+        const valA = Number(a.zzl);
+        const valB = Number(b.zzl);
+        const hasA = Number.isFinite(valA);
+        const hasB = Number.isFinite(valB);
 
-          // 无最新涨幅数据（界面展示为 `—`）的基金统一排在最后
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
+        // 无最新涨幅数据（界面展示为 `—`）的基金统一排在最后
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
 
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'todayProfit') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const valA = pa?.profitToday;
-          const valB = pb?.profitToday;
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'todayProfit') {
+        const pa = profitByCode?.get(a.code);
+        const pb = profitByCode?.get(b.code);
+        const valA = pa?.profitToday;
+        const valB = pb?.profitToday;
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
 
-          // 无当日收益数据的基金统一排在最后
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
+        // 无当日收益数据的基金统一排在最后
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
 
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holding') {
-          const pa = profitByCode?.get(a.code);
-          const pb = profitByCode?.get(b.code);
-          const valA = pa?.profitTotal;
-          const valB = pb?.profitTotal;
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'estimateProfit') {
-          const getEstimateProfitValue = (f) => {
-            const hasTodayData = f.jzrq === todayStr;
-            const holding = holdingsForTabWithLinked[f.code];
-            const profit = getHoldingProfitForTab(f, holding);
-            const total = profit ? profit.profitTotal : null;
-            if (hasTodayData) return total;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'holding') {
+        const pa = profitByCode?.get(a.code);
+        const pb = profitByCode?.get(b.code);
+        const valA = pa?.profitTotal;
+        const valB = pb?.profitTotal;
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'estimateProfit') {
+        const getEstimateProfitValue = (f) => {
+          const hasTodayData = f.jzrq === todayStr;
+          const holding = holdingsForTabWithLinked[f.code];
+          const profit = getHoldingProfitForTab(f, holding);
+          const total = profit ? profit.profitTotal : null;
+          if (hasTodayData) return total;
 
-            const principal = holding && isNumber(holding.cost) && isNumber(holding.share) ? holding.cost * holding.share : 0;
-            const hasTodayEstimate = !f.noValuation && isString(f.gztime) && f.gztime.startsWith(todayStr);
-            const estimateChangeValue = f.noValuation ? null : (isNumber(f.gszzl) ? Number(f.gszzl) : null);
-            const holdingProfitPercentValue = total != null && principal > 0 ? (total / principal) * 100 : null;
-            const hasEstimatePercent = hasTodayEstimate && estimateChangeValue != null;
-            const hasHoldingPercent = holdingProfitPercentValue != null;
-            const fallbackEstimateProfitPercentValue = hasEstimatePercent || hasHoldingPercent ? (hasEstimatePercent ? estimateChangeValue : 0) + (hasHoldingPercent ? holdingProfitPercentValue : 0) : null;
+          const principal =
+            holding && isNumber(holding.cost) && isNumber(holding.share) ? holding.cost * holding.share : 0;
+          const hasTodayEstimate = !f.noValuation && isString(f.gztime) && f.gztime.startsWith(todayStr);
+          const estimateChangeValue = f.noValuation ? null : isNumber(f.gszzl) ? Number(f.gszzl) : null;
+          const holdingProfitPercentValue = total != null && principal > 0 ? (total / principal) * 100 : null;
+          const hasEstimatePercent = hasTodayEstimate && estimateChangeValue != null;
+          const hasHoldingPercent = holdingProfitPercentValue != null;
+          const fallbackEstimateProfitPercentValue =
+            hasEstimatePercent || hasHoldingPercent
+              ? (hasEstimatePercent ? estimateChangeValue : 0) + (hasHoldingPercent ? holdingProfitPercentValue : 0)
+              : null;
 
-            return fallbackEstimateProfitPercentValue != null && principal > 0 ? principal * (fallbackEstimateProfitPercentValue / 100) : null;
-          };
-          const valA = getEstimateProfitValue(a);
-          const valB = getEstimateProfitValue(b);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'yesterdayProfit') {
-          const getYesterdayProfit = (code, jzrq) => {
-            const list = currentFundDailyEarnings?.[code];
-            if (!Array.isArray(list) || list.length === 0) return null;
-            let matchedDaily = null;
-            if (typeof jzrq === 'string') {
-              for (const item of list) {
-                if (item?.date === jzrq) {
-                  matchedDaily = item;
-                  break;
-                }
+          return fallbackEstimateProfitPercentValue != null && principal > 0
+            ? principal * (fallbackEstimateProfitPercentValue / 100)
+            : null;
+        };
+        const valA = getEstimateProfitValue(a);
+        const valB = getEstimateProfitValue(b);
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'yesterdayProfit') {
+        const getYesterdayProfit = (code, jzrq) => {
+          const list = currentFundDailyEarnings?.[code];
+          if (!Array.isArray(list) || list.length === 0) return null;
+          let matchedDaily = null;
+          if (typeof jzrq === 'string') {
+            for (const item of list) {
+              if (item?.date === jzrq) {
+                matchedDaily = item;
+                break;
               }
             }
-            if (!matchedDaily) matchedDaily = list[list.length - 1];
-            return matchedDaily && Number.isFinite(Number(matchedDaily.earnings)) ? Number(matchedDaily.earnings) : null;
-          };
-          const valA = getYesterdayProfit(a.code, a.jzrq);
-          const valB = getYesterdayProfit(b.code, b.jzrq);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holdingDays') {
-          const ha = holdingsForTabWithLinked[a.code];
-          const hb = holdingsForTabWithLinked[b.code];
-          const valA = ha?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(ha.firstPurchaseDate), 'day') : null;
-          const valB = hb?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(hb.firstPurchaseDate), 'day') : null;
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'holdingCost') {
-          const getCost = (h) => h?.cost != null && h?.share != null && Number.isFinite(Number(h.cost)) && Number.isFinite(Number(h.share)) ? Number(h.cost) * Number(h.share) : null;
-          const valA = getCost(holdingsForTabWithLinked[a.code]);
-          const valB = getCost(holdingsForTabWithLinked[b.code]);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'sinceAddedChangePercent') {
-          const getSinceAddedChangeValue = (f) => {
-            const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
-            const addBaseNav = addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
-            const sinceAddedCurrentNav = (() => {
-              if (f.noValuation) {
-                const v = Number(f.dwjz);
-                return Number.isFinite(v) && v > 0 ? v : null;
-              }
-              const v = Number(f.gsz);
+          }
+          if (!matchedDaily) matchedDaily = list[list.length - 1];
+          return matchedDaily && Number.isFinite(Number(matchedDaily.earnings)) ? Number(matchedDaily.earnings) : null;
+        };
+        const valA = getYesterdayProfit(a.code, a.jzrq);
+        const valB = getYesterdayProfit(b.code, b.jzrq);
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'holdingDays') {
+        const ha = holdingsForTabWithLinked[a.code];
+        const hb = holdingsForTabWithLinked[b.code];
+        const valA = ha?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(ha.firstPurchaseDate), 'day') : null;
+        const valB = hb?.firstPurchaseDate ? dayjs(todayStr).diff(dayjs(hb.firstPurchaseDate), 'day') : null;
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'holdingCost') {
+        const getCost = (h) =>
+          h?.cost != null && h?.share != null && Number.isFinite(Number(h.cost)) && Number.isFinite(Number(h.share))
+            ? Number(h.cost) * Number(h.share)
+            : null;
+        const valA = getCost(holdingsForTabWithLinked[a.code]);
+        const valB = getCost(holdingsForTabWithLinked[b.code]);
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'sinceAddedChangePercent') {
+        const getSinceAddedChangeValue = (f) => {
+          const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
+          const addBaseNav =
+            addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
+          const sinceAddedCurrentNav = (() => {
+            if (f.noValuation) {
+              const v = Number(f.dwjz);
               return Number.isFinite(v) && v > 0 ? v : null;
-            })();
-            return addBaseNav != null && sinceAddedCurrentNav != null
-              ? ((sinceAddedCurrentNav / addBaseNav) - 1) * 100
-              : null;
-          };
-          const valA = getSinceAddedChangeValue(a);
-          const valB = getSinceAddedChangeValue(b);
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'consecutiveTrend') {
-          const getTrendValue = (code) => {
-            const trend = fundExtraDataByCode[code]?.consecutiveTrend;
-            if (!trend || !Number.isFinite(trend.days)) return 0;
-            return trend.type === 'up' ? trend.days : -trend.days;
-          };
-          const valA = getTrendValue(a.code);
-          const valB = getTrendValue(b.code);
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy)) {
-          const keyMap = { last1Week: 'week', last1Month: 'month', last3Months: 'month3', last6Months: 'month6', last1Year: 'year1' };
-          const key = keyMap[sortBy];
-          const valA = fundExtraDataByCode[a.code]?.[key];
-          const valB = fundExtraDataByCode[b.code]?.[key];
-          const hasA = valA != null && Number.isFinite(valA);
-          const hasB = valB != null && Number.isFinite(valB);
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc' ? valA - valB : valB - valA;
-        }
-        if (sortBy === 'tags') {
-          const getTagKey = (fund) => {
-            const code = String(fund?.code ?? '').trim();
-            const list = code ? fundTagListsByCode?.[code] : null;
-            if (!Array.isArray(list) || list.length === 0) return '';
-            return list
-              .map((t) => (t?.name != null ? String(t.name).trim() : ''))
-              .filter(Boolean)
-              .join('、');
-          };
-          const keyA = getTagKey(a);
-          const keyB = getTagKey(b);
-          const hasA = !!keyA;
-          const hasB = !!keyB;
-          if (!hasA && !hasB) return 0;
-          if (!hasA) return 1;
-          if (!hasB) return -1;
-          return sortOrder === 'asc'
-            ? keyA.localeCompare(keyB, 'zh-CN')
-            : keyB.localeCompare(keyA, 'zh-CN');
-        }
-        if (sortBy === 'name') {
-          const nameA = a.name ?? '';
-          const nameB = b.name ?? '';
-          return sortOrder === 'asc' ? nameA.localeCompare(nameB, 'zh-CN') : nameB.localeCompare(nameA, 'zh-CN');
-        }
-        return 0;
-      });
-    },
-    [scopedFunds, currentTab, groups, sortBy, sortOrder, holdingsForTabWithLinked, getHoldingProfitForTab, deferredGroupFundSearchTerm, shouldShowGroupFundSearch, currentFundDailyEarnings, fundExtraDataByCode, todayStr, fundTagListsByCode],
-  );
+            }
+            const v = Number(f.gsz);
+            return Number.isFinite(v) && v > 0 ? v : null;
+          })();
+          return addBaseNav != null && sinceAddedCurrentNav != null
+            ? (sinceAddedCurrentNav / addBaseNav - 1) * 100
+            : null;
+        };
+        const valA = getSinceAddedChangeValue(a);
+        const valB = getSinceAddedChangeValue(b);
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'consecutiveTrend') {
+        const getTrendValue = (code) => {
+          const trend = fundExtraDataByCode[code]?.consecutiveTrend;
+          if (!trend || !Number.isFinite(trend.days)) return 0;
+          return trend.type === 'up' ? trend.days : -trend.days;
+        };
+        const valA = getTrendValue(a.code);
+        const valB = getTrendValue(b.code);
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy)) {
+        const keyMap = {
+          last1Week: 'week',
+          last1Month: 'month',
+          last3Months: 'month3',
+          last6Months: 'month6',
+          last1Year: 'year1'
+        };
+        const key = keyMap[sortBy];
+        const valA = fundExtraDataByCode[a.code]?.[key];
+        const valB = fundExtraDataByCode[b.code]?.[key];
+        const hasA = valA != null && Number.isFinite(valA);
+        const hasB = valB != null && Number.isFinite(valB);
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (sortBy === 'tags') {
+        const getTagKey = (fund) => {
+          const code = String(fund?.code ?? '').trim();
+          const list = code ? fundTagListsByCode?.[code] : null;
+          if (!Array.isArray(list) || list.length === 0) return '';
+          return list
+            .map((t) => (t?.name != null ? String(t.name).trim() : ''))
+            .filter(Boolean)
+            .join('、');
+        };
+        const keyA = getTagKey(a);
+        const keyB = getTagKey(b);
+        const hasA = !!keyA;
+        const hasB = !!keyB;
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+        return sortOrder === 'asc' ? keyA.localeCompare(keyB, 'zh-CN') : keyB.localeCompare(keyA, 'zh-CN');
+      }
+      if (sortBy === 'name') {
+        const nameA = a.name ?? '';
+        const nameB = b.name ?? '';
+        return sortOrder === 'asc' ? nameA.localeCompare(nameB, 'zh-CN') : nameB.localeCompare(nameA, 'zh-CN');
+      }
+      return 0;
+    });
+  }, [
+    scopedFunds,
+    currentTab,
+    groups,
+    sortBy,
+    sortOrder,
+    holdingsForTabWithLinked,
+    getHoldingProfitForTab,
+    deferredGroupFundSearchTerm,
+    shouldShowGroupFundSearch,
+    currentFundDailyEarnings,
+    fundExtraDataByCode,
+    todayStr,
+    fundTagListsByCode
+  ]);
 
   const displayFunds = useDeferredValue(displayFundsRaw);
 
@@ -1522,263 +1114,254 @@ export default function HomePage() {
   }, [displayFunds, holdingsForTabWithLinked, getHoldingProfitForTab]);
 
   // PC 端表格数据（用于 PcFundTable）
-  const pcFundTableData = useMemo(
-    () => {
-      return displayFunds.map((f) => {
-        const hasTodayData = f.jzrq === todayStr;
-        const latestNav = f.dwjz != null && f.dwjz !== '' ? (typeof f.dwjz === 'number' ? Number(f.dwjz).toFixed(4) : String(f.dwjz)) : '—';
-        const estimateNav = f.noValuation
-          ? '—'
-          : (f.gsz != null ? (typeof f.gsz === 'number' ? Number(f.gsz).toFixed(4) : String(f.gsz)) : '—');
+  const pcFundTableData = useMemo(() => {
+    return displayFunds.map((f) => {
+      const hasTodayData = f.jzrq === todayStr;
+      const latestNav =
+        f.dwjz != null && f.dwjz !== ''
+          ? typeof f.dwjz === 'number'
+            ? Number(f.dwjz).toFixed(4)
+            : String(f.dwjz)
+          : '—';
+      const estimateNav = f.noValuation
+        ? '—'
+        : f.gsz != null
+          ? typeof f.gsz === 'number'
+            ? Number(f.gsz).toFixed(4)
+            : String(f.gsz)
+          : '—';
 
-        const yesterdayChangePercent =
-          f.zzl != null && f.zzl !== ''
-            ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%`
-            : '—';
-        const yesterdayChangeValue =
-          f.zzl != null && f.zzl !== '' ? Number(f.zzl) : null;
-        const yesterdayDate = f.jzrq || '-';
+      const yesterdayChangePercent =
+        f.zzl != null && f.zzl !== '' ? `${f.zzl > 0 ? '+' : ''}${Number(f.zzl).toFixed(2)}%` : '—';
+      const yesterdayChangeValue = f.zzl != null && f.zzl !== '' ? Number(f.zzl) : null;
+      const yesterdayDate = f.jzrq || '-';
 
-        const estimateChangePercent = f.noValuation
-          ? '—'
-          : (isNumber(f.gszzl)
-            ? `${f.gszzl > 0 ? '+' : ''}${Number(f.gszzl).toFixed(2)}%`
-            : (f.gszzl ?? '—'));
-        const estimateChangeValue = f.noValuation
-          ? null
-          : (isNumber(f.gszzl) ? Number(f.gszzl) : null);
-        const estimateTime = f.noValuation ? (f.jzrq || '-') : (f.gztime || f.time || '-');
-        const hasTodayEstimate = !f.noValuation && isString(f.gztime) && f.gztime.startsWith(todayStr);
+      const estimateChangePercent = f.noValuation
+        ? '—'
+        : isNumber(f.gszzl)
+          ? `${f.gszzl > 0 ? '+' : ''}${Number(f.gszzl).toFixed(2)}%`
+          : (f.gszzl ?? '—');
+      const estimateChangeValue = f.noValuation ? null : isNumber(f.gszzl) ? Number(f.gszzl) : null;
+      const estimateTime = f.noValuation ? f.jzrq || '-' : f.gztime || f.time || '-';
+      const hasTodayEstimate = !f.noValuation && isString(f.gztime) && f.gztime.startsWith(todayStr);
 
-        const holding = holdingsForTabWithLinked[f.code];
-        const isHoldingLinked =
-          (currentTab === 'all' || currentTab === 'fav') &&
-          linkedHoldingsForAllFav.linked?.has?.(f.code);
-        const profit = getHoldingProfitForTab(f, holding);
-        const amount = profit ? profit.amount : null;
-        const holdingAmount =
-          amount == null ? '未设置' : `¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const holdingAmountValue = amount;
-        const holdingRatioValue =
-          amount != null && Number.isFinite(amount) && amount > 0 && groupTotalHoldingAmount > 0
-            ? amount / groupTotalHoldingAmount
-            : null;
-        const holdingDaysValue = holding?.firstPurchaseDate
-          ? dayjs.tz(todayStr, TZ).diff(dayjs.tz(holding.firstPurchaseDate, TZ), 'day')
+      const holding = holdingsForTabWithLinked[f.code];
+      const isHoldingLinked =
+        (currentTab === 'all' || currentTab === 'fav') && linkedHoldingsForAllFav.linked?.has?.(f.code);
+      const profit = getHoldingProfitForTab(f, holding);
+      const amount = profit ? profit.amount : null;
+      const holdingAmount =
+        amount == null
+          ? '未设置'
+          : `¥${Number(amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const holdingAmountValue = amount;
+      const holdingRatioValue =
+        amount != null && Number.isFinite(amount) && amount > 0 && groupTotalHoldingAmount > 0
+          ? amount / groupTotalHoldingAmount
           : null;
+      const holdingDaysValue = holding?.firstPurchaseDate
+        ? dayjs.tz(todayStr, TZ).diff(dayjs.tz(holding.firstPurchaseDate, TZ), 'day')
+        : null;
 
-        const profitToday = profit ? profit.profitToday : null;
-        const todayProfit =
-          profitToday == null
-            ? ''
-            : `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs(profitToday).toFixed(2)}`;
-        const todayProfitValue = profitToday;
+      const profitToday = profit ? profit.profitToday : null;
+      const todayProfit =
+        profitToday == null
+          ? ''
+          : `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs(profitToday).toFixed(2)}`;
+      const todayProfitValue = profitToday;
 
-        const total = profit ? profit.profitTotal : null;
-        const principal =
-          holding && isNumber(holding.cost) && isNumber(holding.share)
-            ? holding.cost * holding.share
-            : 0;
-        const holdingCostValue =
-          holding && isNumber(holding.cost) && isNumber(holding.share)
-            ? holding.cost * holding.share
-            : null;
-        const holdingCost =
-          holdingCostValue == null
-            ? '-'
-            : Number(holdingCostValue).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const costNavValue =
-          holding && isNumber(holding.cost) ? holding.cost : null;
-        const costNav =
-          costNavValue == null ? '—' : Number(costNavValue).toFixed(4);
-        const todayProfitPercent =
-          profitToday != null && profit?.principalToday > 0
-            ? `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs((profitToday / profit.principalToday) * 100).toFixed(2)}%`
+      const total = profit ? profit.profitTotal : null;
+      const principal = holding && isNumber(holding.cost) && isNumber(holding.share) ? holding.cost * holding.share : 0;
+      const holdingCostValue =
+        holding && isNumber(holding.cost) && isNumber(holding.share) ? holding.cost * holding.share : null;
+      const holdingCost =
+        holdingCostValue == null
+          ? '-'
+          : Number(holdingCostValue).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const costNavValue = holding && isNumber(holding.cost) ? holding.cost : null;
+      const costNav = costNavValue == null ? '—' : Number(costNavValue).toFixed(4);
+      const todayProfitPercent =
+        profitToday != null && profit?.principalToday > 0
+          ? `${profitToday > 0 ? '+' : profitToday < 0 ? '-' : ''}${Math.abs((profitToday / profit.principalToday) * 100).toFixed(2)}%`
+          : '';
+
+      const latestNavDateStr = isString(f.jzrq) ? f.jzrq : '';
+      const dailyMeta = latestDailyByCode?.[f.code];
+      const matchedDaily =
+        (latestNavDateStr ? dailyMeta?.byDate?.get(latestNavDateStr) || null : null) || dailyMeta?.last || null;
+      const yesterdayProfitVal =
+        matchedDaily && Number.isFinite(Number(matchedDaily.earnings)) ? Number(matchedDaily.earnings) : null;
+      const yesterdayProfit =
+        yesterdayProfitVal == null
+          ? ''
+          : `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}${Math.abs(yesterdayProfitVal).toFixed(2)}`;
+      const dailyBaseCostAmount =
+        matchedDaily &&
+        matchedDaily.baseCostAmount != null &&
+        matchedDaily.baseCostAmount !== '' &&
+        Number.isFinite(Number(matchedDaily.baseCostAmount))
+          ? Number(matchedDaily.baseCostAmount)
+          : null;
+      const derivedRateFromSnapshot =
+        yesterdayProfitVal != null && dailyBaseCostAmount != null && dailyBaseCostAmount > 0
+          ? (yesterdayProfitVal / dailyBaseCostAmount) * 100
+          : null;
+      const dailyRate =
+        matchedDaily &&
+        matchedDaily.rate != null &&
+        matchedDaily.rate !== '' &&
+        Number.isFinite(Number(matchedDaily.rate))
+          ? Number(matchedDaily.rate)
+          : derivedRateFromSnapshot;
+      const yesterdayProfitPercentLine =
+        dailyRate != null
+          ? `${dailyRate > 0 ? '+' : dailyRate < 0 ? '-' : ''}${Math.abs(dailyRate).toFixed(2)}%`
+          : yesterdayProfitVal != null && principal > 0
+            ? `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}${Math.abs((yesterdayProfitVal / principal) * 100).toFixed(2)}%`
             : '';
-
-        const latestNavDateStr = isString(f.jzrq) ? f.jzrq : '';
-        const dailyMeta = latestDailyByCode?.[f.code];
-        const matchedDaily =
-          (latestNavDateStr ? (dailyMeta?.byDate?.get(latestNavDateStr) || null) : null)
-          || dailyMeta?.last
-          || null;
-        const yesterdayProfitVal =
-          matchedDaily && Number.isFinite(Number(matchedDaily.earnings))
-            ? Number(matchedDaily.earnings)
+      const yesterdaySecondLinePctValue =
+        dailyRate != null
+          ? dailyRate
+          : yesterdayProfitVal != null && principal > 0
+            ? (yesterdayProfitVal / principal) * 100
             : null;
-        const yesterdayProfit =
-          yesterdayProfitVal == null
-            ? ''
-            : `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}${Math.abs(yesterdayProfitVal).toFixed(2)}`;
-        const dailyBaseCostAmount =
-          matchedDaily && matchedDaily.baseCostAmount != null && matchedDaily.baseCostAmount !== '' && Number.isFinite(Number(matchedDaily.baseCostAmount))
-            ? Number(matchedDaily.baseCostAmount)
-            : null;
-        const derivedRateFromSnapshot =
-          yesterdayProfitVal != null && dailyBaseCostAmount != null && dailyBaseCostAmount > 0
-            ? (yesterdayProfitVal / dailyBaseCostAmount) * 100
-            : null;
-        const dailyRate =
-          matchedDaily && matchedDaily.rate != null && matchedDaily.rate !== '' && Number.isFinite(Number(matchedDaily.rate))
-            ? Number(matchedDaily.rate)
-            : derivedRateFromSnapshot;
-        const yesterdayProfitPercentLine =
-          dailyRate != null
-            ? `${dailyRate > 0 ? '+' : dailyRate < 0 ? '-' : ''}${Math.abs(dailyRate).toFixed(2)}%`
-            : (yesterdayProfitVal != null && principal > 0
-              ? `${yesterdayProfitVal > 0 ? '+' : yesterdayProfitVal < 0 ? '-' : ''}${Math.abs((yesterdayProfitVal / principal) * 100).toFixed(2)}%`
-              : '');
-        const yesterdaySecondLinePctValue =
-          dailyRate != null
-            ? dailyRate
-            : (yesterdayProfitVal != null && principal > 0
-              ? (yesterdayProfitVal / principal) * 100
-              : null);
 
-        const holdingProfit =
-          total == null
-            ? ''
-            : `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs(total).toFixed(2)}`;
-        const holdingProfitPercent =
-          total != null && principal > 0
-            ? `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs((total / principal) * 100).toFixed(2)}%`
-            : '';
-        const holdingProfitValue = total;
+      const holdingProfit =
+        total == null ? '' : `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs(total).toFixed(2)}`;
+      const holdingProfitPercent =
+        total != null && principal > 0
+          ? `${total > 0 ? '+' : total < 0 ? '-' : ''}${Math.abs((total / principal) * 100).toFixed(2)}%`
+          : '';
+      const holdingProfitValue = total;
 
-        const holdingProfitPercentValue =
-          total != null && principal > 0 ? (total / principal) * 100 : null;
-        const hasEstimatePercent = hasTodayEstimate && estimateChangeValue != null;
-        const hasHoldingPercent = holdingProfitPercentValue != null;
-        const fallbackEstimateProfitPercentValue = hasEstimatePercent || hasHoldingPercent
+      const holdingProfitPercentValue = total != null && principal > 0 ? (total / principal) * 100 : null;
+      const hasEstimatePercent = hasTodayEstimate && estimateChangeValue != null;
+      const hasHoldingPercent = holdingProfitPercentValue != null;
+      const fallbackEstimateProfitPercentValue =
+        hasEstimatePercent || hasHoldingPercent
           ? (hasEstimatePercent ? estimateChangeValue : 0) + (hasHoldingPercent ? holdingProfitPercentValue : 0)
           : null;
-        const estimateProfitPercentValue = hasTodayData
-          ? holdingProfitPercentValue
-          : fallbackEstimateProfitPercentValue;
-        const estimateProfitValue = hasTodayData
-          ? total
-          : (estimateProfitPercentValue != null && principal > 0
-            ? principal * (estimateProfitPercentValue / 100)
-            : null);
-        const estimateProfit =
-          estimateProfitValue == null
-            ? ''
-            : `${estimateProfitValue > 0 ? '+' : estimateProfitValue < 0 ? '-' : ''}${Math.abs(estimateProfitValue).toFixed(2)}`;
-        const estimateProfitPercent =
-          estimateProfitPercentValue == null
-            ? ''
-            : `${estimateProfitPercentValue > 0 ? '+' : ''}${estimateProfitPercentValue.toFixed(2)}%`;
+      const estimateProfitPercentValue = hasTodayData ? holdingProfitPercentValue : fallbackEstimateProfitPercentValue;
+      const estimateProfitValue = hasTodayData
+        ? total
+        : estimateProfitPercentValue != null && principal > 0
+          ? principal * (estimateProfitPercentValue / 100)
+          : null;
+      const estimateProfit =
+        estimateProfitValue == null
+          ? ''
+          : `${estimateProfitValue > 0 ? '+' : estimateProfitValue < 0 ? '-' : ''}${Math.abs(estimateProfitValue).toFixed(2)}`;
+      const estimateProfitPercent =
+        estimateProfitPercentValue == null
+          ? ''
+          : `${estimateProfitPercentValue > 0 ? '+' : ''}${estimateProfitPercentValue.toFixed(2)}%`;
 
-        const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
-        const addBaseNav = addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
-        const sinceAddedCurrentNav = (() => {
-          if (f.noValuation) {
-            const v = Number(f.dwjz);
-            return Number.isFinite(v) && v > 0 ? v : null;
-          }
-          const v = Number(f.gsz);
+      const addBaseNavRaw = f.addBaseNav != null && f.addBaseNav !== '' ? Number(f.addBaseNav) : null;
+      const addBaseNav =
+        addBaseNavRaw != null && Number.isFinite(addBaseNavRaw) && addBaseNavRaw > 0 ? addBaseNavRaw : null;
+      const sinceAddedCurrentNav = (() => {
+        if (f.noValuation) {
+          const v = Number(f.dwjz);
           return Number.isFinite(v) && v > 0 ? v : null;
-        })();
-        const sinceAddedChangeValue =
-          addBaseNav != null && sinceAddedCurrentNav != null
-            ? ((sinceAddedCurrentNav / addBaseNav) - 1) * 100
-            : null;
-        const sinceAddedChangePercent =
-          sinceAddedChangeValue == null
-            ? '—'
-            : `${sinceAddedChangeValue > 0 ? '+' : ''}${sinceAddedChangeValue.toFixed(2)}%`;
-        const sinceAddedDateRaw = (() => {
-          const raw = f.addBaseDate;
-          const rawStr = raw != null ? String(raw) : '';
-          if (/^\d{4}-\d{2}-\d{2}/.test(rawStr)) return rawStr.slice(0, 10);
-          const ts = Number(f.addedAt);
-          if (Number.isFinite(ts) && ts > 0) return dayjs.tz(ts, TZ).format('YYYY-MM-DD');
-          return '';
-        })();
-        const sinceAddedDate = (() => {
-          const raw = sinceAddedDateRaw || '';
-          if (!raw) return '';
-          const currentYear = typeof todayStr === 'string' && todayStr.length >= 4 ? todayStr.slice(0, 4) : '';
-          if (currentYear && raw.startsWith(`${currentYear}-`) && raw.length >= 10) return raw.slice(5);
-          return raw;
-        })();
+        }
+        const v = Number(f.gsz);
+        return Number.isFinite(v) && v > 0 ? v : null;
+      })();
+      const sinceAddedChangeValue =
+        addBaseNav != null && sinceAddedCurrentNav != null ? (sinceAddedCurrentNav / addBaseNav - 1) * 100 : null;
+      const sinceAddedChangePercent =
+        sinceAddedChangeValue == null
+          ? '—'
+          : `${sinceAddedChangeValue > 0 ? '+' : ''}${sinceAddedChangeValue.toFixed(2)}%`;
+      const sinceAddedDateRaw = (() => {
+        const raw = f.addBaseDate;
+        const rawStr = raw != null ? String(raw) : '';
+        if (/^\d{4}-\d{2}-\d{2}/.test(rawStr)) return rawStr.slice(0, 10);
+        const ts = Number(f.addedAt);
+        if (Number.isFinite(ts) && ts > 0) return dayjs.tz(ts, TZ).format('YYYY-MM-DD');
+        return '';
+      })();
+      const sinceAddedDate = (() => {
+        const raw = sinceAddedDateRaw || '';
+        if (!raw) return '';
+        const currentYear = typeof todayStr === 'string' && todayStr.length >= 4 ? todayStr.slice(0, 4) : '';
+        if (currentYear && raw.startsWith(`${currentYear}-`) && raw.length >= 10) return raw.slice(5);
+        return raw;
+      })();
 
-        const fc = String(f.code ?? '').trim();
-        const listFromDerived = fundTagListsByCode[fc];
-        const fundTags = Array.isArray(listFromDerived)
-          ? listFromDerived.map(({ name, theme }) => ({
-              name: String(name ?? '').trim(),
-              theme: normalizeFundTagTheme(theme),
-            }))
-          : [];
+      const fc = String(f.code ?? '').trim();
+      const listFromDerived = fundTagListsByCode[fc];
+      const fundTags = Array.isArray(listFromDerived)
+        ? listFromDerived.map(({ name, theme }) => ({
+            name: String(name ?? '').trim(),
+            theme: normalizeFundTagTheme(theme)
+          }))
+        : [];
 
-        return {
-          rawFund: f,
-          code: f.code,
-          fundName: f.name,
-          fundTags,
-          isHoldingLinked: !!isHoldingLinked,
-          isUpdated: f.jzrq === todayStr,
-          hasDca: dcaPlansForTab[f.code]?.enabled === true,
-          latestNav,
-          latestNavDate: yesterdayDate,
-          estimateNav,
-          estimateNavDate: estimateTime,
-          yesterdayChangePercent,
-          yesterdayChangeValue,
-          yesterdayDate,
-          estimateChangePercent,
-          estimateChangeValue,
-          estimateChangeMuted: f.noValuation,
-          estimateTime,
-          hasTodayEstimate,
-          totalChangePercent: estimateProfitPercent,
-          estimateProfit,
-          estimateProfitValue,
-          estimateProfitPercent,
-          sinceAddedChangePercent,
-          sinceAddedChangeValue,
-          sinceAddedDate,
-          sinceAddedDateRaw: sinceAddedDateRaw || undefined,
-          holdingAmount,
-          holdingAmountValue,
-          holdingRatioValue,
-          holdingCost,
-          holdingCostValue,
-          costNav,
-          costNavValue,
-          holdingDaysValue,
-          todayProfit,
-          todayProfitPercent,
-          todayProfitValue,
-          yesterdayProfit,
-          yesterdayProfitValue: yesterdayProfitVal,
-          yesterdayProfitPercent: yesterdayProfitPercentLine,
-          yesterdaySecondLinePctValue,
-          holdingProfit,
-          holdingProfitPercent,
-          holdingProfitValue,
-          holdingTargetGroupId:
-            currentTab === SUMMARY_TAB_ID ? summaryHoldingSourceGroupByCode[f.code] : undefined,
-        };
-      });
-    },
-    [
-      displayFunds,
-      holdingsForTabWithLinked,
-      isTradingDay,
-      todayStr,
-      getHoldingProfitForTab,
-      dcaPlansForTab,
-      latestDailyByCode,
-      currentTab,
-      summaryHoldingSourceGroupByCode,
-      linkedHoldingsForAllFav,
-      // fundTagRecords 已移除：fundTagListsByCode 是其派生值，两者同时存在会导致标签变化时双重触发
-      fundTagListsByCode,
-      groupTotalHoldingAmount,
-    ],
-  );
+      return {
+        rawFund: f,
+        code: f.code,
+        fundName: f.name,
+        fundTags,
+        isHoldingLinked: !!isHoldingLinked,
+        isUpdated: f.jzrq === todayStr,
+        hasDca: dcaPlansForTab[f.code]?.enabled === true,
+        latestNav,
+        latestNavDate: yesterdayDate,
+        estimateNav,
+        estimateNavDate: estimateTime,
+        yesterdayChangePercent,
+        yesterdayChangeValue,
+        yesterdayDate,
+        estimateChangePercent,
+        estimateChangeValue,
+        estimateChangeMuted: f.noValuation,
+        estimateTime,
+        hasTodayEstimate,
+        totalChangePercent: estimateProfitPercent,
+        estimateProfit,
+        estimateProfitValue,
+        estimateProfitPercent,
+        sinceAddedChangePercent,
+        sinceAddedChangeValue,
+        sinceAddedDate,
+        sinceAddedDateRaw: sinceAddedDateRaw || undefined,
+        holdingAmount,
+        holdingAmountValue,
+        holdingRatioValue,
+        holdingCost,
+        holdingCostValue,
+        costNav,
+        costNavValue,
+        holdingDaysValue,
+        todayProfit,
+        todayProfitPercent,
+        todayProfitValue,
+        yesterdayProfit,
+        yesterdayProfitValue: yesterdayProfitVal,
+        yesterdayProfitPercent: yesterdayProfitPercentLine,
+        yesterdaySecondLinePctValue,
+        holdingProfit,
+        holdingProfitPercent,
+        holdingProfitValue,
+        holdingTargetGroupId: currentTab === SUMMARY_TAB_ID ? summaryHoldingSourceGroupByCode[f.code] : undefined
+      };
+    });
+  }, [
+    displayFunds,
+    holdingsForTabWithLinked,
+    isTradingDay,
+    todayStr,
+    getHoldingProfitForTab,
+    dcaPlansForTab,
+    latestDailyByCode,
+    currentTab,
+    summaryHoldingSourceGroupByCode,
+    linkedHoldingsForAllFav,
+    // fundTagRecords 已移除：fundTagListsByCode 是其派生值，两者同时存在会导致标签变化时双重触发
+    fundTagListsByCode,
+    groupTotalHoldingAmount
+  ]);
 
   // 自动滚动选中 Tab 到可视区域
   useEffect(() => {
@@ -1802,7 +1385,9 @@ export default function HomePage() {
     const gid = getScopedGroupId(
       groupIdOverride !== undefined
         ? groupIdOverride
-        : (currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab) ? currentTab : null)
+        : currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab)
+          ? currentTab
+          : null
     );
     if (!gid) {
       setHoldings((prev) => {
@@ -1860,7 +1445,9 @@ export default function HomePage() {
       const gid = getScopedGroupId(
         clearConfirm.groupId !== undefined
           ? clearConfirm.groupId
-          : (currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab) ? currentTab : null)
+          : currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab)
+            ? currentTab
+            : null
       );
       if (!gid) {
         setHoldings((prev) => {
@@ -1918,12 +1505,13 @@ export default function HomePage() {
       try {
         const earningsScope = gid || DAILY_EARNINGS_SCOPE_ALL;
         setFundDailyEarnings((prev) => {
-          if (!isPlainObject(prev) || !isPlainObject(prev[earningsScope]) || !(code in prev[earningsScope])) return prev;
+          if (!isPlainObject(prev) || !isPlainObject(prev[earningsScope]) || !(code in prev[earningsScope]))
+            return prev;
           const next = { ...prev, [earningsScope]: { ...prev[earningsScope] } };
           delete next[earningsScope][code];
           return next;
         });
-      } catch { }
+      } catch {}
     }
     setClearConfirm(null);
   };
@@ -1964,7 +1552,7 @@ export default function HomePage() {
       const tradeGid = trade.groupId || null;
       let queryDate = trade.date;
       if (trade.isAfter3pm) {
-          queryDate = toTz(trade.date).add(1, 'day').format('YYYY-MM-DD');
+        queryDate = toTz(trade.date).add(1, 'day').format('YYYY-MM-DD');
       }
 
       // 尝试获取智能净值
@@ -1972,9 +1560,10 @@ export default function HomePage() {
       if (Number.isFinite(navOffsetDays) && navOffsetDays) {
         queryDate = toTz(queryDate).add(navOffsetDays, 'day').format('YYYY-MM-DD');
       }
-      const result = (trade.netValueSearch === 'backward')
-        ? await fetchSmartFundNetValueBackward(trade.fundCode, queryDate)
-        : await fetchSmartFundNetValue(trade.fundCode, queryDate);
+      const result =
+        trade.netValueSearch === 'backward'
+          ? await fetchSmartFundNetValueBackward(trade.fundCode, queryDate)
+          : await fetchSmartFundNetValue(trade.fundCode, queryDate);
 
       if (result && result.value > 0) {
         // 成功获取，执行交易
@@ -1985,49 +1574,51 @@ export default function HomePage() {
         let tradeAmount = 0;
 
         if (trade.type === 'buy') {
-             const feeRate = trade.feeRate || 0;
-             const netAmount = trade.amount / (1 + feeRate / 100);
-             const share = netAmount / result.value;
-             newShare = current.share + share;
-             newCost = (current.cost * current.share + trade.amount) / newShare;
+          const feeRate = trade.feeRate || 0;
+          const netAmount = trade.amount / (1 + feeRate / 100);
+          const share = netAmount / result.value;
+          newShare = current.share + share;
+          newCost = (current.cost * current.share + trade.amount) / newShare;
 
-             tradeShare = share;
-             tradeAmount = trade.amount;
+          tradeShare = share;
+          tradeAmount = trade.amount;
         } else {
-             const sellShare =
-               (trade.share != null && Number.isFinite(Number(trade.share)) && Number(trade.share) > 0)
-                 ? Number(trade.share)
-                 : ((trade.amount != null && Number.isFinite(Number(trade.amount)) && Number(trade.amount) > 0)
-                     ? (Number(trade.amount) / result.value)
-                     : 0);
-             newShare = Math.max(0, current.share - sellShare);
-             newCost = current.cost;
-             if (newShare === 0) newCost = 0;
+          const sellShare =
+            trade.share != null && Number.isFinite(Number(trade.share)) && Number(trade.share) > 0
+              ? Number(trade.share)
+              : trade.amount != null && Number.isFinite(Number(trade.amount)) && Number(trade.amount) > 0
+                ? Number(trade.amount) / result.value
+                : 0;
+          newShare = Math.max(0, current.share - sellShare);
+          newCost = current.cost;
+          if (newShare === 0) newCost = 0;
 
-             tradeShare = sellShare;
-             tradeAmount = sellShare * result.value;
+          tradeShare = sellShare;
+          tradeAmount = sellShare * result.value;
         }
 
         writeCurrent(trade.fundCode, tradeGid, newShare, newCost, {
           ...(current.firstPurchaseDate ? { firstPurchaseDate: current.firstPurchaseDate } : {}),
-          ...(trade.type === 'buy' && !current.firstPurchaseDate && result.date ? { firstPurchaseDate: result.date } : {}),
+          ...(trade.type === 'buy' && !current.firstPurchaseDate && result.date
+            ? { firstPurchaseDate: result.date }
+            : {})
         });
         stateChanged = true;
         processedIds.add(trade.id);
 
         // 记录交易历史
         newTransactions.push({
-            id: trade.id,
-            fundCode: trade.fundCode,
-            type: trade.type,
-            share: tradeShare,
-            amount: tradeAmount,
-            price: result.value,
-            date: result.date, // 使用获取到净值的日期
-            isAfter3pm: trade.isAfter3pm,
-            isDca: !!trade.isDca,
-            timestamp: Date.now(),
-            ...(tradeGid ? { groupId: tradeGid } : {}),
+          id: trade.id,
+          fundCode: trade.fundCode,
+          type: trade.type,
+          share: tradeShare,
+          amount: tradeAmount,
+          price: result.value,
+          date: result.date, // 使用获取到净值的日期
+          isAfter3pm: trade.isAfter3pm,
+          isDca: !!trade.isDca,
+          timestamp: Date.now(),
+          ...(tradeGid ? { groupId: tradeGid } : {})
         });
       }
     }
@@ -2036,33 +1627,33 @@ export default function HomePage() {
       setHoldings(tempHoldings);
       setGroupHoldings(tempGroupHoldings);
 
-      setPendingTrades(prev => {
-          const next = prev.filter(t => !processedIds.has(t.id));
-          return next;
+      setPendingTrades((prev) => {
+        const next = prev.filter((t) => !processedIds.has(t.id));
+        return next;
       });
 
-      setTransactions(prev => {
-          const nextState = { ...prev };
-          newTransactions.forEach(tx => {
-              const current = nextState[tx.fundCode] || [];
-              // 避免重复添加 (虽然 id 应该唯一)
-              if (!current.some(t => t.id === tx.id)) {
-                  const row = {
-                    id: tx.id,
-                    type: tx.type,
-                    share: tx.share,
-                    amount: tx.amount,
-                    price: tx.price,
-                    date: tx.date,
-                    isAfter3pm: tx.isAfter3pm,
-                    isDca: tx.isDca,
-                    timestamp: tx.timestamp,
-                  };
-                  if (tx.groupId) row.groupId = tx.groupId;
-                  nextState[tx.fundCode] = [row, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-              }
-          });
-          return nextState;
+      setTransactions((prev) => {
+        const nextState = { ...prev };
+        newTransactions.forEach((tx) => {
+          const current = nextState[tx.fundCode] || [];
+          // 避免重复添加 (虽然 id 应该唯一)
+          if (!current.some((t) => t.id === tx.id)) {
+            const row = {
+              id: tx.id,
+              type: tx.type,
+              share: tx.share,
+              amount: tx.amount,
+              price: tx.price,
+              date: tx.date,
+              isAfter3pm: tx.isAfter3pm,
+              isDca: tx.isDca,
+              timestamp: tx.timestamp
+            };
+            if (tx.groupId) row.groupId = tx.groupId;
+            nextState[tx.fundCode] = [row, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          }
+        });
+        return nextState;
       });
 
       showToast(`已处理 ${processedIds.size} 笔待定交易`, 'success');
@@ -2070,7 +1661,7 @@ export default function HomePage() {
   };
 
   const handleDeleteTransaction = (fundCode, transactionId, groupIdOverride) => {
-    setTransactions(prev => {
+    setTransactions((prev) => {
       const current = prev[fundCode] || [];
       const gid = getScopedGroupId(groupIdOverride);
       const next = current.filter((t) => {
@@ -2095,9 +1686,7 @@ export default function HomePage() {
 
       const existingCurrent = list.filter((t) => t && t.groupId === targetGid);
       const copiedKey = new Set(
-        existingCurrent
-          .filter((t) => t?.copiedFromId)
-          .map((t) => `${t.copiedFromId}|${t.copiedFromGroupId ?? ''}`)
+        existingCurrent.filter((t) => t?.copiedFromId).map((t) => `${t.copiedFromId}|${t.copiedFromGroupId ?? ''}`)
       );
 
       const toCopy = list.filter((t) => {
@@ -2115,7 +1704,7 @@ export default function HomePage() {
         id: uuidv4(),
         groupId: targetGid,
         copiedFromId: t.id,
-        copiedFromGroupId: t.groupId ?? null,
+        copiedFromGroupId: t.groupId ?? null
       }));
 
       const nextList = [...list, ...copied].sort((a, b) => (b?.timestamp || 0) - (a?.timestamp || 0));
@@ -2128,9 +1717,7 @@ export default function HomePage() {
       const list = Array.isArray(prev) ? prev : [];
       const existingCurrent = list.filter((t) => t && t.fundCode === fundCode && t.groupId === targetGid);
       const copiedKey = new Set(
-        existingCurrent
-          .filter((t) => t?.copiedFromId)
-          .map((t) => `${t.copiedFromId}|${t.copiedFromGroupId ?? ''}`)
+        existingCurrent.filter((t) => t?.copiedFromId).map((t) => `${t.copiedFromId}|${t.copiedFromGroupId ?? ''}`)
       );
 
       const toCopy = list.filter((t) => {
@@ -2148,7 +1735,7 @@ export default function HomePage() {
         id: uuidv4(),
         groupId: targetGid,
         copiedFromId: t.id,
-        copiedFromGroupId: t.groupId ?? null,
+        copiedFromGroupId: t.groupId ?? null
       }));
 
       const next = [...list, ...copied];
@@ -2163,7 +1750,7 @@ export default function HomePage() {
     const fundCode = data.fundCode;
     const historyGid = getScopedGroupId(addHistoryModal.groupId);
     // 添加历史记录仅作补录展示，不修改真实持仓金额与份额
-    setTransactions(prev => {
+    setTransactions((prev) => {
       const current = prev[fundCode] || [];
       const record = {
         id: uuidv4(),
@@ -2176,7 +1763,7 @@ export default function HomePage() {
         isDca: false,
         isHistoryOnly: true, // 仅记录，不参与持仓计算
         timestamp: data.timestamp || Date.now(),
-        ...(historyGid ? { groupId: historyGid } : {}),
+        ...(historyGid ? { groupId: historyGid } : {})
       };
       // 按时间倒序排列
       const next = [record, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -2192,38 +1779,38 @@ export default function HomePage() {
     const tradeGid = getScopedGroupId(tradeModal.groupId);
     // 如果没有价格（API失败），加入待处理队列
     if (!data.price || data.price === 0) {
-        const pending = {
-            id: uuidv4(),
-            fundCode: fund.code,
-            fundName: fund.name,
-            type: tradeModal.type,
-            share: data.share,
-            amount: data.totalCost,
-            feeRate: tradeModal.type === 'buy' ? data.feeRate : 0, // Buy needs feeRate
-            feeMode: data.feeMode,
-            feeValue: data.feeValue,
-            date: data.date,
-            isAfter3pm: data.isAfter3pm,
-            isDca: false,
-            timestamp: Date.now(),
-            ...(tradeGid ? { groupId: tradeGid } : {}),
-        };
+      const pending = {
+        id: uuidv4(),
+        fundCode: fund.code,
+        fundName: fund.name,
+        type: tradeModal.type,
+        share: data.share,
+        amount: data.totalCost,
+        feeRate: tradeModal.type === 'buy' ? data.feeRate : 0, // Buy needs feeRate
+        feeMode: data.feeMode,
+        feeValue: data.feeValue,
+        date: data.date,
+        isAfter3pm: data.isAfter3pm,
+        isDca: false,
+        timestamp: Date.now(),
+        ...(tradeGid ? { groupId: tradeGid } : {})
+      };
 
-        const next = [...pendingTrades, pending];
-        setPendingTrades(next);
+      const next = [...pendingTrades, pending];
+      setPendingTrades(next);
 
-        // 如果该基金没有持仓数据，初始化持仓金额为 0
-        const tabH = tradeGid ? (groupHoldings[tradeGid] || {}) : holdings;
-        if (!tabH[fund.code]) {
-          handleSaveHolding(fund.code, { share: 0, cost: 0 }, tradeGid);
-        }
+      // 如果该基金没有持仓数据，初始化持仓金额为 0
+      const tabH = tradeGid ? groupHoldings[tradeGid] || {} : holdings;
+      if (!tabH[fund.code]) {
+        handleSaveHolding(fund.code, { share: 0, cost: 0 }, tradeGid);
+      }
 
-        setTradeModal({ open: false, fund: null, type: 'buy' });
-        showToast('净值暂未更新，已加入待处理队列', 'info');
-        return;
+      setTradeModal({ open: false, fund: null, type: 'buy' });
+      showToast('净值暂未更新，已加入待处理队列', 'info');
+      return;
     }
 
-    const current = (tradeGid ? (groupHoldings[tradeGid] || {}) : holdings)[fund.code] || { share: 0, cost: 0 };
+    const current = (tradeGid ? groupHoldings[tradeGid] || {} : holdings)[fund.code] || { share: 0, cost: 0 };
     const isBuy = tradeModal.type === 'buy';
 
     let newShare, newCost;
@@ -2233,7 +1820,7 @@ export default function HomePage() {
 
       // 如果传递了 totalCost（即买入总金额），则用它来计算新成本
       // 否则回退到用 share * price 计算（减仓或旧逻辑）
-      const buyCost = data.totalCost !== undefined ? data.totalCost : (data.price * data.share);
+      const buyCost = data.totalCost !== undefined ? data.totalCost : data.price * data.share;
 
       // 加权平均成本 = (原持仓成本 * 原份额 + 本次买入总花费) / 新总份额
       // 注意：这里默认将手续费也计入成本（如果 totalCost 包含了手续费）
@@ -2245,26 +1832,30 @@ export default function HomePage() {
       if (newShare === 0) newCost = 0;
     }
 
-    handleSaveHolding(fund.code, {
-      share: newShare,
-      cost: newCost,
-      ...(current.firstPurchaseDate ? { firstPurchaseDate: current.firstPurchaseDate } : {}),
-      ...(isBuy && !current.firstPurchaseDate && data.date ? { firstPurchaseDate: data.date } : {}),
-    }, tradeGid);
+    handleSaveHolding(
+      fund.code,
+      {
+        share: newShare,
+        cost: newCost,
+        ...(current.firstPurchaseDate ? { firstPurchaseDate: current.firstPurchaseDate } : {}),
+        ...(isBuy && !current.firstPurchaseDate && data.date ? { firstPurchaseDate: data.date } : {})
+      },
+      tradeGid
+    );
 
-    setTransactions(prev => {
+    setTransactions((prev) => {
       const curList = prev[fund.code] || [];
       const record = {
         id: uuidv4(),
         type: tradeModal.type,
         share: data.share,
-        amount: isBuy ? data.totalCost : (data.share * data.price),
+        amount: isBuy ? data.totalCost : data.share * data.price,
         price: data.price,
         date: data.date,
         isAfter3pm: data.isAfter3pm,
         isDca: false,
         timestamp: Date.now(),
-        ...(tradeGid ? { groupId: tradeGid } : {}),
+        ...(tradeGid ? { groupId: tradeGid } : {})
       };
       const next = [record, ...curList];
       const nextState = { ...prev, [fund.code]: next };
@@ -2329,8 +1920,6 @@ export default function HomePage() {
     };
   }, [groups, funds.length, favorites.size]);
 
-  // 成功提示弹窗
-  const successModal = useModalStore((s) => s.successModal);
   // 轻提示 (Toast)
   const showToast = (message, type = 'info') => {
     if (type === 'success') {
@@ -2354,12 +1943,15 @@ export default function HomePage() {
 
   const {
     setScanConfirmModalOpen,
-    scannedFunds, setScannedFunds,
-    selectedScannedCodes, setSelectedScannedCodes,
+    scannedFunds,
+    setScannedFunds,
+    selectedScannedCodes,
+    setSelectedScannedCodes,
     isScanning,
     scanImportProgress,
     scanProgress,
-    isOcrScan, setIsOcrScan,
+    isOcrScan,
+    setIsOcrScan,
     fileInputRef,
     handleScanClick,
     handleScanPick,
@@ -2368,20 +1960,19 @@ export default function HomePage() {
     handleFilesUpload,
     handleFilesDrop,
     toggleScannedCode,
-    confirmScanImport,
+    confirmScanImport
   } = useScanImport({
     setCurrentTab,
     setValuationSeries,
     showToast,
     normalizeCode,
-    dedupeByCode,
+    dedupeByCode
   });
 
   const refreshAllRef = useRef(null);
   const {
     isSyncing,
     lastSyncTime,
-    scheduleSync,
     syncUserConfig,
     fetchCloudConfig,
     applyCloudConfig,
@@ -2389,12 +1980,12 @@ export default function HomePage() {
     triggerCustomSettingsSync,
     skipSyncRef,
     deviceConflictModalOpenRef,
-    storageHelper,
+    storageHelper
   } = useSyncManager({
     showToast,
     refreshAllRef,
     setTempSeconds,
-    setFundTagRecords,
+    setFundTagRecords
   });
 
   useEffect(() => {
@@ -2407,26 +1998,29 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const openFundTagsEdit = useCallback((row) => {
-    if (!row?.code) return;
-    const raw = row.rawFund;
-    const fc = String(row.code).trim();
-    const tags = (fundTagRecords || [])
-      .filter((r) => getFundCodesFromTagRecord(r).includes(fc))
-      .map((r) => ({
-        id: String(r.id ?? '').trim() || uuidv4(),
-        name: String(r.name ?? '').trim(),
-        theme: String(r.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
-      }))
-      .filter((x) => x.name)
-      .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-    setFundTagsEdit({
-      open: true,
-      code: row.code,
-      name: row.fundName || raw?.name || '',
-      tags,
-    });
-  }, [fundTagRecords]);
+  const openFundTagsEdit = useCallback(
+    (row) => {
+      if (!row?.code) return;
+      const raw = row.rawFund;
+      const fc = String(row.code).trim();
+      const tags = (fundTagRecords || [])
+        .filter((r) => getFundCodesFromTagRecord(r).includes(fc))
+        .map((r) => ({
+          id: String(r.id ?? '').trim() || uuidv4(),
+          name: String(r.name ?? '').trim(),
+          theme: String(r.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME
+        }))
+        .filter((x) => x.name)
+        .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+      setFundTagsEdit({
+        open: true,
+        code: row.code,
+        name: row.fundName || raw?.name || '',
+        tags
+      });
+    },
+    [fundTagRecords]
+  );
 
   const handleSaveFundTags = useCallback(
     (code, tagRows) => {
@@ -2436,9 +2030,7 @@ export default function HomePage() {
       const normalized = normalizeFundTagInstanceListFromInput(rows);
 
       setFundTagRecords((prev) => {
-        const selectedById = new Map(
-          normalized.map((x) => [String(x.id).trim(), x]).filter(([id]) => id),
-        );
+        const selectedById = new Map(normalized.map((x) => [String(x.id).trim(), x]).filter(([id]) => id));
 
         const byId = new Map();
         for (const r of prev) {
@@ -2462,14 +2054,14 @@ export default function HomePage() {
               id,
               name: meta.name,
               theme: meta.theme,
-              fundCodes: codes,
+              fundCodes: codes
             });
             if (nextRow) byId.set(id, nextRow);
           } else {
             const codes = getFundCodesFromTagRecord(row).filter((c) => c !== fc);
             const nextRow = sanitizeTagRowForStorage({
               ...row,
-              fundCodes: codes,
+              fundCodes: codes
             });
             if (nextRow) byId.set(id, nextRow);
           }
@@ -2481,7 +2073,7 @@ export default function HomePage() {
             id,
             name: meta.name,
             theme: meta.theme,
-            fundCodes: [fc],
+            fundCodes: [fc]
           });
           if (row) byId.set(id, row);
         }
@@ -2494,7 +2086,7 @@ export default function HomePage() {
         return next;
       });
     },
-    [storageHelper],
+    [storageHelper]
   );
 
   /** 仅写入可选池：每次新增一条独立记录（允许可选池内重名），不改变已有 fundCodes */
@@ -2518,7 +2110,7 @@ export default function HomePage() {
             id: uuidv4(),
             name,
             theme: th,
-            fundCodes: [],
+            fundCodes: []
           });
           if (row) next.push(row);
         }
@@ -2526,7 +2118,7 @@ export default function HomePage() {
         return next;
       });
     },
-    [storageHelper],
+    [storageHelper]
   );
 
   /** 从全局 tags 存储中按 id 移除该条标签记录，并清理各基金已选列表中的同 id 引用 */
@@ -2540,7 +2132,7 @@ export default function HomePage() {
         return next;
       });
     },
-    [storageHelper],
+    [storageHelper]
   );
 
   /** 删除前展示：该标签关联的基金文案列表（按标签 id） */
@@ -2556,66 +2148,81 @@ export default function HomePage() {
         return namePart ? `${namePart}（${c}）` : String(c);
       });
     },
-    [fundTagRecords, funds],
+    [fundTagRecords, funds]
   );
 
-  const applyViewMode = useCallback((mode) => {
-    if (mode !== 'card' && mode !== 'list') return;
-    if (mode !== viewMode) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    setViewMode(mode);
-    storageHelper.setItem('viewMode', mode);
-  }, [storageHelper, viewMode]);
-
-  const toggleFavorite = useCallback((code) => {
-    setFavorites(prev => {
-      const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
-      } else {
-        next.add(code);
+  const applyViewMode = useCallback(
+    (mode) => {
+      if (mode !== 'card' && mode !== 'list') return;
+      if (mode !== viewMode) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-      if (next.size === 0) setCurrentTab('all');
-      return next;
-    });
-  }, [storageHelper]);
+      setViewMode(mode);
+      storageHelper.setItem('viewMode', mode);
+    },
+    [storageHelper, viewMode]
+  );
 
-  const toggleCollapse = useCallback((code) => {
-    setCollapsedCodes(prev => {
-      const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
-      } else {
-        next.add(code);
-      }
-      return next;
-    });
-  }, [setCollapsedCodes]);
+  const toggleFavorite = useCallback(
+    (code) => {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (next.has(code)) {
+          next.delete(code);
+        } else {
+          next.add(code);
+        }
+        if (next.size === 0) setCurrentTab('all');
+        return next;
+      });
+    },
+    [storageHelper]
+  );
 
-  const toggleTrendCollapse = useCallback((code) => {
-    setCollapsedTrends(prev => {
-      const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
-      } else {
-        next.add(code);
-      }
-      return next;
-    });
-  }, [setCollapsedTrends]);
+  const toggleCollapse = useCallback(
+    (code) => {
+      setCollapsedCodes((prev) => {
+        const next = new Set(prev);
+        if (next.has(code)) {
+          next.delete(code);
+        } else {
+          next.add(code);
+        }
+        return next;
+      });
+    },
+    [setCollapsedCodes]
+  );
 
-  const toggleEarningsCollapse = useCallback((code) => {
-    setCollapsedEarnings(prev => {
-      const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
-      } else {
-        next.add(code);
-      }
-      return next;
-    });
-  }, [setCollapsedEarnings]);
+  const toggleTrendCollapse = useCallback(
+    (code) => {
+      setCollapsedTrends((prev) => {
+        const next = new Set(prev);
+        if (next.has(code)) {
+          next.delete(code);
+        } else {
+          next.add(code);
+        }
+        return next;
+      });
+    },
+    [setCollapsedTrends]
+  );
+
+  const toggleEarningsCollapse = useCallback(
+    (code) => {
+      setCollapsedEarnings((prev) => {
+        const next = new Set(prev);
+        if (next.has(code)) {
+          next.delete(code);
+        } else {
+          next.add(code);
+        }
+        return next;
+      });
+    },
+    [setCollapsedEarnings]
+  );
 
   const scheduleDcaTrades = useCallback(async () => {
     if (!isTradingDay) return;
@@ -2709,7 +2316,7 @@ export default function HomePage() {
               const pending = {
                 id: `dca_${scopeKey}_${code}_${dateStr}`,
                 fundCode: code,
-                fundName: (currentFunds.find(f => f.code === code) || {}).name,
+                fundName: (currentFunds.find((f) => f.code === code) || {}).name,
                 type: 'buy',
                 share: null,
                 amount,
@@ -2720,7 +2327,7 @@ export default function HomePage() {
                 isAfter3pm: false,
                 isDca: true,
                 timestamp: Date.now(),
-                ...(tradeGid ? { groupId: tradeGid } : {}),
+                ...(tradeGid ? { groupId: tradeGid } : {})
               };
               newPending.push(pending);
               lastGenerated = tradeDate;
@@ -2775,382 +2382,19 @@ export default function HomePage() {
   const { refreshing, refreshCycleStartRef, manualRefresh, refreshAll } = useRefreshManager({
     scheduleDcaTrades,
     processPendingQueue,
-    deviceConflictModalOpenRef,
+    deviceConflictModalOpenRef
   });
   useEffect(() => {
     refreshAllRef.current = refreshAll;
   }, [refreshAll]);
 
-  const handleAddGroup = (name) => {
-    const newGroup = {
-      id: `group_${Date.now()}`,
-      name,
-      codes: []
-    };
-    const next = [...groups, newGroup];
-    setGroups(next);
-    setCurrentTab(newGroup.id);
-    setGroupModalOpen(false);
-  };
-
-  const handleRemoveGroup = (id) => {
-    const next = groups.filter(g => g.id !== id);
-    setGroups(next);
-    if (currentTab === id) setCurrentTab('all');
-    setGroupHoldings((prev) => {
-      if (!prev[id]) return prev;
-      const nextGh = { ...prev };
-      delete nextGh[id];
-      return nextGh;
-    });
-    setDcaPlans((prev) => {
-      const scoped = migrateDcaPlansToScoped(prev);
-      if (!scoped[id]) return prev;
-      const nextDca = { ...scoped };
-      delete nextDca[id];
-      return nextDca;
-    });
-    setPendingTrades((prev) => {
-      const nextP = prev.filter((t) => t.groupId !== id);
-      return nextP;
-    });
-    try {
-      const parsed = customSettings || {};
-      if (parsed && typeof parsed === 'object' && parsed[id] !== undefined) {
-        const next = { ...parsed };
-        delete next[id];
-        setCustomSettings(next);
-      }
-    } catch { }
-  };
-
-  const handleUpdateGroups = (newGroups) => {
-    const removedIds = groups.filter((g) => !newGroups.find((ng) => ng.id === g.id)).map((g) => g.id);
-    setGroups(newGroups);
-    // 如果当前选中的分组被删除了，切换回“全部”
-    if (currentTab !== 'all' && currentTab !== 'fav' && !newGroups.find(g => g.id === currentTab)) {
-      setCurrentTab('all');
-    }
-    if (removedIds.length > 0) {
-      setGroupHoldings((prev) => {
-        let nextGh = { ...prev };
-        let ghChanged = false;
-        removedIds.forEach((rid) => {
-          if (nextGh[rid]) {
-            delete nextGh[rid];
-            ghChanged = true;
-          }
-        });
-        return ghChanged ? nextGh : prev;
-      });
-      setDcaPlans((prev) => {
-        const scoped = migrateDcaPlansToScoped(prev);
-        let nextDca = { ...scoped };
-        let dcaChanged = false;
-        removedIds.forEach((rid) => {
-          if (nextDca[rid]) {
-            delete nextDca[rid];
-            dcaChanged = true;
-          }
-        });
-        return dcaChanged ? nextDca : prev;
-      });
-      setPendingTrades((prev) => {
-        const nextP = prev.filter((t) => !removedIds.includes(t.groupId));
-        return nextP;
-      });
-      try {
-        const parsed = { ...(customSettings || {}) };
-        if (parsed && typeof parsed === 'object') {
-          let changed = false;
-          removedIds.forEach((groupId) => {
-            if (parsed[groupId] !== undefined) {
-              delete parsed[groupId];
-              changed = true;
-            }
-          });
-          if (changed) {
-            setCustomSettings(parsed);
-          }
-        }
-      } catch { }
-      setTransactions((prev) => {
-        const out = { ...(prev || {}) };
-        let changed = false;
-        Object.keys(out).forEach((code) => {
-          const list = out[code];
-          if (!Array.isArray(list) || list.length === 0) return;
-          const filtered = list.filter((t) => !removedIds.includes(t?.groupId));
-          if (filtered.length !== list.length) {
-            changed = true;
-            if (filtered.length) out[code] = filtered;
-            else delete out[code];
-          }
-        });
-        return changed ? out : prev;
-      });
-      setFundDailyEarnings((prev) => {
-        if (!isPlainObject(prev)) return prev;
-        let changed = false;
-        const next = { ...prev };
-        removedIds.forEach((rid) => {
-          if (rid in next) {
-            delete next[rid];
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  };
-
-  const handleAddFundsToGroup = (codes) => {
-    if (!codes || codes.length === 0) return;
-    const gid = currentTab !== 'all' && currentTab !== 'fav' ? currentTab : null;
-    const next = groups.map(g => {
-      if (g.id === currentTab) {
-        return {
-          ...g,
-          codes: Array.from(new Set([...g.codes, ...codes]))
-        };
-      }
-      return g;
-    });
-    setGroups(next);
-
-    // 确保“添加到分组”仅增加分组内基金列表，不迁移任何持仓/交易/待定/定投等分组作用域数据
-    if (gid) {
-      const codeSet = new Set(codes.filter(Boolean));
-
-      setGroupHoldings((prev) => {
-        const bucket = prev?.[gid];
-        if (!bucket || typeof bucket !== 'object') return prev;
-        let changed = false;
-        const nextBucket = { ...bucket };
-        for (const c of codeSet) {
-          // 用 null 作为“显式未设置持仓”的哨兵值，避免 seedGroupHoldingsFromGlobal 用全局持仓回填
-          if (nextBucket[c] !== null) {
-            nextBucket[c] = null;
-            changed = true;
-          }
-        }
-        if (!changed) return prev;
-        const nextGh = { ...(prev || {}) };
-        nextGh[gid] = nextBucket;
-        return nextGh;
-      });
-
-      setPendingTrades((prev) => {
-        const nextP = prev.filter((t) => !(codeSet.has(t.fundCode) && t.groupId === gid));
-        if (nextP.length === prev.length) return prev;
-        return nextP;
-      });
-
-      setTransactions((prev) => {
-        const out = { ...(prev || {}) };
-        let changed = false;
-        for (const c of codeSet) {
-          const list = out[c];
-          if (!Array.isArray(list) || list.length === 0) continue;
-          const filtered = list.filter((t) => t?.groupId !== gid);
-          if (filtered.length !== list.length) {
-            changed = true;
-            if (filtered.length) out[c] = filtered;
-            else delete out[c];
-          }
-        }
-        if (!changed) return prev;
-        return out;
-      });
-
-      setDcaPlans((prev) => {
-        const scoped = migrateDcaPlansToScoped(prev);
-        const bucket = scoped?.[gid];
-        if (!bucket || typeof bucket !== 'object') return prev;
-        let changed = false;
-        const nextBucket = { ...bucket };
-        for (const c of codeSet) {
-          if (nextBucket[c] != null) {
-            delete nextBucket[c];
-            changed = true;
-          }
-        }
-        if (!changed) return prev;
-        const nextScoped = { ...scoped, [gid]: nextBucket };
-        return nextScoped;
-      });
-
-      try {
-        setFundDailyEarnings((prev) => {
-          if (!isPlainObject(prev) || !isPlainObject(prev[gid])) return prev;
-          let changed = false;
-          const nextBucket = { ...prev[gid] };
-          for (const c of codeSet) {
-            if (c in nextBucket) {
-              delete nextBucket[c];
-              changed = true;
-            }
-          }
-          if (!changed) return prev;
-          return { ...prev, [gid]: nextBucket };
-        });
-      } catch { /* empty */ }
-    }
-
-    setAddFundToGroupOpen(false);
-    setSuccessModal({ open: true, message: `成功添加 ${codes.length} 支基金` });
-  };
-
-  /** 仅从指定自定义分组移除基金：分组 codes、该分组持仓/待定/交易/定投；不删 funds、全局 holdings */
-  const stripFundFromGroupScope = (code, groupId, options = {}) => {
-    const silent = options?.silent === true;
-    if (!code || !groupId) return;
-    const nextGroups = groups.map((g) =>
-      g.id === groupId ? { ...g, codes: g.codes.filter((c) => c !== code) } : g
-    );
-    setGroups(nextGroups);
-
-    setGroupHoldings((prev) => {
-      if (!prev[groupId]?.[code]) return prev;
-      const next = { ...prev };
-      const bucket = { ...next[groupId] };
-      delete bucket[code];
-      next[groupId] = bucket;
-      return next;
-    });
-
-    setPendingTrades((prev) => {
-      const next = prev.filter((t) => !(t.fundCode === code && t.groupId === groupId));
-      if (next.length === prev.length) return prev;
-      return next;
-    });
-
-    setTransactions((prev) => {
-      const list = prev[code] || [];
-      const filtered = list.filter((t) => t.groupId !== groupId);
-      if (filtered.length === list.length) return prev;
-      const next = { ...prev };
-      if (filtered.length) next[code] = filtered;
-      else delete next[code];
-      return next;
-    });
-
-    setDcaPlans((prev) => {
-      const scoped = migrateDcaPlansToScoped(prev);
-      if (!scoped[groupId]?.[code]) return prev;
-      const bucket = { ...scoped[groupId] };
-      delete bucket[code];
-      const nextScoped = { ...scoped, [groupId]: bucket };
-      return nextScoped;
-    });
-    try {
-      setFundDailyEarnings((prev) => {
-        if (!isPlainObject(prev) || !isPlainObject(prev[groupId]) || !(code in prev[groupId])) return prev;
-        const next = { ...prev, [groupId]: { ...prev[groupId] } };
-        delete next[groupId][code];
-        return next;
-      });
-    } catch { /* empty */ }
-
-    if (!silent) showToast('已从当前分组移除该基金', 'success');
-  };
-
-  /** 批量从同一自定义分组移除（单次合并更新，避免闭包叠加 strip 失效） */
-  const stripManyFundsFromGroupScope = (codes, groupId) => {
-    const set = new Set((codes || []).filter(Boolean));
-    if (!groupId || set.size === 0) return;
-
-    setGroups((prev) => {
-      const next = prev.map((g) =>
-        g.id === groupId ? { ...g, codes: g.codes.filter((c) => !set.has(c)) } : g
-      );
-      return next;
-    });
-
-    setGroupHoldings((prev) => {
-      if (!prev[groupId]) return prev;
-      const bucket = { ...prev[groupId] };
-      let changed = false;
-      for (const c of set) {
-        if (bucket[c]) {
-          delete bucket[c];
-          changed = true;
-        }
-      }
-      if (!changed) return prev;
-      const next = { ...prev, [groupId]: bucket };
-      return next;
-    });
-
-    setPendingTrades((prev) => {
-      const next = prev.filter((t) => !(set.has(t.fundCode) && t.groupId === groupId));
-      if (next.length === prev.length) return prev;
-      return next;
-    });
-
-    setTransactions((prev) => {
-      let next = { ...prev };
-      let changed = false;
-      for (const c of set) {
-        const list = next[c];
-        if (!list?.length) continue;
-        const filtered = list.filter((t) => t.groupId !== groupId);
-        if (filtered.length !== list.length) {
-          changed = true;
-          if (filtered.length) next[c] = filtered;
-          else delete next[c];
-        }
-      }
-      if (!changed) return prev;
-      return next;
-    });
-
-    setDcaPlans((prev) => {
-      const scoped = migrateDcaPlansToScoped(prev);
-      if (!scoped[groupId]) return prev;
-      const bucket = { ...scoped[groupId] };
-      let changed = false;
-      for (const c of set) {
-        if (bucket[c]) {
-          delete bucket[c];
-          changed = true;
-        }
-      }
-      if (!changed) return prev;
-      const nextScoped = { ...scoped, [groupId]: bucket };
-      return nextScoped;
-    });
-    try {
-      setFundDailyEarnings((prev) => {
-        if (!isPlainObject(prev) || !isPlainObject(prev[groupId])) return prev;
-        const bucket = prev[groupId];
-        let changed = false;
-        const nextBucket = { ...bucket };
-        for (const c of set) {
-          if (c in nextBucket) {
-            delete nextBucket[c];
-            changed = true;
-          }
-        }
-        if (!changed) return prev;
-        return { ...prev, [groupId]: nextBucket };
-      });
-    } catch { /* empty */ }
-  };
-
-  const toggleFundInGroup = (code, groupId) => {
-    const next = groups.map(g => {
-      if (g.id === groupId) {
-        const has = g.codes.includes(code);
-        return {
-          ...g,
-          codes: has ? g.codes.filter(c => c !== code) : [...g.codes, code]
-        };
-      }
-      return g;
-    });
-    setGroups(next);
-  };
+  const {
+    handleAddGroup,
+    handleUpdateGroups,
+    handleAddFundsToGroup,
+    stripFundFromGroupScope,
+    stripManyFundsFromGroupScope
+  } = useGroupActions({ currentTab, setCurrentTab });
 
   const handleReorder = (oldIndex, newIndex) => {
     const movedItem = displayFunds[oldIndex];
@@ -3159,7 +2403,7 @@ export default function HomePage() {
 
     if (currentTab === 'all' || currentTab === 'fav') {
       const newFunds = [...funds];
-      const fromIndex = newFunds.findIndex(f => f.code === movedItem.code);
+      const fromIndex = newFunds.findIndex((f) => f.code === movedItem.code);
 
       if (fromIndex === -1) return;
 
@@ -3167,7 +2411,7 @@ export default function HomePage() {
       const [removed] = newFunds.splice(fromIndex, 1);
 
       // Find target index in the array (after removal)
-      const toIndex = newFunds.findIndex(f => f.code === targetItem.code);
+      const toIndex = newFunds.findIndex((f) => f.code === targetItem.code);
 
       if (toIndex === -1) {
         // If target not found (should not happen), put it back
@@ -3185,7 +2429,7 @@ export default function HomePage() {
 
       setFunds(newFunds);
     } else {
-      const groupIndex = groups.findIndex(g => g.id === currentTab);
+      const groupIndex = groups.findIndex((g) => g.id === currentTab);
       if (groupIndex > -1) {
         const group = groups[groupIndex];
         const newCodes = [...group.codes];
@@ -3204,8 +2448,6 @@ export default function HomePage() {
     }
   };
 
-
-
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
@@ -3223,7 +2465,8 @@ export default function HomePage() {
       initFundDailyEarnings();
       initFundDividends();
       initSort();
-      try {        // 已登录用户：不在此处调用 refreshAll，等 fetchCloudConfig 完成后由 applyCloudConfig 统一刷新
+      try {
+        // 已登录用户：不在此处调用 refreshAll，等 fetchCloudConfig 完成后由 applyCloudConfig 统一刷新
         let shouldRefreshFromLocal = true;
         if (isSupabaseConfigured) {
           const { data, error } = await supabase.auth.getSession();
@@ -3240,7 +2483,9 @@ export default function HomePage() {
           let storedTagRows = [];
           try {
             storedTagRows = storageStore.getItem('tags', []);
-          } catch { /* empty */ }
+          } catch {
+            /* empty */
+          }
           if (!Array.isArray(storedTagRows)) storedTagRows = [];
           const normalizedTags = storedTagRows
             .map((r) => {
@@ -3249,7 +2494,7 @@ export default function HomePage() {
                 id: String(r.id || '').trim() || uuidv4(),
                 name: String(r.name || '').trim(),
                 theme: String(r.theme || '').trim() || DEFAULT_FUND_TAG_THEME,
-                fundCodes: codes.sort(),
+                fundCodes: codes.sort()
               };
             })
             .filter((r) => r.name);
@@ -3270,7 +2515,7 @@ export default function HomePage() {
                   id: String(r.id || '').trim() || uuidv4(),
                   name,
                   theme: String(r.theme || '').trim() || DEFAULT_FUND_TAG_THEME,
-                  fundCodes: codes.sort(),
+                  fundCodes: codes.sort()
                 };
               })
               .filter(Boolean);
@@ -3279,57 +2524,55 @@ export default function HomePage() {
             setFundTagRecords([]);
           }
         }
-       setTempSeconds(Math.round(useStorageStore.getState().refreshMs / 1000));
-       // 加载估值分时记录（用于分时图）
-      setValuationSeries(getAllValuationSeries(funds));
-      // 加载自选状态：只保留存在于 funds 中的 code，避免“自选数量 > 全部数量”
-      const savedFavorites = Array.from(favorites);
-      const storedFundCodeSet = new Set(funds.map((f) => f?.code).filter(Boolean));
-      const cleanedFavorites = cleanCodeArray(savedFavorites, storedFundCodeSet);
-      if (cleanedFavorites.length !== savedFavorites.length) {
-        setFavorites(new Set(cleanedFavorites));
-      }
-      // 加载待处理交易
-      const savedPending = storageStore.getItem('pendingTrades', []);
-      if (Array.isArray(savedPending)) {
-        setPendingTrades(savedPending);
-      }
-      // 加载分组状态
-      // 读取用户上次选择的分组（仅本地存储，不同步云端）
-      const savedTab = storageStore.getItem('currentTab');
-      if (
-        savedTab === 'all' ||
-        savedTab === 'fav' ||
-        (savedTab && Array.isArray(groups) && groups.some((g) => g?.id === savedTab))
-      ) {
-        setCurrentTab(savedTab);
-      } else if (savedTab) {
-        setCurrentTab('all');
-      }
-      // 加载持仓数据
-      const seedGh = seedGroupHoldingsFromGlobal(
-        holdings,
-        Array.isArray(groups) ? groups : [],
-        groupHoldings
-      );
-      if (seedGh.changed) {
-        setGroupHoldings(seedGh.next);
-      }
-      const migratedDca = migrateDcaPlansToScoped(isPlainObject(dcaPlans) ? dcaPlans : {});
-      if (JSON.stringify(migratedDca) !== JSON.stringify(dcaPlans)) {
-        setDcaPlans(migratedDca);
-      }
-      const savedTheme = storageStore.getItem('theme');
-      if (savedTheme === 'light' || savedTheme === 'dark') {
-        setTheme(savedTheme);
-      }
-      } catch { }
+        setTempSeconds(Math.round(useStorageStore.getState().refreshMs / 1000));
+        // 加载估值分时记录（用于分时图）
+        setValuationSeries(getAllValuationSeries(funds));
+        // 加载自选状态：只保留存在于 funds 中的 code，避免“自选数量 > 全部数量”
+        const savedFavorites = Array.from(favorites);
+        const storedFundCodeSet = new Set(funds.map((f) => f?.code).filter(Boolean));
+        const cleanedFavorites = cleanCodeArray(savedFavorites, storedFundCodeSet);
+        if (cleanedFavorites.length !== savedFavorites.length) {
+          setFavorites(new Set(cleanedFavorites));
+        }
+        // 加载待处理交易
+        const savedPending = storageStore.getItem('pendingTrades', []);
+        if (Array.isArray(savedPending)) {
+          setPendingTrades(savedPending);
+        }
+        // 加载分组状态
+        // 读取用户上次选择的分组（仅本地存储，不同步云端）
+        const savedTab = storageStore.getItem('currentTab');
+        if (
+          savedTab === 'all' ||
+          savedTab === 'fav' ||
+          (savedTab && Array.isArray(groups) && groups.some((g) => g?.id === savedTab))
+        ) {
+          setCurrentTab(savedTab);
+        } else if (savedTab) {
+          setCurrentTab('all');
+        }
+        // 加载持仓数据
+        const seedGh = seedGroupHoldingsFromGlobal(holdings, Array.isArray(groups) ? groups : [], groupHoldings);
+        if (seedGh.changed) {
+          setGroupHoldings(seedGh.next);
+        }
+        const migratedDca = migrateDcaPlansToScoped(isPlainObject(dcaPlans) ? dcaPlans : {});
+        if (JSON.stringify(migratedDca) !== JSON.stringify(dcaPlans)) {
+          setDcaPlans(migratedDca);
+        }
+        const savedTheme = storageStore.getItem('theme');
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          setTheme(savedTheme);
+        }
+      } catch {}
       if (!cancelled) {
         hasLocalTabInitRef.current = true;
       }
     };
     init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isSupabaseConfigured]);
 
   // 切换分组后，页面自动回到顶部（跳过首次初始化恢复）
@@ -3353,7 +2596,7 @@ export default function HomePage() {
     if (!hasLocalTabInitRef.current) return;
     try {
       storageStore.setItem('currentTab', currentTab);
-    } catch { }
+    } catch {}
   }, [currentTab]);
 
   // 主题同步：已由 useTheme hook 内部的 useEffect 处理，此处无需重复
@@ -3390,7 +2633,7 @@ export default function HomePage() {
               storageHelper.removeItem(key);
             }
           });
-        } catch { }
+        } catch {}
         try {
           const sessionKeys = Object.keys(sessionStorage);
           sessionKeys.forEach((key) => {
@@ -3398,7 +2641,7 @@ export default function HomePage() {
               sessionStorage.removeItem(key);
             }
           });
-        } catch { }
+        } catch {}
         clearAuthState();
         setLoginInitialError('会话已过期，请重新登录');
         showToast('会话已过期，请重新登录', 'error');
@@ -3422,7 +2665,9 @@ export default function HomePage() {
       await handleSession(data?.session ?? null, 'INITIAL_SESSION');
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       // INITIAL_SESSION 会由 getSession() 主动触发，这里不再重复处理
       if (event === 'INITIAL_SESSION') return;
       const isExplicitLogin = event === 'SIGNED_IN' && isExplicitLoginRef.current;
@@ -3470,7 +2715,9 @@ export default function HomePage() {
       return;
     }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session }
+      } = await supabase.auth.getSession();
       if (session) {
         const { error } = await supabase.auth.signOut({ scope: 'local' });
         if (error && error.code !== 'session_not_found') {
@@ -3478,12 +2725,12 @@ export default function HomePage() {
         }
       }
     } catch (err) {
-      showToast(err.message, 'error')
+      showToast(err.message, 'error');
       console.error('登出失败', err);
     } finally {
       try {
         await supabase.auth.signOut({ scope: 'local' });
-      } catch { }
+      } catch {}
       try {
         const storageKeys = Object.keys(localStorage);
         storageKeys.forEach((key) => {
@@ -3491,7 +2738,7 @@ export default function HomePage() {
             storageHelper.removeItem(key);
           }
         });
-      } catch { }
+      } catch {}
       try {
         const sessionKeys = Object.keys(sessionStorage);
         sessionKeys.forEach((key) => {
@@ -3499,7 +2746,7 @@ export default function HomePage() {
             sessionStorage.removeItem(key);
           }
         });
-      } catch { }
+      } catch {}
       setLoginModalOpen(false);
       setLoginInitialError('');
       clearAuthUser();
@@ -3517,10 +2764,10 @@ export default function HomePage() {
 
     setIsSearching(true);
     searchFunds(val)
-      .then(results => {
+      .then((results) => {
         setSearchResults(results);
       })
-      .catch(e => {
+      .catch((e) => {
         console.error('搜索失败', e);
       })
       .finally(() => {
@@ -3533,140 +2780,25 @@ export default function HomePage() {
   };
 
   const toggleSelectFund = (fund) => {
-    setSelectedFunds(prev => {
-      const exists = prev.find(f => f.CODE === fund.CODE);
+    setSelectedFunds((prev) => {
+      const exists = prev.find((f) => f.CODE === fund.CODE);
       if (exists) {
-        return prev.filter(f => f.CODE !== fund.CODE);
+        return prev.filter((f) => f.CODE !== fund.CODE);
       }
       return [...prev, fund];
     });
   };
 
-  const getAddBaseSnapshotFromFund = (fund) => {
-    const dwjz = Number(fund?.dwjz);
-    if (Number.isFinite(dwjz) && dwjz > 0) {
-      return { nav: dwjz, date: fund?.jzrq || null };
-    }
-    const gsz = Number(fund?.gsz);
-    if (Number.isFinite(gsz) && gsz > 0) {
-      return { nav: gsz, date: fund?.gztime || fund?.time || null };
-    }
-    return { nav: null, date: null };
-  };
-
-  const withAddBaseline = (fund) => {
-    const next = { ...(fund || {}) };
-    const now = Date.now();
-    if (next.addedAt == null) next.addedAt = now;
-    if (next.addBaseNav == null || next.addBaseDate == null) {
-      const snap = getAddBaseSnapshotFromFund(next);
-      if (next.addBaseNav == null && snap.nav != null) next.addBaseNav = snap.nav;
-      if (next.addBaseDate == null && snap.date) next.addBaseDate = snap.date;
-    }
-    return next;
-  };
-
-  const handleScanImportConfirm = async (codes) => {
-    if (!Array.isArray(codes) || codes.length === 0) return;
-    const uniqueCodes = Array.from(new Set(codes));
-    const toAdd = uniqueCodes.filter(c => !funds.some(f => f.code === c));
-    if (toAdd.length === 0) {
-      setSuccessModal({ open: true, message: '识别的基金已全部添加' });
-      return;
-    }
-    setLoading(true);
-    try {
-      const added = [];
-      await asyncPool(5, toAdd, async (code) => {
-        try {
-          const data = await fetchFundData(code);
-          if (data && data.code) {
-            added.push(withAddBaseline(data));
-          }
-        } catch (e) {
-          console.error(`通过识别导入基金 ${code} 失败`, e);
-        }
-      });
-      if (added.length > 0) {
-        setFunds(prev => {
-          const merged = [...prev, ...added];
-          const deduped = Array.from(new Map(merged.map(f => [f.code, f])).values());
-          return deduped;
-        });
-        const nextSeries = {};
-        added.forEach(u => {
-          if (u?.code != null && !u.noValuation && Number.isFinite(Number(u.gsz))) {
-            nextSeries[u.code] = recordValuation(u.code, { gsz: u.gsz, gztime: u.gztime }, 1);
-          }
-        });
-        if (Object.keys(nextSeries).length > 0) setValuationSeries(prev => ({ ...prev, ...nextSeries }));
-        setSuccessModal({ open: true, message: `已导入 ${added.length} 只基金` });
-      } else {
-        setSuccessModal({ open: true, message: '未能导入任何基金，请检查截图清晰度' });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const batchAddFunds = async () => {
-    if (selectedFunds.length === 0) return;
-    setLoading(true);
-    setError('');
-
-    try {
-      const newFunds = [];
-      await asyncPool(5, selectedFunds, async (f) => {
-        if (funds.some(existing => existing.code === f.CODE)) return;
-        try {
-          const data = await fetchFundData(f.CODE);
-          newFunds.push(withAddBaseline(data));
-        } catch (e) {
-          console.error(`添加基金 ${f.CODE} 失败`, e);
-        }
-      });
-
-      if (newFunds.length > 0) {
-        const updated = dedupeByCode([...newFunds, ...funds]);
-        setFunds(updated);
-        const nextSeries = {};
-        newFunds.forEach(u => {
-          if (u?.code != null && !u.noValuation && Number.isFinite(Number(u.gsz))) {
-            nextSeries[u.code] = recordValuation(u.code, { gsz: u.gsz, gztime: u.gztime }, 1);
-          }
-        });
-        if (Object.keys(nextSeries).length > 0) setValuationSeries(prev => ({ ...prev, ...nextSeries }));
-      }
-
-      setSelectedFunds([]);
-      setSearchTerm('');
-      setSearchResults([]);
-    } catch (e) {
-      setError('批量添加失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleViewMode = () => {
-    const nextMode = viewMode === 'card' ? 'list' : 'card';
-    applyViewMode(nextMode);
-  };
-
   const requestRemoveFund = (fund) => {
     const gid =
-      currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab)
-        ? currentTab
-        : null;
+      currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab) ? currentTab : null;
 
     if (gid) {
       const gh = groupHoldings[gid]?.[fund.code];
       const hasGroupHolding = gh && isNumber(gh.share) && gh.share > 0;
-      const hasGroupPending = pendingTrades.some(
-        (t) => t.fundCode === fund.code && t.groupId === gid
-      );
+      const hasGroupPending = pendingTrades.some((t) => t.fundCode === fund.code && t.groupId === gid);
       const scoped = migrateDcaPlansToScoped(dcaPlans);
-      const hasGroupDca = !!(scoped[gid]?.[fund.code]);
+      const hasGroupDca = !!scoped[gid]?.[fund.code];
       const txList = transactions[fund.code] || [];
       const hasGroupTx = txList.some((t) => t.groupId === gid);
       const needsConfirm = hasGroupHolding || hasGroupPending || hasGroupDca || hasGroupTx;
@@ -3699,9 +2831,7 @@ export default function HomePage() {
   /** @returns {boolean|void} false 表示已弹出二次确认，由确认成功回调再清空选中；true 表示已立即执行，调用方可清空多选 */
   const requestRemoveFundsFromCurrentGroup = (codes) => {
     const gid =
-      currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab)
-        ? currentTab
-        : null;
+      currentTab !== 'all' && currentTab !== 'fav' && groups.some((g) => g.id === currentTab) ? currentTab : null;
     const list = Array.from(new Set((codes || []).filter(Boolean)));
     if (list.length === 0) return true;
 
@@ -3711,7 +2841,7 @@ export default function HomePage() {
         const gh = groupHoldings[gid]?.[code];
         const hasGroupHolding = gh && isNumber(gh.share) && gh.share > 0;
         const hasGroupPending = pendingTrades.some((t) => t.fundCode === code && t.groupId === gid);
-        const hasGroupDca = !!(scoped[gid]?.[code]);
+        const hasGroupDca = !!scoped[gid]?.[code];
         const txList = transactions[code] || [];
         const hasGroupTx = txList.some((t) => t.groupId === gid);
         return hasGroupHolding || hasGroupPending || hasGroupDca || hasGroupTx;
@@ -3732,15 +2862,13 @@ export default function HomePage() {
     // 全部 / 自选：与单条删除、移动端批量删除作用域一致
     const fundsWithOtherGroups = [];
     for (const code of list) {
-      const otherGroupNames = groups
-        .filter((g) => g.codes.includes(code))
-        .map((g) => g.name);
+      const otherGroupNames = groups.filter((g) => g.codes.includes(code)).map((g) => g.name);
       if (otherGroupNames.length > 0) {
         const meta = funds.find((f) => f.code === code);
         fundsWithOtherGroups.push({
           code,
           name: meta?.name || code,
-          otherGroups: otherGroupNames,
+          otherGroups: otherGroupNames
         });
       }
     }
@@ -3766,8 +2894,7 @@ export default function HomePage() {
   };
 
   /** PC / 移动端列表共用：批量删除当前 Tab 下选中基金（与 PcFundTable onRemoveFunds 一致） */
-  const removeFundsFromCurrentTabHandler = (codes) =>
-    requestRemoveFundsFromCurrentGroup(codes);
+  const removeFundsFromCurrentTabHandler = (codes) => requestRemoveFundsFromCurrentGroup(codes);
 
   /**
    * 批量迁移分组（含持仓/交易/待处理/定投等分组作用域数据）
@@ -3794,9 +2921,7 @@ export default function HomePage() {
 
     const conflicts = [];
     for (const code of list) {
-      const hasTargetHolding = toGid
-        ? (groupHoldings?.[toGid]?.[code] != null)
-        : (holdings?.[code] != null);
+      const hasTargetHolding = toGid ? groupHoldings?.[toGid]?.[code] != null : holdings?.[code] != null;
       if (hasTargetHolding) conflicts.push(code);
     }
     if (dryRun) return { conflicts };
@@ -3861,9 +2986,7 @@ export default function HomePage() {
       if (fromGid) next[fromGid] = sourceBucket;
 
       for (const code of list) {
-        const fromValue = fromGid
-          ? sourceBucket?.[code]
-          : holdings?.[code];
+        const fromValue = fromGid ? sourceBucket?.[code] : holdings?.[code];
 
         // 写入目标（仅在目标为自定义分组时）
         if (toGid) {
@@ -3891,7 +3014,8 @@ export default function HomePage() {
         if (!inFromScope) return t;
         changed = true;
         if (toGid) return { ...t, groupId: toGid };
-        const { groupId, ...rest } = t;
+        const rest = { ...t };
+        delete rest.groupId;
         return rest;
       });
       if (!changed) return prev;
@@ -3911,7 +3035,8 @@ export default function HomePage() {
           if (!inFromScope) return tx;
           changed = true;
           if (toGid) return { ...tx, groupId: toGid };
-          const { groupId, ...rest } = tx;
+          const rest = { ...tx };
+          delete rest.groupId;
           return rest;
         });
         out[code] = nextArr;
@@ -3949,7 +3074,7 @@ export default function HomePage() {
       let changed = false;
       for (const code of list) {
         if (!(code in fromBucket)) continue;
-        if (!overwrite && (code in toBucket)) continue;
+        if (!overwrite && code in toBucket) continue;
         toBucket[code] = fromBucket[code];
         delete fromBucket[code];
         changed = true;
@@ -3967,11 +3092,13 @@ export default function HomePage() {
 
   const handleMarketTabAddFund = (fundInfo) => {
     const { code, name } = fundInfo;
-    const fundsToConfirm = [{
-      code,
-      name,
-      status: 'pending'
-    }];
+    const fundsToConfirm = [
+      {
+        code,
+        name,
+        status: 'pending'
+      }
+    ];
     setScannedFunds(fundsToConfirm);
     setSelectedScannedCodes(new Set([code]));
     setIsOcrScan(false);
@@ -3983,22 +3110,23 @@ export default function HomePage() {
     setError('');
     const manualTokens = String(searchTerm || '')
       .split(/[^0-9A-Za-z]+/)
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
-    const selectedCodes = Array.from(new Set([
-      ...selectedFunds.map(f => f.CODE),
-      ...manualTokens.filter(t => /^\d{6}$/.test(t))
-    ]));
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    const selectedCodes = Array.from(
+      new Set([...selectedFunds.map((f) => f.CODE), ...manualTokens.filter((t) => /^\d{6}$/.test(t))])
+    );
     if (selectedCodes.length === 0) {
       setError('请输入或选择基金代码');
       return;
     }
     const nameMap = {};
-    selectedFunds.forEach(f => { nameMap[f.CODE] = f.NAME; });
-    const fundsToConfirm = selectedCodes.map(code => ({
+    selectedFunds.forEach((f) => {
+      nameMap[f.CODE] = f.NAME;
+    });
+    const fundsToConfirm = selectedCodes.map((code) => ({
       code,
       name: nameMap[code] || '',
-      status: funds.some(f => f.code === code) ? 'added' : 'pending'
+      status: funds.some((f) => f.code === code) ? 'added' : 'pending'
     }));
     setScannedFunds(fundsToConfirm);
     setSelectedScannedCodes(new Set(selectedCodes));
@@ -4016,14 +3144,14 @@ export default function HomePage() {
     setFunds(next);
 
     // 同步删除分组中的失效代码
-    const nextGroups = groups.map(g => ({
+    const nextGroups = groups.map((g) => ({
       ...g,
-      codes: g.codes.filter(c => c !== removeCode)
+      codes: g.codes.filter((c) => c !== removeCode)
     }));
     setGroups(nextGroups);
 
     // 同步删除展开收起状态
-    setCollapsedCodes(prev => {
+    setCollapsedCodes((prev) => {
       if (!prev.has(removeCode)) return prev;
       const nextSet = new Set(prev);
       nextSet.delete(removeCode);
@@ -4031,7 +3159,7 @@ export default function HomePage() {
     });
 
     // 同步删除业绩走势收起状态
-    setCollapsedTrends(prev => {
+    setCollapsedTrends((prev) => {
       if (!prev.has(removeCode)) return prev;
       const nextSet = new Set(prev);
       nextSet.delete(removeCode);
@@ -4039,7 +3167,7 @@ export default function HomePage() {
     });
 
     // 同步删除我的收益收起状态
-    setCollapsedEarnings(prev => {
+    setCollapsedEarnings((prev) => {
       if (!prev.has(removeCode)) return prev;
       const nextSet = new Set(prev);
       nextSet.delete(removeCode);
@@ -4047,7 +3175,7 @@ export default function HomePage() {
     });
 
     // 同步删除自选状态
-    setFavorites(prev => {
+    setFavorites((prev) => {
       if (!prev || !prev.has(removeCode)) return prev;
       const nextSet = new Set(prev);
       nextSet.delete(removeCode);
@@ -4056,7 +3184,7 @@ export default function HomePage() {
     });
 
     // 同步删除持仓数据
-    setHoldings(prev => {
+    setHoldings((prev) => {
       if (!prev[removeCode]) return prev;
       const next = { ...prev };
       delete next[removeCode];
@@ -4078,13 +3206,13 @@ export default function HomePage() {
     });
 
     // 同步删除待处理交易
-    setPendingTrades(prev => {
+    setPendingTrades((prev) => {
       const next = prev.filter((trade) => trade?.fundCode !== removeCode);
       return next;
     });
 
     // 同步删除该基金的交易记录
-    setTransactions(prev => {
+    setTransactions((prev) => {
       if (!prev[removeCode]) return prev;
       const next = { ...prev };
       delete next[removeCode];
@@ -4093,7 +3221,7 @@ export default function HomePage() {
 
     // 同步删除该基金的估值分时数据
     clearFund(removeCode);
-    setValuationSeries(prev => {
+    setValuationSeries((prev) => {
       if (!(removeCode in prev)) return prev;
       const next = { ...prev };
       delete next[removeCode];
@@ -4102,7 +3230,7 @@ export default function HomePage() {
 
     // 同步删除该基金的每日收益数据
     try {
-      setFundDailyEarnings(prev => {
+      setFundDailyEarnings((prev) => {
         if (!isPlainObject(prev)) return prev;
         let changed = false;
         const next = { ...prev };
@@ -4116,7 +3244,7 @@ export default function HomePage() {
         });
         return changed ? next : prev;
       });
-    } catch { }
+    } catch {}
 
     // 同步删除该基金的定投计划（所有 scope）
     setDcaPlans((prev) => {
@@ -4159,7 +3287,7 @@ export default function HomePage() {
     setGroups((prev) => {
       const next = prev.map((g) => ({
         ...g,
-        codes: g.codes.filter((c) => !set.has(c)),
+        codes: g.codes.filter((c) => !set.has(c))
       }));
       return next;
     });
@@ -4330,7 +3458,9 @@ export default function HomePage() {
         }
         return changed ? next : prev;
       });
-    } catch { /* empty */ }
+    } catch {
+      /* empty */
+    }
 
     setDcaPlans((prev) => {
       const scoped = migrateDcaPlansToScoped(prev);
@@ -4364,35 +3494,45 @@ export default function HomePage() {
     });
   };
 
-  const saveSettings = (e, secondsOverride, showMarketIndexOverride, showGroupFundSearchOverride, isMobileOverride, dynamicStyleOverride) => {
+  const saveSettings = (
+    e,
+    secondsOverride,
+    showMarketIndexOverride,
+    showGroupFundSearchOverride,
+    isMobileOverride,
+    dynamicStyleOverride
+  ) => {
     e?.preventDefault?.();
     const seconds = secondsOverride ?? tempSeconds;
     const ms = Math.max(30, Number(seconds)) * 1000;
     setTempSeconds(Math.round(ms / 1000));
     setRefreshMs(ms);
-    const nextShowMarketIndex = typeof showMarketIndexOverride === 'boolean'
-      ? showMarketIndexOverride
-      : isMobileOverride
-        ? showMarketIndexMobile
-        : showMarketIndexPc;
+    const nextShowMarketIndex =
+      typeof showMarketIndexOverride === 'boolean'
+        ? showMarketIndexOverride
+        : isMobileOverride
+          ? showMarketIndexMobile
+          : showMarketIndexPc;
 
     const targetIsMobile = Boolean(isMobileOverride);
     if (targetIsMobile) setShowMarketIndexMobile(nextShowMarketIndex);
     else setShowMarketIndexPc(nextShowMarketIndex);
 
-    const nextShowGroupFundSearch = typeof showGroupFundSearchOverride === 'boolean'
-      ? showGroupFundSearchOverride
-      : targetIsMobile
-        ? showGroupFundSearchMobile
-        : showGroupFundSearchPc;
+    const nextShowGroupFundSearch =
+      typeof showGroupFundSearchOverride === 'boolean'
+        ? showGroupFundSearchOverride
+        : targetIsMobile
+          ? showGroupFundSearchMobile
+          : showGroupFundSearchPc;
     if (targetIsMobile) setShowGroupFundSearchMobile(nextShowGroupFundSearch);
     else setShowGroupFundSearchPc(nextShowGroupFundSearch);
 
-    const nextDynamicStyle = typeof dynamicStyleOverride === 'boolean'
-      ? dynamicStyleOverride
-      : targetIsMobile
-        ? dynamicStyleMobile
-        : dynamicStylePc;
+    const nextDynamicStyle =
+      typeof dynamicStyleOverride === 'boolean'
+        ? dynamicStyleOverride
+        : targetIsMobile
+          ? dynamicStyleMobile
+          : dynamicStylePc;
     if (targetIsMobile) setDynamicStyleMobile(nextDynamicStyle);
     else setDynamicStylePc(nextDynamicStyle);
 
@@ -4411,7 +3551,7 @@ export default function HomePage() {
           ...parsed,
           showMarketIndexMobile: nextShowMarketIndex,
           showGroupFundSearchMobile: nextShowGroupFundSearch,
-          dynamicStyleMobile: nextDynamicStyle,
+          dynamicStyleMobile: nextDynamicStyle
         });
       } else {
         setCustomSettings({
@@ -4419,10 +3559,10 @@ export default function HomePage() {
           pcContainerWidth: w,
           showMarketIndexPc: nextShowMarketIndex,
           showGroupFundSearchPc: nextShowGroupFundSearch,
-          dynamicStylePc: nextDynamicStyle,
+          dynamicStylePc: nextDynamicStyle
         });
       }
-    } catch { }
+    } catch {}
     setSettingsOpen(false);
   };
 
@@ -4431,7 +3571,7 @@ export default function HomePage() {
     try {
       const parsed = customSettings || {};
       setCustomSettings({ ...parsed, pcContainerWidth: 1200 });
-    } catch { }
+    } catch {}
   };
 
   const importFileRef = useRef(null);
@@ -4519,9 +3659,9 @@ export default function HomePage() {
 
         if (Array.isArray(data.funds)) {
           const incomingFunds = dedupeByCode(data.funds.map(stripLegacyTagsFromFundObject));
-          const existingCodes = new Set(currentFunds.map(f => f.code));
-          const newItems = incomingFunds.filter(f => f && f.code && !existingCodes.has(f.code));
-          appendedCodes = newItems.map(f => f.code);
+          const existingCodes = new Set(currentFunds.map((f) => f.code));
+          const newItems = incomingFunds.filter((f) => f && f.code && !existingCodes.has(f.code));
+          appendedCodes = newItems.map((f) => f.code);
           mergedFunds = [...currentFunds, ...newItems];
           setFunds(mergedFunds);
         }
@@ -4550,7 +3690,7 @@ export default function HomePage() {
               id,
               name,
               theme: String(r.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
-              fundCodes: mergedCodes,
+              fundCodes: mergedCodes
             });
             if (row) byId.set(id, row);
           }
@@ -4567,8 +3707,8 @@ export default function HomePage() {
         if (Array.isArray(data.groups)) {
           // 合并分组：如果 ID 相同则合并 codes，否则添加新分组
           const mergedGroups = [...currentGroups];
-          data.groups.forEach(incomingGroup => {
-            const existingIdx = mergedGroups.findIndex(g => g.id === incomingGroup.id);
+          data.groups.forEach((incomingGroup) => {
+            const existingIdx = mergedGroups.findIndex((g) => g.id === incomingGroup.id);
             if (existingIdx > -1) {
               mergedGroups[existingIdx] = {
                 ...mergedGroups[existingIdx],
@@ -4619,16 +3759,16 @@ export default function HomePage() {
         }
 
         if (isPlainObject(data.transactions)) {
-             const currentTransactions = storageStore.getItem('transactions', {});
-             const mergedTransactions = { ...currentTransactions };
-             Object.entries(data.transactions).forEach(([code, txs]) => {
-                 if (!Array.isArray(txs)) return;
-                 const existing = mergedTransactions[code] || [];
-                 const existingIds = new Set(existing.map(t => t.id));
-                 const newTxs = txs.filter(t => !existingIds.has(t.id));
-                 mergedTransactions[code] = [...existing, ...newTxs].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-             });
-             setTransactions(mergedTransactions);
+          const currentTransactions = storageStore.getItem('transactions', {});
+          const mergedTransactions = { ...currentTransactions };
+          Object.entries(data.transactions).forEach(([code, txs]) => {
+            if (!Array.isArray(txs)) return;
+            const existing = mergedTransactions[code] || [];
+            const existingIds = new Set(existing.map((t) => t.id));
+            const newTxs = txs.filter((t) => !existingIds.has(t.id));
+            mergedTransactions[code] = [...existing, ...newTxs].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          });
+          setTransactions(mergedTransactions);
         }
 
         if (Array.isArray(data.pendingTrades)) {
@@ -4658,17 +3798,17 @@ export default function HomePage() {
           Object.keys(incomingScoped).forEach((scope) => {
             mergedDca[scope] = {
               ...(isPlainObject(mergedDca[scope]) ? mergedDca[scope] : {}),
-              ...(isPlainObject(incomingScoped[scope]) ? incomingScoped[scope] : {}),
+              ...(isPlainObject(incomingScoped[scope]) ? incomingScoped[scope] : {})
             };
           });
           setDcaPlans(mergedDca);
-          }
+        }
         if (isPlainObject(data.customSettings)) {
           try {
             const currentCustomSettings = customSettings || {};
             const mergedSettings = {
               ...(isPlainObject(currentCustomSettings) ? currentCustomSettings : {}),
-              ...data.customSettings,
+              ...data.customSettings
             };
             setCustomSettings(mergedSettings);
             if (mergedSettings.localSortRules && Array.isArray(mergedSettings.localSortRules)) {
@@ -4678,22 +3818,35 @@ export default function HomePage() {
               setPcSortDisplayMode(mergedSettings.localSortDisplayMode);
               setMobileSortDisplayMode(mergedSettings.localSortDisplayMode);
             } else {
-              if (mergedSettings.pcLocalSortDisplayMode && SORT_DISPLAY_MODES.has(mergedSettings.pcLocalSortDisplayMode)) {
+              if (
+                mergedSettings.pcLocalSortDisplayMode &&
+                SORT_DISPLAY_MODES.has(mergedSettings.pcLocalSortDisplayMode)
+              ) {
                 setPcSortDisplayMode(mergedSettings.pcLocalSortDisplayMode);
               }
-              if (mergedSettings.mobileLocalSortDisplayMode && SORT_DISPLAY_MODES.has(mergedSettings.mobileLocalSortDisplayMode)) {
+              if (
+                mergedSettings.mobileLocalSortDisplayMode &&
+                SORT_DISPLAY_MODES.has(mergedSettings.mobileLocalSortDisplayMode)
+              ) {
                 setMobileSortDisplayMode(mergedSettings.mobileLocalSortDisplayMode);
               }
             }
-            if (typeof mergedSettings.pcContainerWidth === 'number' && Number.isFinite(mergedSettings.pcContainerWidth)) {
+            if (
+              typeof mergedSettings.pcContainerWidth === 'number' &&
+              Number.isFinite(mergedSettings.pcContainerWidth)
+            ) {
               const maxWidth = window.matchMedia('(max-width: 640px)').matches ? 99999 : window.innerWidth;
               setContainerWidth(Math.min(maxWidth, Math.max(600, mergedSettings.pcContainerWidth)));
             }
-            if (typeof mergedSettings.showMarketIndexPc === 'boolean') setShowMarketIndexPc(mergedSettings.showMarketIndexPc);
-            if (typeof mergedSettings.showMarketIndexMobile === 'boolean') setShowMarketIndexMobile(mergedSettings.showMarketIndexMobile);
-            if (typeof mergedSettings.showGroupFundSearchPc === 'boolean') setShowGroupFundSearchPc(mergedSettings.showGroupFundSearchPc);
-            if (typeof mergedSettings.showGroupFundSearchMobile === 'boolean') setShowGroupFundSearchMobile(mergedSettings.showGroupFundSearchMobile);
-          } catch { }
+            if (typeof mergedSettings.showMarketIndexPc === 'boolean')
+              setShowMarketIndexPc(mergedSettings.showMarketIndexPc);
+            if (typeof mergedSettings.showMarketIndexMobile === 'boolean')
+              setShowMarketIndexMobile(mergedSettings.showMarketIndexMobile);
+            if (typeof mergedSettings.showGroupFundSearchPc === 'boolean')
+              setShowGroupFundSearchPc(mergedSettings.showGroupFundSearchPc);
+            if (typeof mergedSettings.showGroupFundSearchMobile === 'boolean')
+              setShowGroupFundSearchMobile(mergedSettings.showGroupFundSearchMobile);
+          } catch {}
         }
 
         if (isPlainObject(data.fundDailyEarnings)) {
@@ -4708,25 +3861,24 @@ export default function HomePage() {
               Object.entries(bucket).forEach(([code, list]) => {
                 if (!Array.isArray(list)) return;
                 const existingList = Array.isArray(mergedBucket[code]) ? mergedBucket[code] : [];
-                const existingByDate = new Map(existingList.map(item => [item.date, item]));
-                list.forEach(item => {
+                const existingByDate = new Map(existingList.map((item) => [item.date, item]));
+                list.forEach((item) => {
                   if (!item || !item.date || !Number.isFinite(item.earnings)) return;
                   existingByDate.set(item.date, item);
                 });
-                mergedBucket[code] = Array.from(existingByDate.values())
-                  .sort((a, b) => a.date.localeCompare(b.date));
+                mergedBucket[code] = Array.from(existingByDate.values()).sort((a, b) => a.date.localeCompare(b.date));
               });
               mergedDaily[scope] = mergedBucket;
             });
             setFundDailyEarnings(mergedDaily);
-          } catch { }
+          } catch {}
         }
 
         // 导入成功后，仅刷新新追加的基金
         if (appendedCodes.length) {
           // 这里需要确保 refreshAll 不会因为闭包问题覆盖掉刚刚合并好的 mergedFunds
           // 我们直接传入所有代码执行一次全量刷新是最稳妥的，或者修改 refreshAll 支持增量更新
-          const allCodes = mergedFunds.map(f => f.code);
+          const allCodes = mergedFunds.map((f) => f.code);
           await refreshAll(allCodes);
         }
 
@@ -4793,7 +3945,9 @@ export default function HomePage() {
   useEffect(() => {
     const unsub = useModalStore.subscribe(
       (s) => s.settingsOpen,
-      (open) => { settingsOpenRef.current = open; }
+      (open) => {
+        settingsOpenRef.current = open;
+      }
     );
     settingsOpenRef.current = useModalStore.getState().settingsOpen;
     return unsub;
@@ -4809,7 +3963,7 @@ export default function HomePage() {
   const containerClassName = [
     'container',
     isMobile && mainTab === 'mine' ? 'mine-mobile-root' : 'content',
-    isMobile && mainTab === 'home' ? 'content-with-mobile-tabbar' : '',
+    isMobile && mainTab === 'home' ? 'content-with-mobile-tabbar' : ''
   ]
     .filter(Boolean)
     .join(' ');
@@ -4818,50 +3972,59 @@ export default function HomePage() {
   const mobileHomeTabVisible = mainTab === 'home' || mainTab === 'market';
 
   /** PC / 移动端行、FundCard 共用：统一 name / fundName 后走单删逻辑 */
-  const handleRemoveFundEntry = useCallback((rowOrFund) => {
-    if (!rowOrFund?.code) return;
-    const name = rowOrFund.name ?? rowOrFund.fundName ?? rowOrFund.code;
-    requestRemoveFund({ code: rowOrFund.code, name });
-  }, [requestRemoveFund]);
+  const handleRemoveFundEntry = useCallback(
+    (rowOrFund) => {
+      if (!rowOrFund?.code) return;
+      const name = rowOrFund.name ?? rowOrFund.fundName ?? rowOrFund.code;
+      requestRemoveFund({ code: rowOrFund.code, name });
+    },
+    [requestRemoveFund]
+  );
 
-  const handleToggleFavoriteRow = useCallback((row) => {
-    if (!row || !row.code) return;
-    toggleFavorite(row.code);
-  }, [toggleFavorite]);
+  const handleToggleFavoriteRow = useCallback(
+    (row) => {
+      if (!row || !row.code) return;
+      toggleFavorite(row.code);
+    },
+    [toggleFavorite]
+  );
 
-  const handleHoldingAmountClickRow = useCallback((row, meta) => {
-    if (!row || !row.code) return;
-    if ((currentTab === 'all' || currentTab === 'fav') && row.isHoldingLinked) {
-      const fund = row.rawFund || { code: row.code, name: row.fundName };
-      setSelectHoldingGroupModal({ open: true, fund });
-      return;
-    }
-
-    // 自定义分组：未设置持仓时，如果“全部”存在全局持仓，则提示迁移
-    if (activeGroupId && meta?.hasHolding === false) {
-      const gh = groupHoldings?.[activeGroupId]?.[row.code];
-      const hasGroupShare = gh && isNumber(gh.share) && gh.share > 0;
-      const global = holdings?.[row.code];
-      const hasGlobalShare = global && isNumber(global.share) && global.share > 0;
-      if (!hasGroupShare && hasGlobalShare) {
-        const name = row.rawFund?.name ?? row.fundName ?? row.code;
-        setHoldingMigrateDialog({
-          open: true,
-          code: row.code,
-          name,
-          targetGroupId: activeGroupId,
-        });
+  const handleHoldingAmountClickRow = useCallback(
+    (row, meta) => {
+      if (!row || !row.code) return;
+      if ((currentTab === 'all' || currentTab === 'fav') && row.isHoldingLinked) {
+        const fund = row.rawFund || { code: row.code, name: row.fundName };
+        setSelectHoldingGroupModal({ open: true, fund });
         return;
       }
-    }
 
-    const fund = row.rawFund || { code: row.code, name: row.fundName };
-    if (meta?.hasHolding) {
-      setActionModal({ open: true, fund });
-    } else {
-      setHoldingModal({ open: true, fund });
-    }
-  }, [activeGroupId, currentTab, groupHoldings, holdings]);
+      // 自定义分组：未设置持仓时，如果“全部”存在全局持仓，则提示迁移
+      if (activeGroupId && meta?.hasHolding === false) {
+        const gh = groupHoldings?.[activeGroupId]?.[row.code];
+        const hasGroupShare = gh && isNumber(gh.share) && gh.share > 0;
+        const global = holdings?.[row.code];
+        const hasGlobalShare = global && isNumber(global.share) && global.share > 0;
+        if (!hasGroupShare && hasGlobalShare) {
+          const name = row.rawFund?.name ?? row.fundName ?? row.code;
+          setHoldingMigrateDialog({
+            open: true,
+            code: row.code,
+            name,
+            targetGroupId: activeGroupId
+          });
+          return;
+        }
+      }
+
+      const fund = row.rawFund || { code: row.code, name: row.fundName };
+      if (meta?.hasHolding) {
+        setActionModal({ open: true, fund });
+      } else {
+        setHoldingModal({ open: true, fund });
+      }
+    },
+    [activeGroupId, currentTab, groupHoldings, holdings]
+  );
 
   const handleHoldingProfitClickRow = useCallback((row) => {
     if (!row || !row.code) return;
@@ -4869,77 +4032,86 @@ export default function HomePage() {
     setPercentModes((prev) => ({ ...prev, [row.code]: !prev[row.code] }));
   }, []);
 
-  const openHoldingModal = useCallback((fund) => {
-    const code = fund?.code;
-    if ((currentTab === 'all' || currentTab === 'fav') && code && linkedHoldingsForAllFav.linked?.has?.(code)) {
-      setSelectHoldingGroupModal({ open: true, fund });
-      return;
-    }
-
-    // 自定义分组：卡片视图/抽屉中“未设置持仓”点击时也走同样迁移提示
-    if (activeGroupId && code) {
-      const gh = groupHoldings?.[activeGroupId]?.[code];
-      const hasGroupShare = gh && isNumber(gh.share) && gh.share > 0;
-      const global = holdings?.[code];
-      const hasGlobalShare = global && isNumber(global.share) && global.share > 0;
-      if (!hasGroupShare && hasGlobalShare) {
-        const name = fund?.name ?? code;
-        setHoldingMigrateDialog({
-          open: true,
-          code,
-          name,
-          targetGroupId: activeGroupId,
-        });
+  const openHoldingModal = useCallback(
+    (fund) => {
+      const code = fund?.code;
+      if ((currentTab === 'all' || currentTab === 'fav') && code && linkedHoldingsForAllFav.linked?.has?.(code)) {
+        setSelectHoldingGroupModal({ open: true, fund });
         return;
       }
-    }
 
-    setHoldingModal({ open: true, fund });
-  }, [activeGroupId, currentTab, groupHoldings, holdings, linkedHoldingsForAllFav]);
+      // 自定义分组：卡片视图/抽屉中“未设置持仓”点击时也走同样迁移提示
+      if (activeGroupId && code) {
+        const gh = groupHoldings?.[activeGroupId]?.[code];
+        const hasGroupShare = gh && isNumber(gh.share) && gh.share > 0;
+        const global = holdings?.[code];
+        const hasGlobalShare = global && isNumber(global.share) && global.share > 0;
+        if (!hasGroupShare && hasGlobalShare) {
+          const name = fund?.name ?? code;
+          setHoldingMigrateDialog({
+            open: true,
+            code,
+            name,
+            targetGroupId: activeGroupId
+          });
+          return;
+        }
+      }
+
+      setHoldingModal({ open: true, fund });
+    },
+    [activeGroupId, currentTab, groupHoldings, holdings, linkedHoldingsForAllFav]
+  );
   const openDataSourceModal = useCallback((fund) => {
     setDataSourceModal({ open: true, fund });
   }, []);
 
-  const handleDataSourceSelect = useCallback((fundCode, sourceId) => {
-    setFunds((prev) => {
-      const next = [...prev];
-      const idx = next.findIndex(f => f.code === fundCode);
-      if (idx !== -1) {
-        next[idx] = {
-          ...next[idx],
-          dataSource: sourceId,
-          gsz: null,
-          gszzl: null,
-          gztime: null,
-          valuationSource: null,
-          noValuation: false
-        };
+  const handleDataSourceSelect = useCallback(
+    (fundCode, sourceId) => {
+      setFunds((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex((f) => f.code === fundCode);
+        if (idx !== -1) {
+          next[idx] = {
+            ...next[idx],
+            dataSource: sourceId,
+            gsz: null,
+            gszzl: null,
+            gztime: null,
+            valuationSource: null,
+            noValuation: false
+          };
+        }
+        return next;
+      });
+
+      if (typeof window !== 'undefined') {
+        try {
+          const saved = JSON.parse(localStorage.getItem('rtf_unadded_ds') || '{}');
+          saved[fundCode] = sourceId;
+          localStorage.setItem('rtf_unadded_ds', JSON.stringify(saved));
+        } catch {}
+        window.dispatchEvent(new CustomEvent('rtf_unadded_datasource_change', { detail: { fundCode, sourceId } }));
       }
-      return next;
-    });
 
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = JSON.parse(localStorage.getItem('rtf_unadded_ds') || '{}');
-        saved[fundCode] = sourceId;
-        localStorage.setItem('rtf_unadded_ds', JSON.stringify(saved));
-      } catch (e) {}
-      window.dispatchEvent(new CustomEvent('rtf_unadded_datasource_change', { detail: { fundCode, sourceId } }));
-    }
+      // Immediately fetch new data for this fund so the UI updates
+      refreshAll([fundCode]);
+      showToast('切换数据源成功', 'success');
+    },
+    [setFunds]
+  ); // refreshAll is omitted from deps to avoid loop, it's stable enough in page scope
 
-    // Immediately fetch new data for this fund so the UI updates
-    refreshAll([fundCode]);
-    showToast('切换数据源成功', 'success');
-  }, [setFunds]); // refreshAll is omitted from deps to avoid loop, it's stable enough in page scope
-
-  const openActionModal = useCallback((fund) => {
-    const code = fund?.code;
-    if ((currentTab === 'all' || currentTab === 'fav') && code && linkedHoldingsForAllFav.linked?.has?.(code)) {
-      setSelectHoldingGroupModal({ open: true, fund });
-      return;
-    }
-    setActionModal({ open: true, fund });
-  }, [currentTab, linkedHoldingsForAllFav]);
+  const openActionModal = useCallback(
+    (fund) => {
+      const code = fund?.code;
+      if ((currentTab === 'all' || currentTab === 'fav') && code && linkedHoldingsForAllFav.linked?.has?.(code)) {
+        setSelectHoldingGroupModal({ open: true, fund });
+        return;
+      }
+      setActionModal({ open: true, fund });
+    },
+    [currentTab, linkedHoldingsForAllFav]
+  );
   const togglePercentMode = useCallback((code) => {
     setPercentModes((prev) => ({ ...prev, [code]: !prev[code] }));
   }, []);
@@ -4947,79 +4119,82 @@ export default function HomePage() {
     setTodayPercentModes((prev) => ({ ...prev, [code]: !prev[code] }));
   }, []);
 
-  const getFundCardPropsForRow = useCallback((row) => {
-    const fund = row?.rawFund || (row ? { code: row.code, name: row.fundName } : null);
-    if (!fund) return {};
-    return {
-      fundCode: fund.code,
-      fallbackFund: fund,
+  const getFundCardPropsForRow = useCallback(
+    (row) => {
+      const fund = row?.rawFund || (row ? { code: row.code, name: row.fundName } : null);
+      if (!fund) return {};
+      return {
+        fundCode: fund.code,
+        fallbackFund: fund,
+        todayStr,
+        currentTab,
+        favorites,
+        dcaPlans: dcaPlansForTab,
+        holdings: holdingsForTabWithLinked,
+        percentModes,
+        todayPercentModes,
+        fundDailyEarnings: currentFundDailyEarnings,
+        valuationSeries,
+        collapsedCodes,
+        collapsedTrends,
+        collapsedEarnings,
+        transactions: transactionsForTab,
+        theme,
+        isTradingDay,
+        getHoldingProfit: getHoldingProfitForTab,
+        onToggleFavorite: toggleFavorite,
+        onAddFund: handleMarketTabAddFund,
+        onRemoveFund: handleRemoveFundEntry,
+        onHoldingClick: openHoldingModal,
+        onActionClick: openActionModal,
+        onDataSourceClick: openDataSourceModal,
+        onPercentModeToggle: togglePercentMode,
+        onTodayPercentModeToggle: toggleTodayPercentMode,
+        onToggleCollapse: toggleCollapse,
+        onToggleTrendCollapse: toggleTrendCollapse,
+        onToggleEarningsCollapse: toggleEarningsCollapse,
+        masked: maskAmounts,
+        layoutMode: 'drawer',
+        isHoldingLinked: !!row?.isHoldingLinked,
+        fundTags: row?.fundTags || [],
+        onFundTagsClick: openFundTagsEdit,
+        fundExtraData: fundExtraDataByCode[fund.code] || fund.fundExtraData,
+        groupTotalHoldingAmount
+      };
+    },
+    [
       todayStr,
       currentTab,
       favorites,
-      dcaPlans: dcaPlansForTab,
-      holdings: holdingsForTabWithLinked,
+      dcaPlansForTab,
+      holdingsForTabWithLinked,
       percentModes,
       todayPercentModes,
-      fundDailyEarnings: currentFundDailyEarnings,
+      currentFundDailyEarnings,
       valuationSeries,
       collapsedCodes,
       collapsedTrends,
       collapsedEarnings,
-      transactions: transactionsForTab,
+      transactionsForTab,
       theme,
       isTradingDay,
-      getHoldingProfit: getHoldingProfitForTab,
-      onToggleFavorite: toggleFavorite,
-      onAddFund: handleMarketTabAddFund,
-      onRemoveFund: handleRemoveFundEntry,
-      onHoldingClick: openHoldingModal,
-      onActionClick: openActionModal,
-      onDataSourceClick: openDataSourceModal,
-      onPercentModeToggle: togglePercentMode,
-      onTodayPercentModeToggle: toggleTodayPercentMode,
-      onToggleCollapse: toggleCollapse,
-      onToggleTrendCollapse: toggleTrendCollapse,
-      onToggleEarningsCollapse: toggleEarningsCollapse,
-      masked: maskAmounts,
-      layoutMode: 'drawer',
-      isHoldingLinked: !!row?.isHoldingLinked,
-      fundTags: row?.fundTags || [],
-      onFundTagsClick: openFundTagsEdit,
-      fundExtraData: fundExtraDataByCode[fund.code] || fund.fundExtraData,
-      groupTotalHoldingAmount,
-    };
-  }, [
-    todayStr,
-    currentTab,
-    favorites,
-    dcaPlansForTab,
-    holdingsForTabWithLinked,
-    percentModes,
-    todayPercentModes,
-    currentFundDailyEarnings,
-    valuationSeries,
-    collapsedCodes,
-    collapsedTrends,
-    collapsedEarnings,
-    transactionsForTab,
-    theme,
-    isTradingDay,
-    getHoldingProfitForTab,
-    toggleFavorite,
-    handleRemoveFundEntry,
-    openHoldingModal,
-    openActionModal,
-    openDataSourceModal,
-    togglePercentMode,
-    toggleTodayPercentMode,
-    toggleCollapse,
-    toggleTrendCollapse,
-    toggleEarningsCollapse,
-    maskAmounts,
-    openFundTagsEdit,
-    fundExtraDataByCode,
-    groupTotalHoldingAmount,
-  ]);
+      getHoldingProfitForTab,
+      toggleFavorite,
+      handleRemoveFundEntry,
+      openHoldingModal,
+      openActionModal,
+      openDataSourceModal,
+      togglePercentMode,
+      toggleTodayPercentMode,
+      toggleCollapse,
+      toggleTrendCollapse,
+      toggleEarningsCollapse,
+      maskAmounts,
+      openFundTagsEdit,
+      fundExtraDataByCode,
+      groupTotalHoldingAmount
+    ]
+  );
 
   // ModalsLayer 回调 ref：页面级回调与数据通过 ref 注入，不触发重渲染
   const modalCbRef = useRef({});
@@ -5046,9 +4221,12 @@ export default function HomePage() {
     removeFund,
     removeFundsBulk,
     stripManyFundsFromGroupScope,
-    applyCloudConfig: (data) => { applyCloudConfig(data); },
+    applyCloudConfig: (data) => {
+      applyCloudConfig(data);
+    },
     syncUserConfig,
-    fetchCloudConfig: (userId, isInitialSync, remoteData, isPartial, opts) => fetchCloudConfig?.(userId, isInitialSync, remoteData, isPartial, opts),
+    fetchCloudConfig: (userId, isInitialSync, remoteData, isPartial, opts) =>
+      fetchCloudConfig?.(userId, isInitialSync, remoteData, isPartial, opts),
     refreshAll: (codes) => refreshAll?.(codes),
     showToast,
     cancelScan,
@@ -5116,911 +4294,787 @@ export default function HomePage() {
     setDcaPlans,
     setFundTagRecords,
     setFunds,
-    setFavorites,
+    setFavorites
   };
 
   return (
-    <>
-      <PcSideNav value={mainTab} onChange={setMainTab} />
-      <div ref={containerRef} className={containerClassName} style={{ width: isMobile ? '100%' : containerWidth }}>
-      <AnimatePresence>
-        {showThemeTransition && (
-          <motion.div
-            className="theme-transition-overlay"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <motion.div
-              className="theme-transition-circle"
-              initial={{ scale: 0, opacity: 0.5 }}
-              animate={{ scale: 2.5, opacity: 0 }}
-              transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-              onAnimationComplete={() => setShowThemeTransition(false)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <NavLayout
+      mainTab={mainTab}
+      setMainTab={setMainTab}
+      isMobile={isMobile}
+      containerRef={containerRef}
+      containerClassName={containerClassName}
+      containerWidth={containerWidth}
+      showThemeTransition={showThemeTransition}
+      setShowThemeTransition={setShowThemeTransition}
+      mobileBottomNavHidden={mobileBottomNavHidden}
+    >
       <div
         className="mobile-main-tab-panel mobile-main-tab-panel--home"
         style={{ display: mobileHomeTabVisible ? 'contents' : 'none' }}
         aria-hidden={!mobileHomeTabVisible || undefined}
       >
-      <>
-      <Announcement />
-      <div className="navbar glass" ref={navbarRef}>
-        {refreshing && <div className="loading-bar"></div>}
-        <div className={`brand ${(isSearchFocused || selectedFunds.length > 0) ? 'search-focused-sibling' : ''}`}>
-          <Tooltip>
-<TooltipTrigger asChild>
-<div
-            style={{
-              width: 24,
-              height: 24,
-              marginRight: 4,
-              position: 'relative',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-            }}
-            
-          >
-            {/* 同步中图标 */}
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                margin: 'auto',
-                opacity: isSyncing ? 1 : 0,
-                transform: isSyncing ? 'translateY(0px)' : 'translateY(4px)',
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
-              }}
-            >
-              <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" stroke="var(--primary)" />
-              <path d="M12 12v9" stroke="var(--accent)" />
-              <path d="m16 16-4-4-4 4" stroke="var(--accent)" />
-            </svg>
-            {/* 默认图标 */}
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                margin: 'auto',
-                opacity: isSyncing ? 0 : 1,
-                transform: isSyncing ? 'translateY(-4px)' : 'translateY(0px)',
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
-              }}
-            >
-              <circle cx="12" cy="12" r="10" stroke="var(--accent)" strokeWidth="2" />
-              <path d="M5 14c2-4 7-6 14-5" stroke="var(--primary)" strokeWidth="2" />
-            </svg>
-          </div>
-</TooltipTrigger>
-<TooltipContent>
-<p>{isSyncing ? '正在同步到云端...' : undefined}</p>
-</TooltipContent>
-</Tooltip>
-          <span>基估宝</span>
-        </div>
-        <div className={`glass add-fund-section navbar-add-fund ${(isSearchFocused || selectedFunds.length > 0) ? 'search-focused' : ''}`} role="region" aria-label="添加基金">
-          <div className="search-container" ref={dropdownRef}>
-            {selectedFunds.length > 0 && (
-              <div className="selected-inline-chips" style={{ marginBottom: 8, marginLeft: 0 }}>
-                {selectedFunds.map(fund => (
-                  <div key={fund.CODE} className="fund-chip">
-                    <span>{fund.NAME}</span>
-                    <button onClick={() => toggleSelectFund(fund)} className="remove-chip">
-                      <CloseIcon width="14" height="14" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <form className="form" onSubmit={addFund}>
-              <div className="search-input-wrapper" style={{ flex: 1, gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span className="navbar-search-icon" aria-hidden="true">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                    <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </span>
-                <div className="input navbar-input-shell" style={{ display: 'flex', alignItems: 'center' }}>
-                  <input
-                    ref={inputRef}
-                    className="navbar-input-field"
-                    placeholder="搜索基金名称或代码..."
-                    value={searchTerm}
-                    onChange={handleSearchInput}
-                    onFocus={() => {
-                      setShowDropdown(true);
-                      setIsSearchFocused(true);
-                    }}
-                    onBlur={() => {
-                      // 延迟关闭，以允许点击搜索结果
-                      setTimeout(() => setIsSearchFocused(false), 200);
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                  <div style={{ marginRight: 8, display: 'flex', alignItems: 'center' }}>
-                    <ScanButton onClick={handleScanClick} disabled={isScanning} />
-                  </div>
-                </div>
-                {isSearching && <div className="search-spinner" />}
-              </div>
-              <button
-                className="button"
-                type="submit"
-                disabled={loading}
-                onMouseDown={(e) => e.preventDefault()}
-                style={{
-                  display: (isSearchFocused || selectedFunds.length > 0) ? 'inline-flex' : undefined,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  whiteSpace: 'nowrap',
-                  minWidth: 'fit-content'
-                }}
-              >
-                {loading ? '添加中…' : '添加'}
-              </button>
-            </form>
-
-            <AnimatePresence>
-              {showDropdown && (String(searchTerm ?? '').trim() || searchResults.length > 0) && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="search-dropdown glass scrollbar-y-styled"
-                >
-                  {searchResults.length > 0 ? (
-                    <div className="search-results">
-                      {searchResults.map((fund) => {
-                        const isSelected = selectedFunds.some(f => f.CODE === fund.CODE);
-                        return (
-                          <div
-                            key={fund.CODE}
-                            className={`search-item ${isSelected ? 'selected' : ''}`}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              toggleSelectFund(fund);
-                            }}
-                          >
-                            <div className="fund-info">
-                              <span className="fund-name">{fund.NAME}</span>
-                              <span className="fund-code muted">#{fund.CODE} | {fund.TYPE}</span>
-                            </div>
-                            <div className="checkbox">
-                              {isSelected && <div className="checked-mark" />}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : String(searchTerm ?? '').trim() && !isSearching ? (
-                    <div className="no-results muted">未找到相关基金</div>
-                  ) : null}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          {error && <div className="muted" style={{ marginTop: 8, color: 'var(--danger)' }}>{error}</div>}
-        </div>
-        <div className={`actions ${(isSearchFocused || selectedFunds.length > 0) ? 'search-focused-sibling' : ''}`}>
-          <UpdateChecker onModalOpenChange={setIsUpdateModalOpen} />
-          <span className="github-icon-wrap">
-            <Image unoptimized alt="项目Github地址" src={githubImg} style={{ width: '30px', height: '30px', cursor: 'pointer' }} onClick={() => window.open("https://github.com/hzm0321/real-time-fund")} />
-          </span>
-          {isMobile && (
-            <Tooltip>
-<TooltipTrigger asChild>
-<button
-              className="icon-button mobile-search-btn"
-              aria-label="筛选基金"
-              onClick={handleMobileSearchClick}
-              
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>筛选</p>
-</TooltipContent>
-</Tooltip>
-          )}
-          <RefreshButton
-            refreshMs={refreshMs}
-            manualRefresh={manualRefresh}
-            refreshing={refreshing}
-            fundsLength={funds.length}
-            refreshCycleStartRef={refreshCycleStartRef}
-          />
-          <Tooltip>
-<TooltipTrigger asChild>
-<button
-            className="icon-button"
-            aria-label={theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'}
-            onClick={handleThemeToggle}
-            
-          >
-            {theme === 'dark' ? <SunIcon width="18" height="18" /> : <MoonIcon width="18" height="18" />}
-          </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>{theme === 'dark' ? '亮色' : '暗色'}</p>
-</TooltipContent>
-</Tooltip>
-          <UserMenu
-            user={user}
-            userAvatar={userAvatar}
-            navbarHeight={navbarHeight}
-            lastSyncTime={lastSyncTime}
-            isSyncing={isSyncing}
-            onSync={() => user?.id && syncUserConfig(user.id)}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onOpenPortfolioEarnings={() => setPortfolioEarningsOpen(true)}
-            onOpenLogin={handleOpenLogin}
-            onLogout={handleLogout}
-            onLogoutConfirmOpenChange={setIsLogoutConfirmOpen}
-            onTutorial={() => {
-              if (isMobile) {
-                setTutorialDrawerOpen(true);
-              } else {
-                window.open('https://www.yuque.com/u267605/ookgim/im06q8tembbld6im?singleDoc', '_blank');
-              }
-            }}
-            onUpdateLog={() => setUpdateLogOpen(true)}
-          />
-        </div>
-      </div>
-      {shouldShowMarketIndex && (
-        <MarketIndexAccordion
-          navbarHeight={navbarHeight}
-          onCustomSettingsChange={triggerCustomSettingsSync}
-          refreshing={refreshing}
-        />
-      )}
-      <div style={{ display: mainTab === 'home' ? 'contents' : 'none' }}>
-        <div className="grid">
-          <div className="col-12">
-          <div ref={filterBarRef} className="filter-bar" style={{ top: `calc(${navbarHeight}px + var(--market-index-height, 0px))`, marginTop: 0, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-            <div className="tabs-container">
-              <div
-                className="tabs-scroll-area"
-                data-mask-left={canLeft}
-                data-mask-right={canRight}
-              >
-                <div
-                  className="tabs"
-                  ref={tabsRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseLeave={handleMouseLeaveOrUp}
-                  onMouseUp={handleMouseLeaveOrUp}
-                  onMouseMove={handleMouseMove}
-                  onWheel={handleWheel}
-                  onScroll={updateTabOverflow}
-                >
-                  <AnimatePresence mode="popLayout">
-                    {showPortfolioSummaryTab && (
-                      <motion.button
-                        layout
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        key="portfolio-summary"
-                        className={`tab ${currentTab === SUMMARY_TAB_ID ? 'active' : ''}`}
-                        onClick={() => handleTabClick(SUMMARY_TAB_ID)}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
-                      >
-                        汇总
-                      </motion.button>
-                    )}
-                    <motion.button
-                      layout
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      key="all"
-                      className={`tab ${currentTab === 'all' ? 'active' : ''}`}
-                      onClick={() => handleTabClick('all')}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
-                    >
-                      全部 ({funds.length})
-                    </motion.button>
-                    <motion.button
-                      layout
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      key="fav"
-                      className={`tab ${currentTab === 'fav' ? 'active' : ''}`}
-                      onClick={() => handleTabClick('fav')}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
-                    >
-                      自选 ({favorites.size})
-                    </motion.button>
-                    {groups.map(g => (
-                      <motion.button
-                        layout
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        key={g.id}
-                        className={`tab ${currentTab === g.id ? 'active' : ''}`}
-                        onClick={() => handleTabClick(g.id)}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
-                      >
-                        {g.name} ({g.codes.length})
-                      </motion.button>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </div>
-              {groups.length > 0 && (
-                <Tooltip>
-<TooltipTrigger asChild>
-<button
-                  className="icon-button manage-groups-btn"
-                  onClick={() => setGroupManageOpen(true)}
-                  
-                >
-                  <SortIcon width="16" height="16" />
-                </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>管理分组</p>
-</TooltipContent>
-</Tooltip>
-              )}
+        <>
+          <Announcement />
+          <div className="navbar glass" ref={navbarRef}>
+            {refreshing && <div className="loading-bar"></div>}
+            <div className={`brand ${isSearchFocused || selectedFunds.length > 0 ? 'search-focused-sibling' : ''}`}>
               <Tooltip>
-<TooltipTrigger asChild>
-<button
-                className="icon-button add-group-btn"
-                onClick={() => setGroupModalOpen(true)}
-                
-              >
-                <PlusIcon width="16" height="16" />
-              </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>新增分组</p>
-</TooltipContent>
-</Tooltip>
-            </div>
-
-            <div
-              className="sort-group"
-              style={{
-                display: currentTab === SUMMARY_TAB_ID ? 'none' : 'flex',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
-              <div className="view-toggle" style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '2px' }}>
-                <Tooltip>
-<TooltipTrigger asChild>
-<button
-                  className={`icon-button ${viewMode === 'card' ? 'active' : ''}`}
-                  onClick={() => { applyViewMode('card'); }}
-                  style={{ border: 'none', width: '32px', height: '32px', background: viewMode === 'card' ? 'var(--primary)' : 'transparent', color: viewMode === 'card' ? '#05263b' : 'var(--muted)' }}
-                  
-                >
-                  <GridIcon width="16" height="16" />
-                </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>卡片视图</p>
-</TooltipContent>
-</Tooltip>
-                <Tooltip>
-<TooltipTrigger asChild>
-<button
-                  className={`icon-button ${viewMode === 'list' ? 'active' : ''}`}
-                  onClick={() => { applyViewMode('list'); }}
-                  style={{ border: 'none', width: '32px', height: '32px', background: viewMode === 'list' ? 'var(--primary)' : 'transparent', color: viewMode === 'list' ? '#05263b' : 'var(--muted)' }}
-                  
-                >
-                  <ListIcon width="16" height="16" />
-                </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>表格视图</p>
-</TooltipContent>
-</Tooltip>
-              </div>
-
-              <div className="divider" style={{ width: '1px', height: '20px', background: 'var(--border)' }} />
-
-              <div className="sort-items" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Tooltip>
-<TooltipTrigger asChild>
-<button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => setSortSettingOpen(true)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: '12px',
-                    color: 'var(--muted-foreground)',
-                    cursor: 'pointer',
-                    width: '50px',
-                  }}
-                  
-                >
-                  <span className="muted">排序</span>
-                  <SettingsIcon width="14" height="14" />
-                </button>
-</TooltipTrigger>
-<TooltipContent>
-<p>排序个性化设置</p>
-</TooltipContent>
-</Tooltip>
-                { (isMobile ? mobileSortDisplayMode : pcSortDisplayMode) === 'dropdown' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Select
-                      value={sortBy}
-                      onValueChange={(nextSortBy) => {
-                        startTransition(() => {
-                          setSortBy(nextSortBy);
-                          if (nextSortBy !== sortBy) setSortOrder('desc');
-                        });
+                <TooltipTrigger asChild>
+                  <div
+                    style={{
+                      width: 24,
+                      height: 24,
+                      marginRight: 4,
+                      position: 'relative',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {/* 同步中图标 */}
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        margin: 'auto',
+                        opacity: isSyncing ? 1 : 0,
+                        transform: isSyncing ? 'translateY(0px)' : 'translateY(4px)',
+                        transition: 'opacity 0.25s ease, transform 0.25s ease'
                       }}
                     >
-                      <SelectTrigger
-                        className="h-4 min-w-[110px] py-0 text-xs shadow-none"
-                        style={{ background: 'var(--card-bg)', height: 36 }}
-                      >
-                        <SelectValue placeholder="选择排序规则" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sortRules.filter((s) => s.enabled).map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.alias || s.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={sortOrder}
-                      onValueChange={(value) => {
-                        startTransition(() => {
-                          setSortOrder(value);
-                        });
+                      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" stroke="var(--primary)" />
+                      <path d="M12 12v9" stroke="var(--accent)" />
+                      <path d="m16 16-4-4-4 4" stroke="var(--accent)" />
+                    </svg>
+                    {/* 默认图标 */}
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        margin: 'auto',
+                        opacity: isSyncing ? 0 : 1,
+                        transform: isSyncing ? 'translateY(-4px)' : 'translateY(0px)',
+                        transition: 'opacity 0.25s ease, transform 0.25s ease'
                       }}
                     >
-                      <SelectTrigger
-                        className="h-4 min-w-[84px] py-0 text-xs shadow-none"
-                        style={{ background: 'var(--card-bg)', height: 36 }}
-                      >
-                        <SelectValue placeholder="排序方向" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="desc">降序</SelectItem>
-                        <SelectItem value="asc">升序</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <circle cx="12" cy="12" r="10" stroke="var(--accent)" strokeWidth="2" />
+                      <path d="M5 14c2-4 7-6 14-5" stroke="var(--primary)" strokeWidth="2" />
+                    </svg>
                   </div>
-                ) : (
-                  <div className="chips">
-                    {sortRules.filter((s) => s.enabled).map((s) => (
-                      <button
-                        key={s.id}
-                        className={`chip ${sortBy === s.id ? 'active' : ''}`}
-                        onClick={() => {
-                          startTransition(() => {
-                            if (sortBy === s.id) {
-                              // 同一按钮重复点击，切换升序/降序
-                              setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-                            } else {
-                              // 切换到新的排序字段，默认用降序
-                              setSortBy(s.id);
-                              setSortOrder('desc');
-                            }
-                          });
-                        }}
-                        style={{ height: '28px', fontSize: '12px', padding: '0 10px', display: 'flex', alignItems: 'center', gap: 4 }}
-                      >
-                        <span>{s.alias || s.label}</span>
-                        {s.id !== 'default' && sortBy === s.id && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              flexDirection: 'column',
-                              lineHeight: 1,
-                              fontSize: '8px',
-                            }}
-                          >
-                            <span style={{ opacity: sortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
-                            <span style={{ opacity: sortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
-                          </span>
-                        )}
-                      </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isSyncing ? '正在同步到云端...' : undefined}</p>
+                </TooltipContent>
+              </Tooltip>
+              <span>基估宝</span>
+            </div>
+            <div
+              className={`glass add-fund-section navbar-add-fund ${isSearchFocused || selectedFunds.length > 0 ? 'search-focused' : ''}`}
+              role="region"
+              aria-label="添加基金"
+            >
+              <div className="search-container" ref={dropdownRef}>
+                {selectedFunds.length > 0 && (
+                  <div className="selected-inline-chips" style={{ marginBottom: 8, marginLeft: 0 }}>
+                    {selectedFunds.map((fund) => (
+                      <div key={fund.CODE} className="fund-chip">
+                        <span>{fund.NAME}</span>
+                        <button onClick={() => toggleSelectFund(fund)} className="remove-chip">
+                          <CloseIcon width="14" height="14" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
+                <SearchBar
+                  inputRef={inputRef}
+                  searchTerm={searchTerm}
+                  handleSearchInput={handleSearchInput}
+                  showDropdown={showDropdown}
+                  setShowDropdown={setShowDropdown}
+                  isSearchFocused={isSearchFocused}
+                  setIsSearchFocused={setIsSearchFocused}
+                  searchResults={searchResults}
+                  isSearching={isSearching}
+                  selectedFunds={selectedFunds}
+                  toggleSelectFund={toggleSelectFund}
+                  isScanning={isScanning}
+                  handleScanClick={handleScanClick}
+                  addFund={addFund}
+                />
               </div>
+              {error && (
+                <div className="muted" style={{ marginTop: 8, color: 'var(--danger)' }}>
+                  {error}
+                </div>
+              )}
+            </div>
+            <div className={`actions ${isSearchFocused || selectedFunds.length > 0 ? 'search-focused-sibling' : ''}`}>
+              <UpdateChecker onModalOpenChange={setIsUpdateModalOpen} />
+              <span className="github-icon-wrap">
+                <Image
+                  unoptimized
+                  alt="项目Github地址"
+                  src={githubImg}
+                  style={{ width: '30px', height: '30px', cursor: 'pointer' }}
+                  onClick={() => window.open('https://github.com/hzm0321/real-time-fund')}
+                />
+              </span>
+              {isMobile && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="icon-button mobile-search-btn"
+                      aria-label="筛选基金"
+                      onClick={handleMobileSearchClick}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+                        <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>筛选</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <RefreshButton
+                refreshMs={refreshMs}
+                manualRefresh={manualRefresh}
+                refreshing={refreshing}
+                fundsLength={funds.length}
+                refreshCycleStartRef={refreshCycleStartRef}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="icon-button"
+                    aria-label={theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'}
+                    onClick={handleThemeToggle}
+                  >
+                    {theme === 'dark' ? <SunIcon width="18" height="18" /> : <MoonIcon width="18" height="18" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{theme === 'dark' ? '亮色' : '暗色'}</p>
+                </TooltipContent>
+              </Tooltip>
+              <UserMenu
+                user={user}
+                userAvatar={userAvatar}
+                navbarHeight={navbarHeight}
+                lastSyncTime={lastSyncTime}
+                isSyncing={isSyncing}
+                onSync={() => user?.id && syncUserConfig(user.id)}
+                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenPortfolioEarnings={() => setPortfolioEarningsOpen(true)}
+                onOpenLogin={handleOpenLogin}
+                onLogout={handleLogout}
+                onLogoutConfirmOpenChange={setIsLogoutConfirmOpen}
+                onTutorial={() => {
+                  if (isMobile) {
+                    setTutorialDrawerOpen(true);
+                  } else {
+                    window.open('https://www.yuque.com/u267605/ookgim/im06q8tembbld6im?singleDoc', '_blank');
+                  }
+                }}
+                onUpdateLog={() => setUpdateLogOpen(true)}
+              />
             </div>
           </div>
-
-          {scopedFunds.length === 0 &&
-          !(currentTab === SUMMARY_TAB_ID && showPortfolioSummaryTab) ? (
-            <EmptyStateCard
-              fundsLength={funds.length}
-              currentTab={currentTab}
-              onAddToGroup={() => setAddFundToGroupOpen(true)}
+          {shouldShowMarketIndex && (
+            <MarketIndexAccordion
+              navbarHeight={navbarHeight}
+              onCustomSettingsChange={triggerCustomSettingsSync}
+              refreshing={refreshing}
             />
-          ) : (
-            <>
-              <GroupSummary
-                  funds={displayFunds}
-                  holdings={holdingsForTabWithLinked}
-                  portfolioTabId={currentTab}
-                  groups={groups}
-                  getProfit={getHoldingProfitForTab}
-                  summaryTotalsOverride={
-                    currentTab === SUMMARY_TAB_ID ? summaryTabPortfolioTotals : null
-                  }
-                  stickyTop={navbarHeight + filterBarHeight + (isMobile ? -14 : 0)}
-                  isSticky={isGroupSummarySticky}
-                  onToggleSticky={(next) => setIsGroupSummarySticky(next)}
-                  masked={maskAmounts}
-                  onToggleMasked={() => setMaskAmounts((v) => !v)}
-                  shouldShowMarketIndex={shouldShowMarketIndex}
-                  navbarHeight={navbarHeight}
-                />
-              {currentTab === SUMMARY_TAB_ID && summaryCardItems.length > 0 && (
+          )}
+          <div style={{ display: mainTab === 'home' ? 'contents' : 'none' }}>
+            <div className="grid">
+              <div className="col-12">
                 <div
-                  className="grid"
+                  ref={filterBarRef}
+                  className="filter-bar"
                   style={{
-                    marginTop: isGroupSummarySticky ? 50 : 10,
-                    gridColumn: 'span 12',
-                    gap: isMobile ? 10 : 16,
+                    top: `calc(${navbarHeight}px + var(--market-index-height, 0px))`,
+                    marginTop: 0,
+                    marginBottom: 8,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 12
                   }}
                 >
-                  {summaryCardItems.map((row) => (
+                  <div className="tabs-container">
+                    <div className="tabs-scroll-area" data-mask-left={canLeft} data-mask-right={canRight}>
+                      <div
+                        className="tabs"
+                        ref={tabsRef}
+                        onMouseDown={handleMouseDown}
+                        onMouseLeave={handleMouseLeaveOrUp}
+                        onMouseUp={handleMouseLeaveOrUp}
+                        onMouseMove={handleMouseMove}
+                        onWheel={handleWheel}
+                        onScroll={updateTabOverflow}
+                      >
+                        <AnimatePresence mode="popLayout">
+                          {showPortfolioSummaryTab && (
+                            <motion.button
+                              layout
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              key="portfolio-summary"
+                              className={`tab ${currentTab === SUMMARY_TAB_ID ? 'active' : ''}`}
+                              onClick={() => handleTabClick(SUMMARY_TAB_ID)}
+                              transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
+                            >
+                              汇总
+                            </motion.button>
+                          )}
+                          <motion.button
+                            layout
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            key="all"
+                            className={`tab ${currentTab === 'all' ? 'active' : ''}`}
+                            onClick={() => handleTabClick('all')}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
+                          >
+                            全部 ({funds.length})
+                          </motion.button>
+                          <motion.button
+                            layout
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            key="fav"
+                            className={`tab ${currentTab === 'fav' ? 'active' : ''}`}
+                            onClick={() => handleTabClick('fav')}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
+                          >
+                            自选 ({favorites.size})
+                          </motion.button>
+                          {groups.map((g) => (
+                            <motion.button
+                              layout
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              key={g.id}
+                              className={`tab ${currentTab === g.id ? 'active' : ''}`}
+                              onClick={() => handleTabClick(g.id)}
+                              transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 1 }}
+                            >
+                              {g.name} ({g.codes.length})
+                            </motion.button>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                    {groups.length > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="icon-button manage-groups-btn" onClick={() => setGroupManageOpen(true)}>
+                            <SortIcon width="16" height="16" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>管理分组</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="icon-button add-group-btn" onClick={() => setGroupModalOpen(true)}>
+                          <PlusIcon width="16" height="16" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>新增分组</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  <div
+                    className="sort-group"
+                    style={{
+                      display: currentTab === SUMMARY_TAB_ID ? 'none' : 'flex',
+                      alignItems: 'center',
+                      gap: 12
+                    }}
+                  >
                     <div
-                      key={row.groupId}
+                      className="view-toggle"
                       style={{
-                        minWidth: 0,
-                        gridColumn: isMobile ? 'span 12' : 'span 6',
+                        display: 'flex',
+                        background: 'rgba(255,255,255,0.05)',
+                        borderRadius: '10px',
+                        padding: '2px'
                       }}
                     >
-                      <GroupAccountSummaryCard
-                        onActivate={() =>
-                          startTransition(() =>
-                            setCurrentTab(
-                              row.groupId === SUMMARY_SOURCE_GLOBAL ? 'all' : row.groupId
-                            )
-                          )
-                        }
-                        groupName={row.groupName}
-                        totalAsset={row.totalAsset}
-                        holdingReturn={row.holdingReturn}
-                        holdingReturnPercent={row.holdingReturnPercent}
-                        accountReturn={row.accountReturn}
-                        accountReturnPercent={row.accountReturnPercent}
-                        hasAnyTodayData={row.hasAnyTodayData}
-                        upCount={row.upCount}
-                        downCount={row.downCount}
-                        sparkSeries={row.sparkSeries}
-                        masked={maskAmounts}
-                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={`icon-button ${viewMode === 'card' ? 'active' : ''}`}
+                            onClick={() => {
+                              applyViewMode('card');
+                            }}
+                            style={{
+                              border: 'none',
+                              width: '32px',
+                              height: '32px',
+                              background: viewMode === 'card' ? 'var(--primary)' : 'transparent',
+                              color: viewMode === 'card' ? '#05263b' : 'var(--muted)'
+                            }}
+                          >
+                            <GridIcon width="16" height="16" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>卡片视图</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={`icon-button ${viewMode === 'list' ? 'active' : ''}`}
+                            onClick={() => {
+                              applyViewMode('list');
+                            }}
+                            style={{
+                              border: 'none',
+                              width: '32px',
+                              height: '32px',
+                              background: viewMode === 'list' ? 'var(--primary)' : 'transparent',
+                              color: viewMode === 'list' ? '#05263b' : 'var(--muted)'
+                            }}
+                          >
+                            <ListIcon width="16" height="16" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>表格视图</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-                  ))}
-                </div>
-              )}
-              {currentTab !== SUMMARY_TAB_ID && (
-                <>
-              {shouldShowGroupFundSearch && (
-                <SearchFund
-                  value={groupFundSearchTerm}
-                  onSearch={(next) => setGroupFundSearchTerm(next)}
-                />
-              )}
 
-              {displayFunds.length === 0 ? (
-                <div className="glass" style={{ marginTop: 10 }}>
-                  <Empty className="border-border/60">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <span className="text-3xl" aria-hidden="true">📂</span>
-                      </EmptyMedia>
-                      <EmptyTitle>未找到相关基金</EmptyTitle>
-                      <EmptyDescription>
-                        试试搜索基金名称的部分关键词，或直接输入 6 位基金代码。
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </div>
-              ) : (
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={viewMode}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className={viewMode === 'card' ? 'grid' : 'table-container glass'}
-                    style={{ marginTop: isGroupSummarySticky ? 50 : 0 }}
-                  >
-                  <div className={viewMode === 'card' ? 'grid col-12' : ''} style={viewMode === 'card' ? { gridColumn: 'span 12', gap: 16 } : {}}>
-                    {/* PC 列表：使用 PcFundTable + 右侧冻结操作列 */}
-                    {viewMode === 'list' && !isMobile && (
-                        <div className="table-pc-wrap">
-                          <div className="table-scroll-area">
-                            <div className="table-scroll-area-inner">
-                              <PcFundTable
-                                stickyTop={navbarHeight + filterBarHeight}
-                                data={pcFundTableData}
-                                relatedSectorSessionKey={user?.id ?? ''}
-                                currentTab={currentTab}
-                                groups={groups}
-                                favorites={favorites}
-                                sortBy={sortBy}
-                                sortOrder={sortOrder}
-                                sortRules={sortRules}
-                                onSortChange={(id) => {
+                    <div className="divider" style={{ width: '1px', height: '20px', background: 'var(--border)' }} />
+
+                    <div className="sort-items" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            onClick={() => setSortSettingOpen(true)}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              fontSize: '12px',
+                              color: 'var(--muted-foreground)',
+                              cursor: 'pointer',
+                              width: '50px'
+                            }}
+                          >
+                            <span className="muted">排序</span>
+                            <SettingsIcon width="14" height="14" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>排序个性化设置</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      {(isMobile ? mobileSortDisplayMode : pcSortDisplayMode) === 'dropdown' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Select
+                            value={sortBy}
+                            onValueChange={(nextSortBy) => {
+                              startTransition(() => {
+                                setSortBy(nextSortBy);
+                                if (nextSortBy !== sortBy) setSortOrder('desc');
+                              });
+                            }}
+                          >
+                            <SelectTrigger
+                              className="h-4 min-w-[110px] py-0 text-xs shadow-none"
+                              style={{ background: 'var(--card-bg)', height: 36 }}
+                            >
+                              <SelectValue placeholder="选择排序规则" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sortRules
+                                .filter((s) => s.enabled)
+                                .map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.alias || s.label}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={sortOrder}
+                            onValueChange={(value) => {
+                              startTransition(() => {
+                                setSortOrder(value);
+                              });
+                            }}
+                          >
+                            <SelectTrigger
+                              className="h-4 min-w-[84px] py-0 text-xs shadow-none"
+                              style={{ background: 'var(--card-bg)', height: 36 }}
+                            >
+                              <SelectValue placeholder="排序方向" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="desc">降序</SelectItem>
+                              <SelectItem value="asc">升序</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <div className="chips">
+                          {sortRules
+                            .filter((s) => s.enabled)
+                            .map((s) => (
+                              <button
+                                key={s.id}
+                                className={`chip ${sortBy === s.id ? 'active' : ''}`}
+                                onClick={() => {
                                   startTransition(() => {
-                                    if (sortBy === id) {
+                                    if (sortBy === s.id) {
+                                      // 同一按钮重复点击，切换升序/降序
                                       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
                                     } else {
-                                      setSortBy(id);
+                                      // 切换到新的排序字段，默认用降序
+                                      setSortBy(s.id);
                                       setSortOrder('desc');
                                     }
                                   });
                                 }}
-                                onReorder={handleReorder}
-                                onRemoveFund={handleRemoveFundEntry}
-                                onRemoveFunds={removeFundsFromCurrentTabHandler}
-                                onMoveFunds={handleMoveFunds}
-                                batchSelectionClearRef={pcBatchClearSelectionRef}
-                                onToggleFavorite={handleToggleFavoriteRow}
-                                onHoldingAmountClick={handleHoldingAmountClickRow}
-                                onHoldingProfitClick={handleHoldingProfitClickRow}
-                                onCustomSettingsChange={triggerCustomSettingsSync}
-                                closeDialogRef={fundDetailDialogCloseRef}
-              masked={maskAmounts}
-                                getFundCardProps={getFundCardPropsForRow}
-                                onFundTagsClick={openFundTagsEdit}
-                                fundExtraDataByCode={fundExtraDataByCode}
-                                />
-
-                            </div>
-                          </div>
+                                style={{
+                                  height: '28px',
+                                  fontSize: '12px',
+                                  padding: '0 10px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 4
+                                }}
+                              >
+                                <span>{s.alias || s.label}</span>
+                                {s.id !== 'default' && sortBy === s.id && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      flexDirection: 'column',
+                                      lineHeight: 1,
+                                      fontSize: '8px'
+                                    }}
+                                  >
+                                    <span style={{ opacity: sortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
+                                    <span style={{ opacity: sortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
+                                  </span>
+                                )}
+                              </button>
+                            ))}
                         </div>
-                    )}
-                    {viewMode === 'list' && isMobile && (
-                      <MobileFundTable
-                        data={pcFundTableData}
-                        relatedSectorSessionKey={user?.id ?? ''}
-                        currentTab={currentTab}
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {scopedFunds.length === 0 && !(currentTab === SUMMARY_TAB_ID && showPortfolioSummaryTab) ? (
+                  <EmptyStateCard
+                    fundsLength={funds.length}
+                    currentTab={currentTab}
+                    onAddToGroup={() => setAddFundToGroupOpen(true)}
+                  />
+                ) : (
+                  <>
+                    {currentTab === SUMMARY_TAB_ID ? (
+                      <SummaryTabContent
+                        funds={displayFunds}
+                        holdings={holdingsForTabWithLinked}
                         groups={groups}
-                        onMoveFunds={handleMoveFunds}
-                        favorites={favorites}
-                        sortBy={sortBy}
-                        sortOrder={sortOrder}
-                        sortRules={sortRules}
-                        onSortChange={(id) => {
-                          startTransition(() => {
-                            if (sortBy === id) {
-                              setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-                            } else {
-                              setSortBy(id);
-                              setSortOrder('desc');
-                            }
-                          });
-                        }}
-                        stickyTop={navbarHeight + filterBarHeight}
-                        closeDrawerRef={fundDetailDrawerCloseRef}
-                        onReorder={handleReorder}
-                        onRemoveFund={handleRemoveFundEntry}
-                        onRemoveFunds={removeFundsFromCurrentTabHandler}
-                        onToggleFavorite={handleToggleFavoriteRow}
-                        onHoldingAmountClick={handleHoldingAmountClickRow}
-                        onHoldingProfitClick={handleHoldingProfitClickRow}
-                        batchSelectionClearRef={mobileBatchClearSelectionRef}
-                        onCustomSettingsChange={triggerCustomSettingsSync}
-                        onFundCardDrawerOpenChange={handleFundCardDrawerOpenChange}
-                        onMobileSettingModalOpenChange={handleMobileSettingModalOpenChange}
-                        getFundCardProps={getFundCardPropsForRow}
+                        getProfit={getHoldingProfitForTab}
+                        summaryTabPortfolioTotals={summaryTabPortfolioTotals}
+                        navbarHeight={navbarHeight}
+                        filterBarHeight={filterBarHeight}
+                        isGroupSummarySticky={isGroupSummarySticky}
+                        setIsGroupSummarySticky={setIsGroupSummarySticky}
+                        maskAmounts={maskAmounts}
+                        setMaskAmounts={setMaskAmounts}
+                        shouldShowMarketIndex={shouldShowMarketIndex}
+                        summaryCardItems={summaryCardItems}
+                        isMobile={isMobile}
+                        startTransition={startTransition}
+                        setCurrentTab={setCurrentTab}
+                      />
+                    ) : (
+                      <GroupSummary
+                        funds={displayFunds}
+                        holdings={holdingsForTabWithLinked}
+                        portfolioTabId={currentTab}
+                        groups={groups}
+                        getProfit={getHoldingProfitForTab}
+                        summaryTotalsOverride={null}
+                        stickyTop={navbarHeight + filterBarHeight + (isMobile ? -14 : 0)}
+                        isSticky={isGroupSummarySticky}
+                        onToggleSticky={(next) => setIsGroupSummarySticky(next)}
                         masked={maskAmounts}
-                        onFundTagsClick={openFundTagsEdit}
-                        fundExtraDataByCode={fundExtraDataByCode}
+                        onToggleMasked={() => setMaskAmounts((v) => !v)}
+                        shouldShowMarketIndex={shouldShowMarketIndex}
+                        navbarHeight={navbarHeight}
                       />
                     )}
-                    <AnimatePresence mode="popLayout">
-                      {viewMode === 'card' && displayFunds.map((f) => (
-                        <motion.div
-                          layout="position"
-                          key={f.code}
-                          className="col-6"
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                          style={{ position: 'relative', overflow: 'hidden' }}
-                        >
-                            <FundCard
-                              fundCode={f.code}
-                              isHoldingLinked={
-                                (currentTab === 'all' || currentTab === 'fav') &&
-                                linkedHoldingsForAllFav.linked?.has?.(f?.code)
-                              }
-                              todayStr={todayStr}
-                              currentTab={currentTab}
-                              favorites={favorites}
-                              dcaPlans={dcaPlansForTab}
-                              holdings={holdingsForTabWithLinked}
-                              percentModes={percentModes}
-                              todayPercentModes={todayPercentModes}
-                              fundDailyEarnings={currentFundDailyEarnings}
-                              valuationSeries={valuationSeries}
-                              collapsedCodes={collapsedCodes}
-                              collapsedTrends={collapsedTrends}
-                              collapsedEarnings={collapsedEarnings}
-                              transactions={transactionsForTab}
-                              theme={theme}
-                              isTradingDay={isTradingDay}
-                              getHoldingProfit={getHoldingProfitForTab}
-                              onToggleFavorite={toggleFavorite}
-                              onRemoveFund={handleRemoveFundEntry}
-                              onHoldingClick={openHoldingModal}
-                              onActionClick={openActionModal}
-                              onDataSourceClick={openDataSourceModal}
-                              onPercentModeToggle={togglePercentMode}
-                              onTodayPercentModeToggle={toggleTodayPercentMode}
-                              onToggleCollapse={toggleCollapse}
-                              onToggleTrendCollapse={toggleTrendCollapse}
-                              onToggleEarningsCollapse={toggleEarningsCollapse}
-                              masked={maskAmounts}
-                              fundTags={Array.isArray(fundTagListsByCode[f.code]) ? fundTagListsByCode[f.code] : []}
-                              onFundTagsClick={openFundTagsEdit}
-                              fundExtraData={fundExtraDataByCode[f.code]}
-                              groupTotalHoldingAmount={groupTotalHoldingAmount}
-                            />
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
+                    {currentTab !== SUMMARY_TAB_ID && (
+                      <>
+                        {shouldShowGroupFundSearch && (
+                          <SearchFund value={groupFundSearchTerm} onSearch={(next) => setGroupFundSearchTerm(next)} />
+                        )}
+
+                        {displayFunds.length === 0 ? (
+                          <div className="glass" style={{ marginTop: 10 }}>
+                            <Empty className="border-border/60">
+                              <EmptyHeader>
+                                <EmptyMedia variant="icon">
+                                  <span className="text-3xl" aria-hidden="true">
+                                    📂
+                                  </span>
+                                </EmptyMedia>
+                                <EmptyTitle>未找到相关基金</EmptyTitle>
+                                <EmptyDescription>
+                                  试试搜索基金名称的部分关键词，或直接输入 6 位基金代码。
+                                </EmptyDescription>
+                              </EmptyHeader>
+                            </Empty>
+                          </div>
+                        ) : (
+                          <FundListView
+                            viewMode={viewMode}
+                            isMobile={isMobile}
+                            isGroupSummarySticky={isGroupSummarySticky}
+                            navbarHeight={navbarHeight}
+                            filterBarHeight={filterBarHeight}
+                            pcFundTableData={pcFundTableData}
+                            userId={user?.id}
+                            currentTab={currentTab}
+                            groups={groups}
+                            favorites={favorites}
+                            sortBy={sortBy}
+                            sortOrder={sortOrder}
+                            sortRules={sortRules}
+                            setSortBy={setSortBy}
+                            setSortOrder={setSortOrder}
+                            startTransition={startTransition}
+                            handleReorder={handleReorder}
+                            handleRemoveFundEntry={handleRemoveFundEntry}
+                            removeFundsFromCurrentTabHandler={removeFundsFromCurrentTabHandler}
+                            handleMoveFunds={handleMoveFunds}
+                            pcBatchClearSelectionRef={pcBatchClearSelectionRef}
+                            handleToggleFavoriteRow={handleToggleFavoriteRow}
+                            handleHoldingAmountClickRow={handleHoldingAmountClickRow}
+                            handleHoldingProfitClickRow={handleHoldingProfitClickRow}
+                            triggerCustomSettingsSync={triggerCustomSettingsSync}
+                            fundDetailDialogCloseRef={fundDetailDialogCloseRef}
+                            maskAmounts={maskAmounts}
+                            getFundCardPropsForRow={getFundCardPropsForRow}
+                            openFundTagsEdit={openFundTagsEdit}
+                            fundExtraDataByCode={fundExtraDataByCode}
+                            fundDetailDrawerCloseRef={fundDetailDrawerCloseRef}
+                            mobileBatchClearSelectionRef={mobileBatchClearSelectionRef}
+                            handleFundCardDrawerOpenChange={handleFundCardDrawerOpenChange}
+                            handleMobileSettingModalOpenChange={handleMobileSettingModalOpenChange}
+                            displayFunds={displayFunds}
+                            linkedHoldingsForAllFav={linkedHoldingsForAllFav}
+                            todayStr={todayStr}
+                            dcaPlansForTab={dcaPlansForTab}
+                            holdingsForTabWithLinked={holdingsForTabWithLinked}
+                            percentModes={percentModes}
+                            todayPercentModes={todayPercentModes}
+                            currentFundDailyEarnings={currentFundDailyEarnings}
+                            valuationSeries={valuationSeries}
+                            collapsedCodes={collapsedCodes}
+                            collapsedTrends={collapsedTrends}
+                            collapsedEarnings={collapsedEarnings}
+                            transactionsForTab={transactionsForTab}
+                            theme={theme}
+                            isTradingDay={isTradingDay}
+                            getHoldingProfitForTab={getHoldingProfitForTab}
+                            toggleFavorite={toggleFavorite}
+                            openHoldingModal={openHoldingModal}
+                            openActionModal={openActionModal}
+                            openDataSourceModal={openDataSourceModal}
+                            togglePercentMode={togglePercentMode}
+                            toggleTodayPercentMode={toggleTodayPercentMode}
+                            toggleCollapse={toggleCollapse}
+                            toggleTrendCollapse={toggleTrendCollapse}
+                            toggleEarningsCollapse={toggleEarningsCollapse}
+                            fundTagListsByCode={fundTagListsByCode}
+                            groupTotalHoldingAmount={groupTotalHoldingAmount}
+                          />
+                        )}
+                      </>
+                    )}
+
+                    {currentTab !== 'all' && currentTab !== 'fav' && currentTab !== SUMMARY_TAB_ID && (
+                      <motion.button
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="button-dashed"
+                        onClick={() => setAddFundToGroupOpen(true)}
+                        style={{
+                          width: '100%',
+                          height: '48px',
+                          border: '2px dashed var(--border)',
+                          background: 'transparent',
+                          borderRadius: '12px',
+                          color: 'var(--muted)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          marginTop: '16px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          fontSize: '14px',
+                          fontWeight: 500
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--primary)';
+                          e.currentTarget.style.color = 'var(--primary)';
+                          e.currentTarget.style.background = 'rgba(34, 211, 238, 0.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--border)';
+                          e.currentTarget.style.color = 'var(--muted)';
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <PlusIcon width="18" height="18" />
+                        <span>添加基金到此分组</span>
+                      </motion.button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleFilesUpload}
+            />
+
+            <div className="footer">
+              {!isMobile && (
+                <>
+                  <p style={{ marginBottom: 8 }}>
+                    数据源：实时估值与重仓直连东方财富，仅供个人学习及参考使用。数据可能存在延迟，不作为任何投资建议
+                  </p>
+                  <p style={{ marginBottom: 12 }}>注：估算数据与真实结算数据会有1%左右误差，非股票型基金误差较大</p>
+                  <div
+                    style={{
+                      marginTop: 12,
+                      opacity: 0.8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <p style={{ margin: 0 }}>
+                      遇到任何问题或需求建议可
+                      <button
+                        className="link-button"
+                        onClick={() => {
+                          if (!user?.id) {
+                            sonnerToast.error('请先登录后再提交反馈');
+                            return;
+                          }
+                          setFeedbackNonce((n) => n + 1);
+                          setFeedbackOpen(true);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          cursor: 'pointer',
+                          padding: '0 4px',
+                          textDecoration: 'underline',
+                          fontSize: 'inherit',
+                          fontWeight: 600
+                        }}
+                      >
+                        点此提交反馈
+                      </button>
+                    </p>
+                    <button
+                      onClick={() => setDonateOpen(true)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--muted)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = 'var(--primary)';
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = 'var(--muted)';
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <span>☕</span>
+                      <span>点此请作者喝杯咖啡</span>
+                    </button>
                   </div>
-                </motion.div>
-              </AnimatePresence>
-              )}
                 </>
               )}
-
-              {currentTab !== 'all' && currentTab !== 'fav' && currentTab !== SUMMARY_TAB_ID && (
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="button-dashed"
-                  onClick={() => setAddFundToGroupOpen(true)}
-                  style={{
-                    width: '100%',
-                    height: '48px',
-                    border: '2px dashed var(--border)',
-                    background: 'transparent',
-                    borderRadius: '12px',
-                    color: 'var(--muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    marginTop: '16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: '14px',
-                    fontWeight: 500
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--primary)';
-                    e.currentTarget.style.color = 'var(--primary)';
-                    e.currentTarget.style.background = 'rgba(34, 211, 238, 0.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border)';
-                    e.currentTarget.style.color = 'var(--muted)';
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <PlusIcon width="18" height="18" />
-                  <span>添加基金到此分组</span>
-                </motion.button>
-              )}
-            </>
+            </div>
+          </div>
+          {hasVisitedMarketTab && (
+            <div style={{ display: mainTab === 'market' ? 'contents' : 'none' }}>
+              <MarketTab
+                onAddFund={handleMarketTabAddFund}
+                getFundCardProps={getFundCardPropsForRow}
+                isActive={mainTab === 'market'}
+              />
+            </div>
           )}
-        </div>
-      </div>
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept="image/*"
-        multiple
-        style={{ display: 'none' }}
-        onChange={handleFilesUpload}
-      />
-
-      <div className="footer">
-          {!isMobile && (
-            <>
-              <p style={{ marginBottom: 8 }}>数据源：实时估值与重仓直连东方财富，仅供个人学习及参考使用。数据可能存在延迟，不作为任何投资建议</p>
-              <p style={{ marginBottom: 12 }}>注：估算数据与真实结算数据会有1%左右误差，非股票型基金误差较大</p>
-              <div style={{ marginTop: 12, opacity: 0.8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <p style={{ margin: 0 }}>
-                  遇到任何问题或需求建议可
-                  <button
-                    className="link-button"
-                    onClick={() => {
-                      if (!user?.id) {
-                        sonnerToast.error('请先登录后再提交反馈');
-                        return;
-                      }
-                      setFeedbackNonce((n) => n + 1);
-                      setFeedbackOpen(true);
-                    }}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0 4px', textDecoration: 'underline', fontSize: 'inherit', fontWeight: 600 }}
-                  >
-                    点此提交反馈
-                  </button>
-                </p>
-                <button
-                  onClick={() => setDonateOpen(true)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--muted)',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--primary)';
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--muted)';
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <span>☕</span>
-                  <span>点此请作者喝杯咖啡</span>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      {hasVisitedMarketTab && (
-        <div style={{ display: mainTab === 'market' ? 'contents' : 'none' }}>
-          <MarketTab onAddFund={handleMarketTabAddFund} getFundCardProps={getFundCardPropsForRow} />
-        </div>
-      )}
-      </>
+        </>
       </div>
       {isMobile && (
         <MineTab
@@ -6049,14 +5103,8 @@ export default function HomePage() {
           onSponsorSupport={() => setDonateOpen(true)}
         />
       )}
-      {isMobile && (
-        <MobileBottomNav value={mainTab} onChange={setMainTab} hidden={mobileBottomNavHidden && mainTab === 'home'} />
-      )}
-
       {/* 弹框渲染层 - 独立组件，订阅 useModalStore，不触发 page.jsx 重渲染 */}
       <ModalsLayer callbacksRef={modalCbRef} />
-
-    </div>
-    </>
+    </NavLayout>
   );
 }

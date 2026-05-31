@@ -11,13 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer';
 import { CloseIcon } from './Icons';
 import { useModalStore } from '../stores';
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export default function AllSectorsModal({ onClose }) {
   const isMobile = useIsMobile();
   const scrollRef = useRef(null);
-  
+
   const initialFilter = useModalStore((s) => s.allSectorsFilter) || 'industry';
   const initialSort = useModalStore((s) => s.allSectorsSort) || 'change_pct';
   const initialSortOrder = useModalStore((s) => s.allSectorsSortOrder) || 'desc';
@@ -39,23 +38,23 @@ export default function AllSectorsModal({ onClose }) {
         return [];
       }
     },
-    refetchInterval: 300000,
+    refetchInterval: 300000
   });
 
   const filteredAndSortedSectors = useMemo(() => {
     if (!sectorEstimates) return [];
-    
+
     let result = sectorEstimates;
     if (sectorFilter !== 'all') {
-      result = result.filter(s => s.sector_type === sectorFilter);
+      result = result.filter((s) => s.sector_type === sectorFilter);
     }
-    
+
     result = [...result].sort((a, b) => {
       const valA = a[sectorSort] || 0;
       const valB = b[sectorSort] || 0;
       return sectorSortOrder === 'desc' ? valB - valA : valA - valB;
     });
-    
+
     return result;
   }, [sectorEstimates, sectorFilter, sectorSort, sectorSortOrder]);
 
@@ -77,31 +76,35 @@ export default function AllSectorsModal({ onClose }) {
       <div className="flex flex-col gap-3 p-4 border-b border-[var(--border)] shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium shrink-0">板块类别</span>
-          <ToggleGroup 
-            type="single" 
-            value={sectorFilter} 
+          <ToggleGroup
+            type="single"
+            value={sectorFilter}
             onValueChange={(v) => v && setSectorFilter(v)}
             className="bg-black/5 dark:bg-white/10 p-0.5 rounded-md border border-black/5 dark:border-white/5 gap-0 shadow-inner overflow-x-auto no-scrollbar"
           >
-            <ToggleGroupItem 
-              value="industry" 
+            <ToggleGroupItem
+              value="industry"
               className="h-6 px-2 text-[10px] rounded-sm border-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm transition-all cursor-pointer whitespace-nowrap"
-            >行业</ToggleGroupItem>
-            <ToggleGroupItem 
-              value="concept" 
+            >
+              行业
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="concept"
               className="h-6 px-2 text-[10px] rounded-sm border-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm transition-all cursor-pointer whitespace-nowrap"
-            >概念</ToggleGroupItem>
+            >
+              概念
+            </ToggleGroupItem>
           </ToggleGroup>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium shrink-0">排序类别</span>
-          <ToggleGroup 
-            type="single" 
-            value={sectorSort} 
+          <ToggleGroup
+            type="single"
+            value={sectorSort}
             onValueChange={(v) => {
               if (!v) {
-                setSectorSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                setSectorSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
               } else {
                 setSectorSort(v);
                 setSectorSortOrder('desc');
@@ -109,8 +112,8 @@ export default function AllSectorsModal({ onClose }) {
             }}
             className="bg-black/5 dark:bg-white/10 p-0.5 rounded-md border border-black/5 dark:border-white/5 gap-0 shadow-inner overflow-x-auto no-scrollbar"
           >
-            <ToggleGroupItem 
-              value="change_pct" 
+            <ToggleGroupItem
+              value="change_pct"
               className="h-6 px-2 text-[10px] flex items-center gap-0.5 rounded-sm border-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm transition-all cursor-pointer whitespace-nowrap"
             >
               按涨幅
@@ -129,8 +132,8 @@ export default function AllSectorsModal({ onClose }) {
                 <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
               </span>
             </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="net_inflow" 
+            <ToggleGroupItem
+              value="net_inflow"
               className="h-6 px-2 text-[10px] flex items-center gap-0.5 rounded-sm border-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm transition-all cursor-pointer whitespace-nowrap"
             >
               按资金流入
@@ -152,7 +155,7 @@ export default function AllSectorsModal({ onClose }) {
           </ToggleGroup>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto px-4 pb-4 pt-0" ref={scrollRef}>
         {filteredAndSortedSectors.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground">暂无数据</div>
@@ -163,7 +166,7 @@ export default function AllSectorsModal({ onClose }) {
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius)',
               background: 'var(--card)',
-              marginTop: 16,
+              marginTop: 16
             }}
           >
             <table
@@ -172,7 +175,7 @@ export default function AllSectorsModal({ onClose }) {
                 width: '100%',
                 borderCollapse: 'collapse',
                 fontSize: '13px',
-                color: 'var(--text)',
+                color: 'var(--text)'
               }}
             >
               <thead>
@@ -180,7 +183,7 @@ export default function AllSectorsModal({ onClose }) {
                   style={{
                     borderBottom: '1px solid var(--border)',
                     background: 'var(--table-row-alt-bg)',
-                    boxShadow: '0 1px 0 0 var(--border)',
+                    boxShadow: '0 1px 0 0 var(--border)'
                   }}
                 >
                   <th
@@ -193,7 +196,7 @@ export default function AllSectorsModal({ onClose }) {
                       position: 'sticky',
                       top: 0,
                       zIndex: 1,
-                      borderTopLeftRadius: 'var(--radius)',
+                      borderTopLeftRadius: 'var(--radius)'
                     }}
                   >
                     板块名称
@@ -202,7 +205,7 @@ export default function AllSectorsModal({ onClose }) {
                     className="cursor-pointer select-none"
                     onClick={() => {
                       if (sectorSort === 'change_pct') {
-                        setSectorSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                        setSectorSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
                       } else {
                         setSectorSort('change_pct');
                         setSectorSortOrder('desc');
@@ -217,7 +220,7 @@ export default function AllSectorsModal({ onClose }) {
                       background: 'var(--table-row-alt-bg)',
                       position: 'sticky',
                       top: 0,
-                      zIndex: 1,
+                      zIndex: 1
                     }}
                   >
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -231,8 +234,12 @@ export default function AllSectorsModal({ onClose }) {
                           opacity: sectorSort === 'change_pct' ? 1 : 0.3
                         }}
                       >
-                        <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
-                        <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
+                        <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>
+                          ▲
+                        </span>
+                        <span style={{ opacity: sectorSort === 'change_pct' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>
+                          ▼
+                        </span>
                       </span>
                     </div>
                   </th>
@@ -240,7 +247,7 @@ export default function AllSectorsModal({ onClose }) {
                     className="cursor-pointer select-none"
                     onClick={() => {
                       if (sectorSort === 'net_inflow') {
-                        setSectorSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+                        setSectorSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
                       } else {
                         setSectorSort('net_inflow');
                         setSectorSortOrder('desc');
@@ -256,7 +263,7 @@ export default function AllSectorsModal({ onClose }) {
                       position: 'sticky',
                       top: 0,
                       zIndex: 1,
-                      borderTopRightRadius: 'var(--radius)',
+                      borderTopRightRadius: 'var(--radius)'
                     }}
                   >
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -270,8 +277,12 @@ export default function AllSectorsModal({ onClose }) {
                           opacity: sectorSort === 'net_inflow' ? 1 : 0.3
                         }}
                       >
-                        <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
-                        <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
+                        <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'asc' ? 1 : 0.3 }}>
+                          ▲
+                        </span>
+                        <span style={{ opacity: sectorSort === 'net_inflow' && sectorSortOrder === 'desc' ? 1 : 0.3 }}>
+                          ▼
+                        </span>
                       </span>
                     </div>
                   </th>
@@ -280,12 +291,12 @@ export default function AllSectorsModal({ onClose }) {
               <tbody>
                 {filteredAndSortedSectors.map((sector) => {
                   const pctStr = sector.change_pct != null ? String(sector.change_pct) : '0.00';
-                  
+
                   return (
                     <tr
                       key={sector.id || sector.sector_id}
                       style={{
-                        borderBottom: '1px solid var(--border)',
+                        borderBottom: '1px solid var(--border)'
                       }}
                       className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                     >
@@ -293,7 +304,7 @@ export default function AllSectorsModal({ onClose }) {
                         style={{
                           padding: '8px 12px',
                           color: 'var(--text)',
-                          textAlign: 'left',
+                          textAlign: 'left'
                         }}
                         className="font-medium truncate max-w-[150px] sm:max-w-none"
                       >
@@ -302,16 +313,16 @@ export default function AllSectorsModal({ onClose }) {
                       <td
                         style={{
                           padding: '8px 12px',
-                          textAlign: 'right',
+                          textAlign: 'right'
                         }}
-                        className={cn("font-semibold", getColorClass(pctStr))}
+                        className={cn('font-semibold', getColorClass(pctStr))}
                       >
                         {formatPercent(pctStr)}
                       </td>
                       <td
                         style={{
                           padding: '8px 12px',
-                          textAlign: 'right',
+                          textAlign: 'right'
                         }}
                         className={cn(getColorClass(sector.net_inflow))}
                       >
@@ -335,19 +346,18 @@ export default function AllSectorsModal({ onClose }) {
           <DrawerHeader className="flex-shrink-0 flex flex-row items-center justify-between gap-2 space-y-0 px-5 pb-4 pt-2 text-left">
             <DrawerTitle className="text-base font-semibold text-[var(--text)]">全部板块</DrawerTitle>
             <Tooltip>
-<TooltipTrigger asChild>
-<DrawerClose
-              className="icon-button border-none bg-transparent p-1"
-              
-              style={{ borderColor: 'transparent', backgroundColor: 'transparent' }}
-            >
-              <CloseIcon width="20" height="20" />
-            </DrawerClose>
-</TooltipTrigger>
-<TooltipContent>
-<p>关闭</p>
-</TooltipContent>
-</Tooltip>
+              <TooltipTrigger asChild>
+                <DrawerClose
+                  className="icon-button border-none bg-transparent p-1"
+                  style={{ borderColor: 'transparent', backgroundColor: 'transparent' }}
+                >
+                  <CloseIcon width="20" height="20" />
+                </DrawerClose>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>关闭</p>
+              </TooltipContent>
+            </Tooltip>
           </DrawerHeader>
           {Content}
         </DrawerContent>

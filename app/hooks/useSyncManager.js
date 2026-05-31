@@ -4,14 +4,17 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { isNumber, isString, isPlainObject, isNil, isArray } from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
 
-import { useStorageStore, storageStore, useUserStore, useModalStore, getFundCodesSignature, SORT_DISPLAY_MODES } from '../stores';
+import {
+  useStorageStore,
+  storageStore,
+  useUserStore,
+  useModalStore,
+  getFundCodesSignature,
+  SORT_DISPLAY_MODES
+} from '../stores';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { withRetry } from '../lib/asyncHelper';
-import {
-  DAILY_EARNINGS_SCOPE_ALL,
-  DCA_SCOPE_GLOBAL,
-  DEFAULT_FUND_TAG_THEME,
-} from '@/app/constants';
+import { DAILY_EARNINGS_SCOPE_ALL, DCA_SCOPE_GLOBAL, DEFAULT_FUND_TAG_THEME } from '@/app/constants';
 import { normalizeCode, cleanCodeArray, normalizeNumber, dedupeByCode } from '../lib/normalize';
 import {
   hasOwn,
@@ -21,7 +24,7 @@ import {
   seedGroupHoldingsFromGlobal,
   migrateDcaPlansToScoped,
   nowInTz,
-  toTz,
+  toTz
 } from '../lib/fundHelpers';
 
 export const normalizeFundDailyEarningsScoped = (source) => {
@@ -114,7 +117,9 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
   useEffect(() => {
     const unsub = useModalStore.subscribe(
       (s) => s.deviceConflictModal.open,
-      (open) => { deviceConflictModalOpenRef.current = open; }
+      (open) => {
+        deviceConflictModalOpenRef.current = open;
+      }
     );
     deviceConflictModalOpenRef.current = useModalStore.getState().deviceConflictModal.open;
     return unsub;
@@ -124,25 +129,31 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
   function getComparablePayload(payload) {
     if (!isPlainObject(payload)) return '';
     const rawFunds = Array.isArray(payload.funds) ? payload.funds : [];
-    const fundCodes = rawFunds
-      .map((fund) => normalizeCode(fund?.code || fund?.CODE))
-      .filter(Boolean);
+    const fundCodes = rawFunds.map((fund) => normalizeCode(fund?.code || fund?.CODE)).filter(Boolean);
     const uniqueFundCodes = Array.from(new Set(fundCodes)).sort();
 
     const favorites = Array.isArray(payload.favorites)
-      ? Array.from(new Set(payload.favorites.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))).sort()
+      ? Array.from(
+          new Set(payload.favorites.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))
+        ).sort()
       : [];
 
     const collapsedCodes = Array.isArray(payload.collapsedCodes)
-      ? Array.from(new Set(payload.collapsedCodes.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))).sort()
+      ? Array.from(
+          new Set(payload.collapsedCodes.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))
+        ).sort()
       : [];
 
     const collapsedTrends = Array.isArray(payload.collapsedTrends)
-      ? Array.from(new Set(payload.collapsedTrends.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))).sort()
+      ? Array.from(
+          new Set(payload.collapsedTrends.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))
+        ).sort()
       : [];
 
     const collapsedEarnings = Array.isArray(payload.collapsedEarnings)
-      ? Array.from(new Set(payload.collapsedEarnings.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))).sort()
+      ? Array.from(
+          new Set(payload.collapsedEarnings.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))
+        ).sort()
       : [];
 
     const groups = Array.isArray(payload.groups)
@@ -152,7 +163,9 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
             if (!id) return null;
             const name = isString(group?.name) ? group.name : '';
             const codes = Array.isArray(group?.codes)
-              ? Array.from(new Set(group.codes.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))).sort()
+              ? Array.from(
+                  new Set(group.codes.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))
+                ).sort()
               : [];
             return { id, name, codes };
           })
@@ -215,7 +228,7 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
               feeValue: normalizeNumber(trade?.feeValue),
               date: trade?.date || '',
               isAfter3pm: !!trade?.isAfter3pm,
-              isDca: !!trade?.isDca,
+              isDca: !!trade?.isDca
             };
             const g = trade?.groupId != null && trade.groupId !== '' ? normalizeCode(trade.groupId) : null;
             if (g) {
@@ -228,8 +241,12 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
           .sort((a, b) => {
             const gidA = a.groupId || '';
             const gidB = b.groupId || '';
-            const keyA = a.id || `${gidA}|${a.fundCode}|${a.type}|${a.date}|${a.share ?? ''}|${a.amount ?? ''}|${a.feeMode}|${a.feeValue ?? ''}|${a.feeRate ?? ''}|${a.isAfter3pm ? 1 : 0}|${a.isDca ? 1 : 0}`;
-            const keyB = b.id || `${gidB}|${b.fundCode}|${b.type}|${b.date}|${b.share ?? ''}|${b.amount ?? ''}|${b.feeMode}|${b.feeValue ?? ''}|${b.feeRate ?? ''}|${b.isAfter3pm ? 1 : 0}|${b.isDca ? 1 : 0}`;
+            const keyA =
+              a.id ||
+              `${gidA}|${a.fundCode}|${a.type}|${a.date}|${a.share ?? ''}|${a.amount ?? ''}|${a.feeMode}|${a.feeValue ?? ''}|${a.feeRate ?? ''}|${a.isAfter3pm ? 1 : 0}|${a.isDca ? 1 : 0}`;
+            const keyB =
+              b.id ||
+              `${gidB}|${b.fundCode}|${b.type}|${b.date}|${b.share ?? ''}|${b.amount ?? ''}|${b.feeMode}|${b.feeValue ?? ''}|${b.feeRate ?? ''}|${b.isAfter3pm ? 1 : 0}|${b.isDca ? 1 : 0}`;
             return keyA.localeCompare(keyB);
           })
       : [];
@@ -290,7 +307,17 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
             const weeklyDay = normalizeNumber(plan.weeklyDay);
             const monthlyDay = normalizeNumber(plan.monthlyDay);
             const lastDate = plan.lastDate ? String(plan.lastDate) : '';
-            if (amount === null && feeRate === null && !cycle && !firstDate && !enabled && weeklyDay === null && monthlyDay === null && !lastDate) return;
+            if (
+              amount === null &&
+              feeRate === null &&
+              !cycle &&
+              !firstDate &&
+              !enabled &&
+              weeklyDay === null &&
+              monthlyDay === null &&
+              !lastDate
+            )
+              return;
             inner[code] = {
               amount,
               feeRate,
@@ -411,35 +438,27 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
 
       if (!keys) {
         all.funds = Array.isArray(all.funds) ? all.funds.map(stripLegacyTagsFromFundObject) : [];
-        const fundCodes = new Set(
-          Array.isArray(all.funds)
-            ? all.funds.map((f) => f?.code).filter(Boolean)
-            : []
-        );
+        const fundCodes = new Set(Array.isArray(all.funds) ? all.funds.map((f) => f?.code).filter(Boolean) : []);
 
         const cleanedHoldings = isPlainObject(all.holdings)
           ? Object.entries(all.holdings).reduce((acc, [code, value]) => {
-            if (!fundCodes.has(code) || !isPlainObject(value)) return acc;
-            const parsedShare = isNumber(value.share)
-              ? value.share
-              : isString(value.share)
-                ? Number(value.share)
-                : NaN;
-            const parsedCost = isNumber(value.cost)
-              ? value.cost
-              : isString(value.cost)
-                ? Number(value.cost)
-                : NaN;
-            const nextShare = Number.isFinite(parsedShare) ? parsedShare : null;
-            const nextCost = Number.isFinite(parsedCost) ? parsedCost : null;
-            if (nextShare === null && nextCost === null) return acc;
-            acc[code] = {
-              ...value,
-              share: nextShare,
-              cost: nextCost
-            };
-            return acc;
-          }, {})
+              if (!fundCodes.has(code) || !isPlainObject(value)) return acc;
+              const parsedShare = isNumber(value.share)
+                ? value.share
+                : isString(value.share)
+                  ? Number(value.share)
+                  : NaN;
+              const parsedCost = isNumber(value.cost) ? value.cost : isString(value.cost) ? Number(value.cost) : NaN;
+              const nextShare = Number.isFinite(parsedShare) ? parsedShare : null;
+              const nextCost = Number.isFinite(parsedCost) ? parsedCost : null;
+              if (nextShare === null && nextCost === null) return acc;
+              acc[code] = {
+                ...value,
+                share: nextShare,
+                cost: nextCost
+              };
+              return acc;
+            }, {})
           : {};
 
         const cleanedFavorites = Array.isArray(all.favorites)
@@ -455,9 +474,9 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
           ? all.collapsedEarnings.filter((code) => fundCodes.has(code))
           : [];
         const cleanedGroups = Array.isArray(all.groups)
-          ? all.groups.map(g => ({
+          ? all.groups.map((g) => ({
               ...g,
-              codes: Array.isArray(g.codes) ? g.codes.filter(c => fundCodes.has(c)) : []
+              codes: Array.isArray(g.codes) ? g.codes.filter((c) => fundCodes.has(c)) : []
             }))
           : [];
 
@@ -473,11 +492,7 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
                   : isString(value.share)
                     ? Number(value.share)
                     : NaN;
-                const parsedCost = isNumber(value.cost)
-                  ? value.cost
-                  : isString(value.cost)
-                    ? Number(value.cost)
-                    : NaN;
+                const parsedCost = isNumber(value.cost) ? value.cost : isString(value.cost) ? Number(value.cost) : NaN;
                 const nextShare = Number.isFinite(parsedShare) ? parsedShare : null;
                 const nextCost = Number.isFinite(parsedCost) ? parsedCost : null;
                 if (nextShare === null && nextCost === null) return bacc;
@@ -519,20 +534,21 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
                 const date = item?.date ? String(item.date) : '';
                 const earnings = Number(item?.earnings);
                 const rateRaw = item?.rate;
-                const rate = rateRaw === null || rateRaw === undefined || rateRaw === ''
-                  ? null
-                  : Number(rateRaw);
+                const rate = rateRaw === null || rateRaw === undefined || rateRaw === '' ? null : Number(rateRaw);
                 const baseCostAmountRaw = item?.baseCostAmount;
-                const baseCostAmount = baseCostAmountRaw === null || baseCostAmountRaw === undefined || baseCostAmountRaw === ''
-                  ? null
-                  : Number(baseCostAmountRaw);
+                const baseCostAmount =
+                  baseCostAmountRaw === null || baseCostAmountRaw === undefined || baseCostAmountRaw === ''
+                    ? null
+                    : Number(baseCostAmountRaw);
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
                 if (!Number.isFinite(earnings)) return null;
                 return {
                   date,
                   earnings,
                   ...(Number.isFinite(rate) ? { rate } : { rate: null }),
-                  ...(Number.isFinite(baseCostAmount) && baseCostAmount > 0 ? { baseCostAmount } : { baseCostAmount: null }),
+                  ...(Number.isFinite(baseCostAmount) && baseCostAmount > 0
+                    ? { baseCostAmount }
+                    : { baseCostAmount: null })
                 };
               })
               .filter(Boolean)
@@ -548,19 +564,19 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
 
         const cleanedTags = Array.isArray(all.tags)
           ? all.tags
-            .map((r) => {
-              const codes = getFundCodesFromTagRecord(r).filter((c) => fundCodes.has(c));
-              const name = String(r?.name ?? '').trim();
-              if (!name) return null;
-              return sanitizeTagRowForStorage({
-                ...r,
-                id: String(r?.id ?? '').trim() || uuidv4(),
-                name,
-                theme: String(r?.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
-                fundCodes: codes,
-              });
-            })
-            .filter(Boolean)
+              .map((r) => {
+                const codes = getFundCodesFromTagRecord(r).filter((c) => fundCodes.has(c));
+                const name = String(r?.name ?? '').trim();
+                if (!name) return null;
+                return sanitizeTagRowForStorage({
+                  ...r,
+                  id: String(r?.id ?? '').trim() || uuidv4(),
+                  name,
+                  theme: String(r?.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
+                  fundCodes: codes
+                });
+              })
+              .filter(Boolean)
           : [];
 
         return {
@@ -637,79 +653,61 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
   }, []);
 
   // --- syncUserConfig (defined after scheduleSync but referenced by it) ---
-  const syncUserConfig = useCallback(async (userId, showTip = true, payload = null, isPartial = false, options = {}) => {
-    const forceTakeover = options?.forceTakeover || false;
-    if (!userId) {
-      showToast(`userId 不存在，请重新登录`, 'error');
-      return;
-    }
-    try {
-      setIsSyncing(true);
-      const baseData = payload || collectLocalPayload();
-      const now = nowInTz().toISOString();
-      let deviceId = deviceIdRef.current || '';
-      if (!deviceId) {
-        try {
-          const key = 'rtfDeviceId';
-          deviceId = storageStore.getItem(key) || '';
-          if (!deviceId) {
-            deviceId = uuidv4();
-            storageStore.setItem(key, deviceId);
-          }
-          deviceIdRef.current = deviceId;
-        } catch {
-          deviceId = uuidv4();
-          deviceIdRef.current = deviceId;
-        }
+  const syncUserConfig = useCallback(
+    async (userId, showTip = true, payload = null, isPartial = false, options = {}) => {
+      const forceTakeover = options?.forceTakeover || false;
+      if (!userId) {
+        showToast(`userId 不存在，请重新登录`, 'error');
+        return;
       }
-      const dataToSync = isPlainObject(baseData)
-        ? {
-            ...baseData,
-            _syncMeta: {
-              ...(isPlainObject(baseData._syncMeta) ? baseData._syncMeta : {}),
-              deviceId,
-              at: now,
+      try {
+        setIsSyncing(true);
+        const baseData = payload || collectLocalPayload();
+        const now = nowInTz().toISOString();
+        let deviceId = deviceIdRef.current || '';
+        if (!deviceId) {
+          try {
+            const key = 'rtfDeviceId';
+            deviceId = storageStore.getItem(key) || '';
+            if (!deviceId) {
+              deviceId = uuidv4();
+              storageStore.setItem(key, deviceId);
             }
+            deviceIdRef.current = deviceId;
+          } catch {
+            deviceId = uuidv4();
+            deviceIdRef.current = deviceId;
           }
-        : { _syncMeta: { deviceId, at: now } };
-
-      if (isPartial) {
-        const { error: rpcError } = await withRetry(() => supabase.rpc('update_user_config_partial', {
-          payload: dataToSync,
-          p_last_device_id: deviceId,
-          p_force_takeover: forceTakeover
-        }));
-
-        if (rpcError) {
-          if (rpcError.message?.includes('DEVICE_CONFLICT')) {
-            setIsSyncing(false);
-            skipSyncRef.current = true;
-            useModalStore.setState({
-              deviceConflictModal: {
-                open: true,
-                message: '您的账号已在其他设备登录。当前设备的同步已被拦截。是否确认拉取云端最新数据覆盖本地并恢复同步？',
-                userId,
-                payload,
-                isPartial
+        }
+        const dataToSync = isPlainObject(baseData)
+          ? {
+              ...baseData,
+              _syncMeta: {
+                ...(isPlainObject(baseData._syncMeta) ? baseData._syncMeta : {}),
+                deviceId,
+                at: now
               }
-            });
-            return;
-          }
-          console.error('增量同步失败，尝试全量同步', rpcError);
-          const fullPayload = collectLocalPayload();
-          const { error: fullError } = await withRetry(() => supabase.rpc('update_user_config_full', {
-            payload: fullPayload,
-            p_last_device_id: deviceId,
-            p_force_takeover: forceTakeover
-          }));
-          if (fullError) {
-            if (fullError.message?.includes('DEVICE_CONFLICT')) {
+            }
+          : { _syncMeta: { deviceId, at: now } };
+
+        if (isPartial) {
+          const { error: rpcError } = await withRetry(() =>
+            supabase.rpc('update_user_config_partial', {
+              payload: dataToSync,
+              p_last_device_id: deviceId,
+              p_force_takeover: forceTakeover
+            })
+          );
+
+          if (rpcError) {
+            if (rpcError.message?.includes('DEVICE_CONFLICT')) {
               setIsSyncing(false);
               skipSyncRef.current = true;
               useModalStore.setState({
                 deviceConflictModal: {
                   open: true,
-                  message: '您的账号已在其他设备登录。当前设备的同步已被拦截。是否确认拉取云端最新数据覆盖本地并恢复同步？',
+                  message:
+                    '您的账号已在其他设备登录。当前设备的同步已被拦截。是否确认拉取云端最新数据覆盖本地并恢复同步？',
                   userId,
                   payload,
                   isPartial
@@ -717,51 +715,81 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
               });
               return;
             }
-            throw fullError;
-          }
-        }
-      } else {
-        const { error } = await withRetry(() => supabase.rpc('update_user_config_full', {
-          payload: dataToSync,
-          p_last_device_id: deviceId,
-          p_force_takeover: forceTakeover
-        }));
-        if (error) {
-          if (error.message?.includes('DEVICE_CONFLICT')) {
-            setIsSyncing(false);
-            skipSyncRef.current = true;
-            useModalStore.setState({
-              deviceConflictModal: {
-                open: true,
-                message: '您的账号已在其他设备登录。当前设备的同步已被拦截。是否确认拉取云端最新数据覆盖本地并恢复同步？',
-                userId,
-                payload,
-                isPartial
+            console.error('增量同步失败，尝试全量同步', rpcError);
+            const fullPayload = collectLocalPayload();
+            const { error: fullError } = await withRetry(() =>
+              supabase.rpc('update_user_config_full', {
+                payload: fullPayload,
+                p_last_device_id: deviceId,
+                p_force_takeover: forceTakeover
+              })
+            );
+            if (fullError) {
+              if (fullError.message?.includes('DEVICE_CONFLICT')) {
+                setIsSyncing(false);
+                skipSyncRef.current = true;
+                useModalStore.setState({
+                  deviceConflictModal: {
+                    open: true,
+                    message:
+                      '您的账号已在其他设备登录。当前设备的同步已被拦截。是否确认拉取云端最新数据覆盖本地并恢复同步？',
+                    userId,
+                    payload,
+                    isPartial
+                  }
+                });
+                return;
               }
-            });
-            return;
+              throw fullError;
+            }
           }
-          throw error;
+        } else {
+          const { error } = await withRetry(() =>
+            supabase.rpc('update_user_config_full', {
+              payload: dataToSync,
+              p_last_device_id: deviceId,
+              p_force_takeover: forceTakeover
+            })
+          );
+          if (error) {
+            if (error.message?.includes('DEVICE_CONFLICT')) {
+              setIsSyncing(false);
+              skipSyncRef.current = true;
+              useModalStore.setState({
+                deviceConflictModal: {
+                  open: true,
+                  message:
+                    '您的账号已在其他设备登录。当前设备的同步已被拦截。是否确认拉取云端最新数据覆盖本地并恢复同步？',
+                  userId,
+                  payload,
+                  isPartial
+                }
+              });
+              return;
+            }
+            throw error;
+          }
         }
-      }
 
-      storageStore.setItem('localUpdatedAt', now);
-      setLastSyncTime(now);
+        storageStore.setItem('localUpdatedAt', now);
+        setLastSyncTime(now);
 
-      if (forceTakeover) {
-        lastSyncedRef.current = getComparablePayload(dataToSync);
-      }
+        if (forceTakeover) {
+          lastSyncedRef.current = getComparablePayload(dataToSync);
+        }
 
-      if (showTip) {
-        useModalStore.setState({ successModal: { open: true, message: '已同步云端配置' } });
+        if (showTip) {
+          useModalStore.setState({ successModal: { open: true, message: '已同步云端配置' } });
+        }
+      } catch (e) {
+        console.error('同步云端配置异常', e);
+      } finally {
+        setIsSyncing(false);
+        skipSyncRef.current = false;
       }
-    } catch (e) {
-      console.error('同步云端配置异常', e);
-    } finally {
-      setIsSyncing(false);
-      skipSyncRef.current = false;
-    }
-  }, [showToast]);
+    },
+    [showToast]
+  );
 
   // 保持 syncUserConfigRef 与最新 syncUserConfig 同步
   useEffect(() => {
@@ -798,7 +826,22 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
 
   // --- cross-tab storage listener ---
   useEffect(() => {
-    const keys = new Set(['funds', 'tags', 'favorites', 'groups', 'collapsedCodes', 'collapsedTrends', 'collapsedEarnings', 'refreshMs', 'holdings', 'groupHoldings', 'pendingTrades', 'dcaPlans', 'customSettings', 'fundDailyEarnings']);
+    const keys = new Set([
+      'funds',
+      'tags',
+      'favorites',
+      'groups',
+      'collapsedCodes',
+      'collapsedTrends',
+      'collapsedEarnings',
+      'refreshMs',
+      'holdings',
+      'groupHoldings',
+      'pendingTrades',
+      'dcaPlans',
+      'customSettings',
+      'fundDailyEarnings'
+    ]);
     const onStorage = (e) => {
       if (!e.key) return;
       if (e.key === 'localUpdatedAt') {
@@ -841,353 +884,369 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
   }, [scheduleSync]);
 
   // --- applyCloudConfig ---
-  const applyCloudConfig = useCallback(async (cloudData, cloudUpdatedAt, options = {}) => {
-    if (!isPlainObject(cloudData)) return;
-    skipSyncRef.current = true;
-    try {
-      if (cloudUpdatedAt) {
-        storageStore.setItem('localUpdatedAt', cloudUpdatedAt);
-      }
-      let localFundsForMerge = [];
+  const applyCloudConfig = useCallback(
+    async (cloudData, cloudUpdatedAt, options = {}) => {
+      if (!isPlainObject(cloudData)) return;
+      skipSyncRef.current = true;
       try {
-        localFundsForMerge = storageStore.getItem('funds', []);
-      } catch { }
-      const localFundByCode = new Map(
-        localFundsForMerge
-          .map(stripLegacyTagsFromFundObject)
-          .filter((f) => f && f.code != null)
-          .map((f) => [String(f.code), f])
-      );
-
-      const cloudFunds = Array.isArray(cloudData.funds)
-        ? dedupeByCode(cloudData.funds.map(stripLegacyTagsFromFundObject))
-        : [];
-      const nextFunds = cloudFunds.map((cf) => mergeValuationFieldsByGztime(localFundByCode.get(String(cf?.code)), cf));
-      useStorageStore.getState().setFunds(nextFunds);
-      const nextFundCodes = new Set(nextFunds.map((f) => f.code));
-
-      if (hasOwn(cloudData, 'tags')) {
-        const cleanedTagRows = (Array.isArray(cloudData.tags) ? cloudData.tags : [])
-          .map((r) => {
-            const codes = getFundCodesFromTagRecord(r).filter((c) => nextFundCodes.has(c));
-            const name = String(r?.name ?? '').trim();
-            if (!name) return null;
-            return sanitizeTagRowForStorage({
-              ...r,
-              id: String(r?.id ?? '').trim() || uuidv4(),
-              name,
-              theme: String(r?.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
-              fundCodes: codes,
-            });
-          })
-          .filter(Boolean);
-        setFundTagRecords(cleanedTagRows);
-        storageStore.setItem('tags', JSON.stringify(cleanedTagRows));
-      } else {
+        if (cloudUpdatedAt) {
+          storageStore.setItem('localUpdatedAt', cloudUpdatedAt);
+        }
+        let localFundsForMerge = [];
         try {
-          const localTags = storageStore.getItem('tags', []);
-          const normalized = localTags
+          localFundsForMerge = storageStore.getItem('funds', []);
+        } catch {}
+        const localFundByCode = new Map(
+          localFundsForMerge
+            .map(stripLegacyTagsFromFundObject)
+            .filter((f) => f && f.code != null)
+            .map((f) => [String(f.code), f])
+        );
+
+        const cloudFunds = Array.isArray(cloudData.funds)
+          ? dedupeByCode(cloudData.funds.map(stripLegacyTagsFromFundObject))
+          : [];
+        const nextFunds = cloudFunds.map((cf) =>
+          mergeValuationFieldsByGztime(localFundByCode.get(String(cf?.code)), cf)
+        );
+        useStorageStore.getState().setFunds(nextFunds);
+        const nextFundCodes = new Set(nextFunds.map((f) => f.code));
+
+        if (hasOwn(cloudData, 'tags')) {
+          const cleanedTagRows = (Array.isArray(cloudData.tags) ? cloudData.tags : [])
             .map((r) => {
               const codes = getFundCodesFromTagRecord(r).filter((c) => nextFundCodes.has(c));
+              const name = String(r?.name ?? '').trim();
+              if (!name) return null;
               return sanitizeTagRowForStorage({
                 ...r,
-                id: String(r.id || '').trim() || uuidv4(),
-                name: String(r.name || '').trim(),
-                theme: String(r.theme || '').trim() || DEFAULT_FUND_TAG_THEME,
-                fundCodes: codes,
+                id: String(r?.id ?? '').trim() || uuidv4(),
+                name,
+                theme: String(r?.theme ?? '').trim() || DEFAULT_FUND_TAG_THEME,
+                fundCodes: codes
               });
             })
             .filter(Boolean);
-          setFundTagRecords(normalized);
-        } catch {
-          setFundTagRecords([]);
-        }
-      }
-
-      const nextFavorites = cleanCodeArray(cloudData.favorites, nextFundCodes);
-      useStorageStore.getState().setFavorites(new Set(nextFavorites));
-
-      const nextGroups = Array.isArray(cloudData.groups)
-        ? cloudData.groups
-            .map((g) => ({
-              ...g,
-              id: String(g?.id ?? '').trim() || uuidv4(),
-              name: String(g?.name ?? '').trim(),
-              codes: cleanCodeArray(g?.codes, nextFundCodes),
-            }))
-            .filter((g) => g.name.length > 0)
-        : [];
-      useStorageStore.getState().setGroups(nextGroups);
-
-      const nextCollapsed = Array.isArray(cloudData.collapsedCodes) ? cloudData.collapsedCodes : [];
-      useStorageStore.getState().setCollapsedCodes(new Set(nextCollapsed));
-
-      if (Array.isArray(cloudData.collapsedTrends)) {
-        useStorageStore.getState().setCollapsedTrends(new Set(cloudData.collapsedTrends));
-      }
-      if (Array.isArray(cloudData.collapsedEarnings)) {
-        useStorageStore.getState().setCollapsedEarnings(new Set(cloudData.collapsedEarnings));
-      }
-
-      const nextRefreshMs = Number.isFinite(cloudData.refreshMs) && cloudData.refreshMs >= 5000 ? cloudData.refreshMs : 30000;
-      useStorageStore.getState().setRefreshMs(nextRefreshMs);
-      setTempSeconds(Math.round(nextRefreshMs / 1000));
-
-      const nextHoldings = isPlainObject(cloudData.holdings) ? cloudData.holdings : {};
-      useStorageStore.getState().setHoldings(nextHoldings);
-
-      const cloudGroupIds = new Set(nextGroups.map((g) => g?.id).filter(Boolean));
-
-      let nextGroupHoldings = isPlainObject(cloudData.groupHoldings) ? cloudData.groupHoldings : {};
-      const seedAfterCloud = seedGroupHoldingsFromGlobal(nextHoldings, nextGroups, nextGroupHoldings);
-      if (seedAfterCloud.changed) {
-        nextGroupHoldings = seedAfterCloud.next;
-      }
-      useStorageStore.getState().setGroupHoldings(nextGroupHoldings);
-
-      if (hasOwn(cloudData, 'pendingTrades')) {
-        const nextPendingTrades = Array.isArray(cloudData.pendingTrades)
-          ? cloudData.pendingTrades.filter((trade) => {
-              if (!trade || !nextFundCodes.has(trade.fundCode)) return false;
-              if (trade.groupId && !cloudGroupIds.has(trade.groupId)) return false;
-              return true;
-            })
-          : [];
-        useStorageStore.getState().setPendingTrades(nextPendingTrades);
-      } else {
-        try {
-          const localPending = storageStore.getItem('pendingTrades', []);
-          useStorageStore.getState().setPendingTrades(Array.isArray(localPending) ? localPending : []);
-        } catch { }
-      }
-
-      if (hasOwn(cloudData, 'transactions')) {
-        const nextTransactions = isPlainObject(cloudData.transactions) ? cloudData.transactions : {};
-        useStorageStore.getState().setTransactions(nextTransactions);
-      } else {
-        try {
-          const localTx = storageStore.getItem('transactions', {});
-          useStorageStore.getState().setTransactions(isPlainObject(localTx) ? localTx : {});
-        } catch { }
-      }
-
-      if (hasOwn(cloudData, 'dcaPlans')) {
-        const cloudDcaScoped = migrateDcaPlansToScoped(isPlainObject(cloudData.dcaPlans) ? cloudData.dcaPlans : {});
-        const nextDcaPlans = {};
-        Object.entries(cloudDcaScoped).forEach(([scopeKey, bucket]) => {
-          if (scopeKey !== DCA_SCOPE_GLOBAL && !cloudGroupIds.has(scopeKey)) return;
-          if (!isPlainObject(bucket)) return;
-          const inner = {};
-          Object.entries(bucket).forEach(([code, plan]) => {
-            if (!nextFundCodes.has(code) || !isPlainObject(plan)) return;
-            inner[code] = plan;
-          });
-          if (Object.keys(inner).length) nextDcaPlans[scopeKey] = inner;
-        });
-        if (!nextDcaPlans[DCA_SCOPE_GLOBAL]) nextDcaPlans[DCA_SCOPE_GLOBAL] = {};
-        useStorageStore.getState().setDcaPlans(nextDcaPlans);
-      } else {
-        try {
-          const localDca = storageStore.getItem('dcaPlans', {});
-          useStorageStore.getState().setDcaPlans(migrateDcaPlansToScoped(isPlainObject(localDca) ? localDca : {}));
-        } catch { }
-      }
-
-      const cloudDaily = normalizeFundDailyEarningsScoped(cloudData.fundDailyEarnings);
-      const nextFundDailyEarnings = Object.entries(cloudDaily).reduce((acc, [scopeKey, bucket]) => {
-        if (!isPlainObject(bucket)) return acc;
-        if (scopeKey !== DAILY_EARNINGS_SCOPE_ALL && !cloudGroupIds.has(scopeKey)) return acc;
-        const normalizedBucket = Object.entries(bucket).reduce((bacc, [code, list]) => {
-          if (!nextFundCodes.has(code) || !Array.isArray(list)) return bacc;
-          const normalized = list
-            .map((item) => {
-              const date = item?.date ? String(item.date) : '';
-              const earnings = Number(item?.earnings);
-              const rateRaw = item?.rate;
-              const rate = rateRaw === null || rateRaw === undefined || rateRaw === ''
-                ? null
-                : Number(rateRaw);
-              const baseCostAmountRaw = item?.baseCostAmount;
-              const baseCostAmount = baseCostAmountRaw === null || baseCostAmountRaw === undefined || baseCostAmountRaw === ''
-                ? null
-                : Number(baseCostAmountRaw);
-              if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-              if (!Number.isFinite(earnings)) return null;
-              return {
-                date,
-                earnings,
-                ...(Number.isFinite(rate) ? { rate } : { rate: null }),
-                ...(Number.isFinite(baseCostAmount) && baseCostAmount > 0 ? { baseCostAmount } : { baseCostAmount: null }),
-              };
-            })
-            .filter(Boolean)
-            .sort((a, b) => a.date.localeCompare(b.date));
-          if (normalized.length === 0) return bacc;
-          bacc[code] = normalized;
-          return bacc;
-        }, {});
-        if (Object.keys(normalizedBucket).length === 0) return acc;
-        acc[scopeKey] = normalizedBucket;
-        return acc;
-      }, {});
-      useStorageStore.getState().setFundDailyEarnings(nextFundDailyEarnings);
-
-      if (hasOwn(cloudData, 'fundValuationTimeseries')) {
-        const nextTimeseries = isPlainObject(cloudData.fundValuationTimeseries) ? cloudData.fundValuationTimeseries : {};
-        const localTimeseries = storageStore.getItem('fundValuationTimeseries', {});
-        const mergedTimeseries = { ...localTimeseries };
-
-        const mergeSeries = (cloudArr, localArr) => {
-          const pointsMap = new Map();
-          localArr.forEach(pt => {
-            if (pt && pt.date && pt.time) pointsMap.set(`${pt.date}_${pt.time}`, pt);
-          });
-          cloudArr.forEach(pt => {
-            if (pt && pt.date && pt.time) pointsMap.set(`${pt.date}_${pt.time}`, pt);
-          });
-          let mergedArr = Array.from(pointsMap.values()).sort((a, b) => {
-            if (a.date !== b.date) return a.date.localeCompare(b.date);
-            return a.time.localeCompare(b.time);
-          });
-          const maxDate = mergedArr.reduce((max, pt) => (pt.date > max ? pt.date : max), '');
-          if (maxDate) mergedArr = mergedArr.filter(pt => pt.date === maxDate);
-          return mergedArr;
-        };
-
-        Object.keys(nextTimeseries).forEach(code => {
-          if (!nextFundCodes.has(code)) return;
-          const cloudEntry = nextTimeseries[code];
-          const localEntry = mergedTimeseries[code];
-          if (Array.isArray(cloudEntry)) {
-            const localArr = Array.isArray(localEntry) ? localEntry : [];
-            mergedTimeseries[code] = { '1': mergeSeries(cloudEntry, localArr) };
-            return;
-          }
-          if (isPlainObject(cloudEntry)) {
-            const localDsMap = isPlainObject(localEntry) ? localEntry : {};
-            const mergedDsMap = { ...localDsMap };
-            Object.keys(cloudEntry).forEach(ds => {
-              if (!Array.isArray(cloudEntry[ds])) return;
-              const localArr = Array.isArray(mergedDsMap[ds]) ? mergedDsMap[ds] : [];
-              mergedDsMap[ds] = mergeSeries(cloudEntry[ds], localArr);
-            });
-            mergedTimeseries[code] = mergedDsMap;
-          }
-        });
-
-        const cleanedTimeseries = {};
-        Object.keys(mergedTimeseries).forEach(code => {
-          if (nextFundCodes.has(code)) {
-            cleanedTimeseries[code] = mergedTimeseries[code];
-          }
-        });
-        storageStore.setItem('fundValuationTimeseries', JSON.stringify(cleanedTimeseries));
-      }
-
-      if (isPlainObject(cloudData.customSettings)) {
-        try {
-          const currentCustomSettings = useStorageStore.getState().customSettings;
-          const merged = { ...(currentCustomSettings || {}), ...cloudData.customSettings };
-          useStorageStore.getState().setCustomSettings(merged);
-          if (
-            typeof merged.localSortDisplayMode === 'string' &&
-            SORT_DISPLAY_MODES.has(merged.localSortDisplayMode)
-          ) {
-            useStorageStore.getState().setPcSortDisplayMode(merged.localSortDisplayMode);
-            useStorageStore.getState().setMobileSortDisplayMode(merged.localSortDisplayMode);
-          } else {
-            if (typeof merged.pcLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(merged.pcLocalSortDisplayMode)) {
-              useStorageStore.getState().setPcSortDisplayMode(merged.pcLocalSortDisplayMode);
-            }
-            if (typeof merged.mobileLocalSortDisplayMode === 'string' && SORT_DISPLAY_MODES.has(merged.mobileLocalSortDisplayMode)) {
-              useStorageStore.getState().setMobileSortDisplayMode(merged.mobileLocalSortDisplayMode);
-            }
-          }
-        } catch { }
-      }
-
-      if (options.forceTakeover) {
-        const currentUser = useUserStore.getState().user;
-        const currentUserId = options.userId || userIdRef.current || currentUser?.id;
-        if (currentUserId) {
-          await syncUserConfig(currentUserId, true, null, false, { forceTakeover: true });
-        }
-      }
-
-      if (nextFunds.length) {
-        const codes = Array.from(new Set(nextFunds.map((f) => f.code)));
-        const localCodesSet = new Set(localFundsForMerge.map((f) => f?.code).filter(Boolean));
-        const hasNewFunds = codes.some((code) => !localCodesSet.has(code));
-
-        if (hasNewFunds && typeof refreshAllRef.current === 'function') {
-          await refreshAllRef.current(codes);
-        }
-        const currentUser = useUserStore.getState().user;
-        const currentUserId = userIdRef.current || currentUser?.id;
-        if (currentUserId) {
+          setFundTagRecords(cleanedTagRows);
+          storageStore.setItem('tags', JSON.stringify(cleanedTagRows));
+        } else {
           try {
-            const latestFunds = storageStore.getItem('funds', []);
-            const localSig = getFundCodesSignature(latestFunds, ['gztime']);
-            const cloudSig = getFundCodesSignature(Array.isArray(cloudData.funds) ? cloudData.funds : [], ['gztime']);
-            if (localSig !== cloudSig) {
-              await syncUserConfig(
-                currentUserId,
-                false,
-                { funds: Array.isArray(latestFunds) ? latestFunds : [] },
-                true,
-                options
-              );
-            }
-          } catch (e) {
-            console.error('刷新后强制同步 funds 到云端失败', e);
+            const localTags = storageStore.getItem('tags', []);
+            const normalized = localTags
+              .map((r) => {
+                const codes = getFundCodesFromTagRecord(r).filter((c) => nextFundCodes.has(c));
+                return sanitizeTagRowForStorage({
+                  ...r,
+                  id: String(r.id || '').trim() || uuidv4(),
+                  name: String(r.name || '').trim(),
+                  theme: String(r.theme || '').trim() || DEFAULT_FUND_TAG_THEME,
+                  fundCodes: codes
+                });
+              })
+              .filter(Boolean);
+            setFundTagRecords(normalized);
+          } catch {
+            setFundTagRecords([]);
           }
         }
-      }
 
-      const payload = collectLocalPayload();
-      lastSyncedRef.current = getComparablePayload(payload);
-    } finally {
-      skipSyncRef.current = false;
-    }
-  }, [showToast, setTempSeconds, setFundTagRecords, syncUserConfig]);
+        const nextFavorites = cleanCodeArray(cloudData.favorites, nextFundCodes);
+        useStorageStore.getState().setFavorites(new Set(nextFavorites));
+
+        const nextGroups = Array.isArray(cloudData.groups)
+          ? cloudData.groups
+              .map((g) => ({
+                ...g,
+                id: String(g?.id ?? '').trim() || uuidv4(),
+                name: String(g?.name ?? '').trim(),
+                codes: cleanCodeArray(g?.codes, nextFundCodes)
+              }))
+              .filter((g) => g.name.length > 0)
+          : [];
+        useStorageStore.getState().setGroups(nextGroups);
+
+        const nextCollapsed = Array.isArray(cloudData.collapsedCodes) ? cloudData.collapsedCodes : [];
+        useStorageStore.getState().setCollapsedCodes(new Set(nextCollapsed));
+
+        if (Array.isArray(cloudData.collapsedTrends)) {
+          useStorageStore.getState().setCollapsedTrends(new Set(cloudData.collapsedTrends));
+        }
+        if (Array.isArray(cloudData.collapsedEarnings)) {
+          useStorageStore.getState().setCollapsedEarnings(new Set(cloudData.collapsedEarnings));
+        }
+
+        const nextRefreshMs =
+          Number.isFinite(cloudData.refreshMs) && cloudData.refreshMs >= 5000 ? cloudData.refreshMs : 30000;
+        useStorageStore.getState().setRefreshMs(nextRefreshMs);
+        setTempSeconds(Math.round(nextRefreshMs / 1000));
+
+        const nextHoldings = isPlainObject(cloudData.holdings) ? cloudData.holdings : {};
+        useStorageStore.getState().setHoldings(nextHoldings);
+
+        const cloudGroupIds = new Set(nextGroups.map((g) => g?.id).filter(Boolean));
+
+        let nextGroupHoldings = isPlainObject(cloudData.groupHoldings) ? cloudData.groupHoldings : {};
+        const seedAfterCloud = seedGroupHoldingsFromGlobal(nextHoldings, nextGroups, nextGroupHoldings);
+        if (seedAfterCloud.changed) {
+          nextGroupHoldings = seedAfterCloud.next;
+        }
+        useStorageStore.getState().setGroupHoldings(nextGroupHoldings);
+
+        if (hasOwn(cloudData, 'pendingTrades')) {
+          const nextPendingTrades = Array.isArray(cloudData.pendingTrades)
+            ? cloudData.pendingTrades.filter((trade) => {
+                if (!trade || !nextFundCodes.has(trade.fundCode)) return false;
+                if (trade.groupId && !cloudGroupIds.has(trade.groupId)) return false;
+                return true;
+              })
+            : [];
+          useStorageStore.getState().setPendingTrades(nextPendingTrades);
+        } else {
+          try {
+            const localPending = storageStore.getItem('pendingTrades', []);
+            useStorageStore.getState().setPendingTrades(Array.isArray(localPending) ? localPending : []);
+          } catch {}
+        }
+
+        if (hasOwn(cloudData, 'transactions')) {
+          const nextTransactions = isPlainObject(cloudData.transactions) ? cloudData.transactions : {};
+          useStorageStore.getState().setTransactions(nextTransactions);
+        } else {
+          try {
+            const localTx = storageStore.getItem('transactions', {});
+            useStorageStore.getState().setTransactions(isPlainObject(localTx) ? localTx : {});
+          } catch {}
+        }
+
+        if (hasOwn(cloudData, 'dcaPlans')) {
+          const cloudDcaScoped = migrateDcaPlansToScoped(isPlainObject(cloudData.dcaPlans) ? cloudData.dcaPlans : {});
+          const nextDcaPlans = {};
+          Object.entries(cloudDcaScoped).forEach(([scopeKey, bucket]) => {
+            if (scopeKey !== DCA_SCOPE_GLOBAL && !cloudGroupIds.has(scopeKey)) return;
+            if (!isPlainObject(bucket)) return;
+            const inner = {};
+            Object.entries(bucket).forEach(([code, plan]) => {
+              if (!nextFundCodes.has(code) || !isPlainObject(plan)) return;
+              inner[code] = plan;
+            });
+            if (Object.keys(inner).length) nextDcaPlans[scopeKey] = inner;
+          });
+          if (!nextDcaPlans[DCA_SCOPE_GLOBAL]) nextDcaPlans[DCA_SCOPE_GLOBAL] = {};
+          useStorageStore.getState().setDcaPlans(nextDcaPlans);
+        } else {
+          try {
+            const localDca = storageStore.getItem('dcaPlans', {});
+            useStorageStore.getState().setDcaPlans(migrateDcaPlansToScoped(isPlainObject(localDca) ? localDca : {}));
+          } catch {}
+        }
+
+        const cloudDaily = normalizeFundDailyEarningsScoped(cloudData.fundDailyEarnings);
+        const nextFundDailyEarnings = Object.entries(cloudDaily).reduce((acc, [scopeKey, bucket]) => {
+          if (!isPlainObject(bucket)) return acc;
+          if (scopeKey !== DAILY_EARNINGS_SCOPE_ALL && !cloudGroupIds.has(scopeKey)) return acc;
+          const normalizedBucket = Object.entries(bucket).reduce((bacc, [code, list]) => {
+            if (!nextFundCodes.has(code) || !Array.isArray(list)) return bacc;
+            const normalized = list
+              .map((item) => {
+                const date = item?.date ? String(item.date) : '';
+                const earnings = Number(item?.earnings);
+                const rateRaw = item?.rate;
+                const rate = rateRaw === null || rateRaw === undefined || rateRaw === '' ? null : Number(rateRaw);
+                const baseCostAmountRaw = item?.baseCostAmount;
+                const baseCostAmount =
+                  baseCostAmountRaw === null || baseCostAmountRaw === undefined || baseCostAmountRaw === ''
+                    ? null
+                    : Number(baseCostAmountRaw);
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+                if (!Number.isFinite(earnings)) return null;
+                return {
+                  date,
+                  earnings,
+                  ...(Number.isFinite(rate) ? { rate } : { rate: null }),
+                  ...(Number.isFinite(baseCostAmount) && baseCostAmount > 0
+                    ? { baseCostAmount }
+                    : { baseCostAmount: null })
+                };
+              })
+              .filter(Boolean)
+              .sort((a, b) => a.date.localeCompare(b.date));
+            if (normalized.length === 0) return bacc;
+            bacc[code] = normalized;
+            return bacc;
+          }, {});
+          if (Object.keys(normalizedBucket).length === 0) return acc;
+          acc[scopeKey] = normalizedBucket;
+          return acc;
+        }, {});
+        useStorageStore.getState().setFundDailyEarnings(nextFundDailyEarnings);
+
+        if (hasOwn(cloudData, 'fundValuationTimeseries')) {
+          const nextTimeseries = isPlainObject(cloudData.fundValuationTimeseries)
+            ? cloudData.fundValuationTimeseries
+            : {};
+          const localTimeseries = storageStore.getItem('fundValuationTimeseries', {});
+          const mergedTimeseries = { ...localTimeseries };
+
+          const mergeSeries = (cloudArr, localArr) => {
+            const pointsMap = new Map();
+            localArr.forEach((pt) => {
+              if (pt && pt.date && pt.time) pointsMap.set(`${pt.date}_${pt.time}`, pt);
+            });
+            cloudArr.forEach((pt) => {
+              if (pt && pt.date && pt.time) pointsMap.set(`${pt.date}_${pt.time}`, pt);
+            });
+            let mergedArr = Array.from(pointsMap.values()).sort((a, b) => {
+              if (a.date !== b.date) return a.date.localeCompare(b.date);
+              return a.time.localeCompare(b.time);
+            });
+            const maxDate = mergedArr.reduce((max, pt) => (pt.date > max ? pt.date : max), '');
+            if (maxDate) mergedArr = mergedArr.filter((pt) => pt.date === maxDate);
+            return mergedArr;
+          };
+
+          Object.keys(nextTimeseries).forEach((code) => {
+            if (!nextFundCodes.has(code)) return;
+            const cloudEntry = nextTimeseries[code];
+            const localEntry = mergedTimeseries[code];
+            if (Array.isArray(cloudEntry)) {
+              const localArr = Array.isArray(localEntry) ? localEntry : [];
+              mergedTimeseries[code] = { 1: mergeSeries(cloudEntry, localArr) };
+              return;
+            }
+            if (isPlainObject(cloudEntry)) {
+              const localDsMap = isPlainObject(localEntry) ? localEntry : {};
+              const mergedDsMap = { ...localDsMap };
+              Object.keys(cloudEntry).forEach((ds) => {
+                if (!Array.isArray(cloudEntry[ds])) return;
+                const localArr = Array.isArray(mergedDsMap[ds]) ? mergedDsMap[ds] : [];
+                mergedDsMap[ds] = mergeSeries(cloudEntry[ds], localArr);
+              });
+              mergedTimeseries[code] = mergedDsMap;
+            }
+          });
+
+          const cleanedTimeseries = {};
+          Object.keys(mergedTimeseries).forEach((code) => {
+            if (nextFundCodes.has(code)) {
+              cleanedTimeseries[code] = mergedTimeseries[code];
+            }
+          });
+          storageStore.setItem('fundValuationTimeseries', JSON.stringify(cleanedTimeseries));
+        }
+
+        if (isPlainObject(cloudData.customSettings)) {
+          try {
+            const currentCustomSettings = useStorageStore.getState().customSettings;
+            const merged = { ...(currentCustomSettings || {}), ...cloudData.customSettings };
+            useStorageStore.getState().setCustomSettings(merged);
+            if (
+              typeof merged.localSortDisplayMode === 'string' &&
+              SORT_DISPLAY_MODES.has(merged.localSortDisplayMode)
+            ) {
+              useStorageStore.getState().setPcSortDisplayMode(merged.localSortDisplayMode);
+              useStorageStore.getState().setMobileSortDisplayMode(merged.localSortDisplayMode);
+            } else {
+              if (
+                typeof merged.pcLocalSortDisplayMode === 'string' &&
+                SORT_DISPLAY_MODES.has(merged.pcLocalSortDisplayMode)
+              ) {
+                useStorageStore.getState().setPcSortDisplayMode(merged.pcLocalSortDisplayMode);
+              }
+              if (
+                typeof merged.mobileLocalSortDisplayMode === 'string' &&
+                SORT_DISPLAY_MODES.has(merged.mobileLocalSortDisplayMode)
+              ) {
+                useStorageStore.getState().setMobileSortDisplayMode(merged.mobileLocalSortDisplayMode);
+              }
+            }
+          } catch {}
+        }
+
+        if (options.forceTakeover) {
+          const currentUser = useUserStore.getState().user;
+          const currentUserId = options.userId || userIdRef.current || currentUser?.id;
+          if (currentUserId) {
+            await syncUserConfig(currentUserId, true, null, false, { forceTakeover: true });
+          }
+        }
+
+        if (nextFunds.length) {
+          const codes = Array.from(new Set(nextFunds.map((f) => f.code)));
+          const localCodesSet = new Set(localFundsForMerge.map((f) => f?.code).filter(Boolean));
+          const hasNewFunds = codes.some((code) => !localCodesSet.has(code));
+
+          if (hasNewFunds && typeof refreshAllRef.current === 'function') {
+            await refreshAllRef.current(codes);
+          }
+          const currentUser = useUserStore.getState().user;
+          const currentUserId = userIdRef.current || currentUser?.id;
+          if (currentUserId) {
+            try {
+              const latestFunds = storageStore.getItem('funds', []);
+              const localSig = getFundCodesSignature(latestFunds, ['gztime']);
+              const cloudSig = getFundCodesSignature(Array.isArray(cloudData.funds) ? cloudData.funds : [], ['gztime']);
+              if (localSig !== cloudSig) {
+                await syncUserConfig(
+                  currentUserId,
+                  false,
+                  { funds: Array.isArray(latestFunds) ? latestFunds : [] },
+                  true,
+                  options
+                );
+              }
+            } catch (e) {
+              console.error('刷新后强制同步 funds 到云端失败', e);
+            }
+          }
+        }
+
+        const payload = collectLocalPayload();
+        lastSyncedRef.current = getComparablePayload(payload);
+      } finally {
+        skipSyncRef.current = false;
+      }
+    },
+    [showToast, setTempSeconds, setFundTagRecords, syncUserConfig]
+  );
 
   // --- fetchCloudConfig ---
-  const fetchCloudConfig = useCallback(async (userId, checkConflict = false, options = {}) => {
-    if (!userId) return;
-    try {
-      const { data: meta, error: metaError } = await withRetry(() => supabase
-        .from('user_configs')
-        .select('id, data, updated_at')
-        .eq('user_id', userId)
-        .maybeSingle());
+  const fetchCloudConfig = useCallback(
+    async (userId, checkConflict = false, options = {}) => {
+      if (!userId) return;
+      try {
+        const { data: meta, error: metaError } = await withRetry(() =>
+          supabase.from('user_configs').select('id, data, updated_at').eq('user_id', userId).maybeSingle()
+        );
 
-      if (metaError) throw metaError;
+        if (metaError) throw metaError;
 
-      if (!meta?.id) {
-        const { error: insertError } = await withRetry(() => supabase
-          .from('user_configs')
-          .insert({ user_id: userId }));
-        if (insertError) throw insertError;
+        if (!meta?.id) {
+          const { error: insertError } = await withRetry(() =>
+            supabase.from('user_configs').insert({ user_id: userId })
+          );
+          if (insertError) throw insertError;
+          useModalStore.setState({ cloudConfigModal: { open: true, userId, type: 'empty' } });
+          return;
+        }
+
+        if (checkConflict) {
+          useModalStore.setState({ cloudConfigModal: { open: true, userId, type: 'conflict', cloudData: meta.data } });
+          return;
+        }
+
+        if (meta.data && isPlainObject(meta.data) && Object.keys(meta.data).length > 0) {
+          await applyCloudConfig(meta.data, meta.updated_at, { ...options, userId });
+          return;
+        }
+
         useModalStore.setState({ cloudConfigModal: { open: true, userId, type: 'empty' } });
-        return;
+      } catch (e) {
+        console.error('获取云端配置失败', e);
+        skipSyncRef.current = false;
       }
-
-      if (checkConflict) {
-        useModalStore.setState({ cloudConfigModal: { open: true, userId, type: 'conflict', cloudData: meta.data } });
-        return;
-      }
-
-      if (meta.data && isPlainObject(meta.data) && Object.keys(meta.data).length > 0) {
-        await applyCloudConfig(meta.data, meta.updated_at, { ...options, userId });
-        return;
-      }
-
-      useModalStore.setState({ cloudConfigModal: { open: true, userId, type: 'empty' } });
-    } catch (e) {
-      console.error('获取云端配置失败', e);
-      skipSyncRef.current = false;
-    }
-  }, [applyCloudConfig]);
+    },
+    [applyCloudConfig]
+  );
 
   // --- handleSyncLocalConfig ---
   const handleSyncLocalConfig = useCallback(async () => {
@@ -1208,6 +1267,6 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
     triggerCustomSettingsSync,
     skipSyncRef,
     deviceConflictModalOpenRef,
-    storageHelper,
+    storageHelper
   };
 }

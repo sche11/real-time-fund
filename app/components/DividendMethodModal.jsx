@@ -4,15 +4,11 @@ import { useState } from 'react';
 import { CloseIcon } from './Icons';
 import { useStorageStore } from '../stores/storageStore';
 import { useModalStore } from '../stores';
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 const OPTIONS = [
   { value: 'reinvest', label: '红利再投资', desc: '分红自动转为基金份额' },
-  { value: 'cash', label: '现金分红', desc: '分红以现金形式发放' },
+  { value: 'cash', label: '现金分红', desc: '分红以现金形式发放' }
 ];
 
 export default function DividendMethodModal({ fund, groupId, onClose, showToast }) {
@@ -22,9 +18,7 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
   const setGroupHoldings = useStorageStore((s) => s.setGroupHoldings);
 
   // 读取当前分红方式
-  const currentHolding = groupId
-    ? groupHoldings?.[groupId]?.[fund?.code]
-    : holdings?.[fund?.code];
+  const currentHolding = groupId ? groupHoldings?.[groupId]?.[fund?.code] : holdings?.[fund?.code];
   const [selected, setSelected] = useState(currentHolding?.dividendMethod || 'reinvest');
   const [syncAll, setSyncAll] = useState(false);
 
@@ -103,12 +97,14 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
             style={{
               fontWeight: 600,
               fontSize: '16px',
-              marginBottom: 4,
+              marginBottom: 4
             }}
           >
             {fund?.name}
           </div>
-          <div className="muted" style={{ fontSize: '12px' }}>#{fund?.code}</div>
+          <div className="muted" style={{ fontSize: '12px' }}>
+            #{fund?.code}
+          </div>
         </div>
 
         {/* 分红方式单选 */}
@@ -124,15 +120,11 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
                 gap: 12,
                 padding: '14px 16px',
                 borderRadius: 12,
-                border: selected === opt.value
-                  ? '1.5px solid var(--primary)'
-                  : '1px solid var(--border)',
-                background: selected === opt.value
-                  ? 'rgba(34, 211, 238, 0.08)'
-                  : 'rgba(255,255,255,0.03)',
+                border: selected === opt.value ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                background: selected === opt.value ? 'rgba(34, 211, 238, 0.08)' : 'rgba(255,255,255,0.03)',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                textAlign: 'left',
+                textAlign: 'left'
               }}
             >
               {/* 单选圆圈 */}
@@ -141,14 +133,12 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
                   width: 20,
                   height: 20,
                   borderRadius: '50%',
-                  border: selected === opt.value
-                    ? '2px solid var(--primary)'
-                    : '2px solid var(--border)',
+                  border: selected === opt.value ? '2px solid var(--primary)' : '2px solid var(--border)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 {selected === opt.value && (
@@ -157,7 +147,7 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
                       width: 10,
                       height: 10,
                       borderRadius: '50%',
-                      background: 'var(--primary)',
+                      background: 'var(--primary)'
                     }}
                   />
                 )}
@@ -168,12 +158,14 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
                     fontWeight: 600,
                     fontSize: '14px',
                     color: selected === opt.value ? 'var(--primary)' : 'var(--text)',
-                    marginBottom: 2,
+                    marginBottom: 2
                   }}
                 >
                   {opt.label}
                 </div>
-                <div className="muted" style={{ fontSize: '12px' }}>{opt.desc}</div>
+                <div className="muted" style={{ fontSize: '12px' }}>
+                  {opt.desc}
+                </div>
               </div>
             </button>
           ))}
@@ -189,7 +181,7 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
             marginBottom: 20,
             cursor: 'pointer',
             userSelect: 'none',
-            padding: '0 2px',
+            padding: '0 2px'
           }}
         >
           <span
@@ -197,23 +189,25 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
               width: 18,
               height: 18,
               borderRadius: 4,
-              border: syncAll
-                ? '1.5px solid var(--primary)'
-                : '1.5px solid var(--border)',
-              background: syncAll
-                ? 'var(--primary)'
-                : 'transparent',
+              border: syncAll ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
+              background: syncAll ? 'var(--primary)' : 'transparent',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
               transition: 'all 0.2s ease',
-              cursor: 'pointer',
+              cursor: 'pointer'
             }}
           >
             {syncAll && (
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2.5 6L5 8.5L9.5 3.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M2.5 6L5 8.5L9.5 3.5"
+                  stroke="#fff"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             )}
           </span>
@@ -224,20 +218,10 @@ export default function DividendMethodModal({ fund, groupId, onClose, showToast 
 
         {/* 按钮 */}
         <div className="row" style={{ gap: 12 }}>
-          <button
-            type="button"
-            className="button secondary"
-            onClick={onClose}
-            style={{ flex: 1 }}
-          >
+          <button type="button" className="button secondary" onClick={onClose} style={{ flex: 1 }}>
             取消
           </button>
-          <button
-            type="button"
-            className="button"
-            onClick={handleConfirm}
-            style={{ flex: 1 }}
-          >
+          <button type="button" className="button" onClick={handleConfirm} style={{ flex: 1 }}>
             确认
           </button>
         </div>

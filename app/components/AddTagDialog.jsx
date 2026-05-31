@@ -3,14 +3,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Plus, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { TAG_THEME_OPTIONS } from '@/app/constants';
-
 
 const TAG_THEME_KEY_SET = new Set(TAG_THEME_OPTIONS.map((o) => o.key));
 
@@ -43,7 +38,7 @@ export function getTagThemeBadgeProps(rawTheme) {
   const isDefault = key === 'default';
   return {
     variant: isDefault ? 'outline' : 'default',
-    className: opt.badgeClassName || '',
+    className: opt.badgeClassName || ''
   };
 }
 
@@ -137,7 +132,7 @@ export default function AddTagDialog({ open, onOpenChange, onAdd }) {
               autoComplete="off"
               className={cn(
                 'min-h-[72px] w-full min-w-0 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30',
-                'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
               )}
             />
             <p className="text-muted-foreground text-xs leading-relaxed">
@@ -170,7 +165,7 @@ export default function AddTagDialog({ open, onOpenChange, onAdd }) {
                         opt.badgeClassName,
                         active
                           ? 'ring-2 ring-ring ring-offset-2 ring-offset-background'
-                          : 'opacity-85 hover:opacity-100',
+                          : 'opacity-85 hover:opacity-100'
                       )}
                     >
                       {opt.label}
@@ -183,7 +178,12 @@ export default function AddTagDialog({ open, onOpenChange, onAdd }) {
         </div>
 
         <div className="row" style={{ gap: 12, marginTop: 34 }}>
-          <button type="button" className="button secondary trade-cancel-btn" onClick={() => onOpenChange(false)} style={{ flex: 1 }}>
+          <button
+            type="button"
+            className="button secondary trade-cancel-btn"
+            onClick={() => onOpenChange(false)}
+            style={{ flex: 1 }}
+          >
             取消
           </button>
           <button
@@ -195,7 +195,7 @@ export default function AddTagDialog({ open, onOpenChange, onAdd }) {
               submitGuardRef.current = true;
               onAdd?.({
                 names: parsedNames,
-                theme: themeKey,
+                theme: themeKey
               });
               onOpenChange(false);
             }}

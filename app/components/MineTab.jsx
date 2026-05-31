@@ -14,14 +14,10 @@ export default function MineTab({
   onTutorial,
   onUpdateLog,
   onFeedback,
-  onSponsorSupport,
+  onSponsorSupport
 }) {
   return (
-    <div
-      className="mine-tab"
-      style={{ display: visible ? undefined : 'none' }}
-      aria-hidden={!visible || undefined}
-    >
+    <div className="mine-tab" style={{ display: visible ? undefined : 'none' }} aria-hidden={!visible || undefined}>
       <section className="mine-profile-card glass" aria-label="个人信息">
         <div className="mine-profile-row">
           <div className="mine-profile-avatar">
@@ -36,9 +32,7 @@ export default function MineTab({
                   style={{ borderRadius: '50%', objectFit: 'cover' }}
                 />
               ) : (
-                <span className="mine-profile-avatar-fallback">
-                  {user.email?.charAt(0).toUpperCase() || 'U'}
-                </span>
+                <span className="mine-profile-avatar-fallback">{user.email?.charAt(0).toUpperCase() || 'U'}</span>
               )
             ) : (
               <span className="mine-profile-avatar-fallback muted">?</span>
@@ -63,11 +57,7 @@ export default function MineTab({
                 <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                   数据仅保存在本机
                 </div>
-                <button
-                  type="button"
-                  className="button mine-profile-login-btn"
-                  onClick={onLogin}
-                >
+                <button type="button" className="button mine-profile-login-btn" onClick={onLogin}>
                   <LoginIcon width={16} height={16} />
                   <span>登录</span>
                 </button>

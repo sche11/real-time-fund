@@ -6,8 +6,7 @@ import packageJson from '../../package.json';
 import { fetchLatestRelease } from '../api/fund';
 import { UpdateIcon } from './Icons';
 import UpdatePromptModal from './UpdatePromptModal';
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export default function UpdateChecker({ onModalOpenChange }) {
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -46,20 +45,19 @@ export default function UpdateChecker({ onModalOpenChange }) {
     <>
       {hasUpdate && (
         <Tooltip>
-<TooltipTrigger asChild>
-<div
-          className="badge"
-          
-          style={{ cursor: 'pointer', borderColor: 'var(--success)', color: 'var(--success)' }}
-          onClick={() => setUpdateModalOpen(true)}
-        >
-          <UpdateIcon width="14" height="14" />
-        </div>
-</TooltipTrigger>
-<TooltipContent>
-<p>{`发现新版本 ${latestVersion}，点击前往下载`}</p>
-</TooltipContent>
-</Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="badge"
+              style={{ cursor: 'pointer', borderColor: 'var(--success)', color: 'var(--success)' }}
+              onClick={() => setUpdateModalOpen(true)}
+            >
+              <UpdateIcon width="14" height="14" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{`发现新版本 ${latestVersion}，点击前往下载`}</p>
+          </TooltipContent>
+        </Tooltip>
       )}
 
       <AnimatePresence>
@@ -75,4 +73,3 @@ export default function UpdateChecker({ onModalOpenChange }) {
     </>
   );
 }
-
