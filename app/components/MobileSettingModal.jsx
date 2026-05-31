@@ -9,7 +9,6 @@ import ConfirmModal from './ConfirmModal';
 import SuccessModal from './SuccessModal';
 import SyncPersonalSettingsModal from './SyncPersonalSettingsModal';
 import { CloseIcon, DragIcon, RefreshIcon, ResetIcon, SettingsIcon } from './Icons';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 /**
  * 移动端表格个性化设置弹框（底部抽屉，基于 Drawer 组件）
@@ -87,19 +86,13 @@ function MobileSettingReorderItem({ item, index, columnVisibility, onToggleColum
         )}
       </div>
       {onToggleColumnVisibility && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Switch
-              checked={columnVisibility?.[item.id] !== false}
-              onCheckedChange={(checked) => {
-                onToggleColumnVisibility(item.id, !!checked);
-              }}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{columnVisibility?.[item.id] === false ? '显示' : '隐藏'}</p>
-          </TooltipContent>
-        </Tooltip>
+        <Switch
+          checked={columnVisibility?.[item.id] !== false}
+          onCheckedChange={(checked) => {
+            onToggleColumnVisibility(item.id, !!checked);
+          }}
+          title={columnVisibility?.[item.id] === false ? '显示' : '隐藏'}
+        />
       )}
     </Reorder.Item>
   );
@@ -180,19 +173,13 @@ export default function MobileSettingModal({
                 </button>
               )}
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DrawerClose
-                  className="icon-button border-none bg-transparent p-1"
-                  style={{ borderColor: 'transparent', backgroundColor: 'transparent' }}
-                >
-                  <CloseIcon width="20" height="20" />
-                </DrawerClose>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>关闭</p>
-              </TooltipContent>
-            </Tooltip>
+            <DrawerClose
+              className="icon-button border-none bg-transparent p-1"
+              title="关闭"
+              style={{ borderColor: 'transparent', backgroundColor: 'transparent' }}
+            >
+              <CloseIcon width="20" height="20" />
+            </DrawerClose>
           </DrawerHeader>
 
           <div className="mobile-setting-body flex flex-1 flex-col overflow-y-auto">
@@ -208,19 +195,13 @@ export default function MobileSettingModal({
                 }}
               >
                 <span style={{ fontSize: '14px' }}>展示完整基金名称</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Switch
-                      checked={!!showFullFundName}
-                      onCheckedChange={(checked) => {
-                        onToggleShowFullFundName?.(!!checked);
-                      }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{showFullFundName ? '关闭' : '开启'}</p>
-                  </TooltipContent>
-                </Tooltip>
+                <Switch
+                  checked={!!showFullFundName}
+                  onCheckedChange={(checked) => {
+                    onToggleShowFullFundName?.(!!checked);
+                  }}
+                  title={showFullFundName ? '关闭' : '开启'}
+                />
               </div>
             )}
             <h3 className="mobile-setting-subtitle">表头设置</h3>
@@ -237,27 +218,21 @@ export default function MobileSettingModal({
                 拖拽调整列顺序
               </p>
               {(onResetColumnOrder || onResetColumnVisibility) && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      className="icon-button"
-                      onClick={() => setResetConfirmOpen(true)}
-                      style={{
-                        border: 'none',
-                        width: '28px',
-                        height: '28px',
-                        backgroundColor: 'transparent',
-                        color: 'var(--muted)',
-                        flexShrink: 0
-                      }}
-                    >
-                      <ResetIcon width="16" height="16" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>重置表头设置</p>
-                  </TooltipContent>
-                </Tooltip>
+                <button
+                  className="icon-button"
+                  onClick={() => setResetConfirmOpen(true)}
+                  title="重置表头设置"
+                  style={{
+                    border: 'none',
+                    width: '28px',
+                    height: '28px',
+                    backgroundColor: 'transparent',
+                    color: 'var(--muted)',
+                    flexShrink: 0
+                  }}
+                >
+                  <ResetIcon width="16" height="16" />
+                </button>
               )}
             </div>
             {columns.length === 0 ? (
