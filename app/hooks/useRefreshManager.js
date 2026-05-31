@@ -8,9 +8,9 @@ import { isNumber, isString, isPlainObject, isArray } from 'lodash';
 
 import { useStorageStore, storageStore } from '../stores';
 import { recordValuation, setValuationSeries as persistValuationSeries } from '../lib/valuationTimeseries';
-import { DAILY_EARNINGS_SCOPE_ALL } from '../lib/dailyEarnings';
+import { DAILY_EARNINGS_SCOPE_ALL } from '@/app/constants';
 import { asyncPool } from '../lib/asyncHelper';
-import { fetchFundData, fetchNetValueRangeFromTrend } from '../api/fund';
+import { fetchFundData, fetchNetValueRangeFromTrend, fetchFundDividends } from '../api/fund';
 import { TZ } from '../lib/fundHelpers';
 
 dayjs.extend(utc);
@@ -194,6 +194,10 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
       const nextValuationSeries = { ...currentValuationSeries };
       let valuationChanged = false;
 
+      const currentFundDividends = useStorageStore.getState().fundDividends || {};
+      const nextFundDividends = { ...currentFundDividends };
+      let dividendsChanged = false;
+
       await asyncPool(3, uniqueCodes, async (c) => {
         if (!fundCodeStillInStorage(c)) return;
         let data = null;
@@ -258,6 +262,38 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
           });
 
           if (targetScopes.length === 0) return;
+
+          // ----- 获取并缓存分红数据 -----
+          let earliestDate = null;
+          if (currentStore.holdings[data.code]?.firstPurchaseDate) {
+            earliestDate = currentStore.holdings[data.code].firstPurchaseDate;
+          }
+          Object.values(currentStore.groupHoldings || {}).forEach(g => {
+            if (g[data.code]?.firstPurchaseDate) {
+              if (!earliestDate || g[data.code].firstPurchaseDate < earliestDate) earliestDate = g[data.code].firstPurchaseDate;
+            }
+          });
+          const txs = currentStore.transactions[data.code] || [];
+          for (const tx of txs) {
+            if (tx.type === 'buy' && isValidDateStr(tx.date)) {
+               if (!earliestDate || tx.date < earliestDate) earliestDate = tx.date;
+            }
+          }
+
+          if (earliestDate) {
+             const cached = currentFundDividends[data.code];
+             const todayStr = dayjs().tz(TZ).format('YYYY-MM-DD');
+             if (!cached || cached.lastFetchDate !== todayStr) {
+                try {
+                   const divs = await fetchFundDividends(data.code, earliestDate);
+                   nextFundDividends[data.code] = { lastFetchDate: todayStr, list: divs };
+                   dividendsChanged = true;
+                } catch (e) {
+                   console.error(`拉取 ${data.code} 历史分红失败`, e);
+                }
+             }
+          }
+          // ----- 分红数据获取完毕 -----
 
           const latestNavDate = data.jzrq;
           if (!isValidDateStr(latestNavDate)) return;
@@ -406,6 +442,16 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
           const next = { ...prev };
           for (const [scope, bucket] of Object.entries(dailyChanges)) {
             next[scope] = { ...next[scope], ...bucket };
+          }
+          return next;
+        });
+      }
+
+      if (dividendsChanged) {
+        useStorageStore.getState().setFundDividends(prev => {
+          const next = { ...prev };
+          for (const [code, entry] of Object.entries(nextFundDividends)) {
+            next[code] = entry;
           }
           return next;
         });

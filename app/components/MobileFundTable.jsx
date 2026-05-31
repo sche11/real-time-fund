@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import ReactDOM from 'react-dom';
+import { toast as sonnerToast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useModalStore } from '../stores';
 import {
@@ -37,6 +38,7 @@ import { fetchFundPeriodReturns, fetchRelatedSectorsBatch, fetchFundSecidsBatch,
 import { storageStore } from '../stores';
 import { asyncPool } from '@/app/lib/asyncHelper';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { getTagThemeBadgeProps } from '@/app/components/AddTagDialog';
 import { cn } from '@/lib/utils';
 
@@ -135,10 +137,12 @@ function EditDragHandleCell({ disabled }) {
   );
   if (!rowSortable) return null;
   return (
-    <span
+    <Tooltip>
+<TooltipTrigger asChild>
+<span
       ref={setActivatorRef}
       className="icon-button fav-button"
-      title="拖动排序"
+      
       role="button"
       aria-label="拖动排序"
       style={{
@@ -150,12 +154,25 @@ function EditDragHandleCell({ disabled }) {
         justifyContent: 'center',
         opacity: disabled ? 0.45 : 1,
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
+      onPointerDown={(e) => {
+        if (disabled) {
+          e.stopPropagation();
+          sonnerToast.info('拖拽基金顺序需要在默认排序下操作');
+        }
+      }}
       {...(disabled ? {} : rowSortable.activatorProps)}
       {...(disabled ? {} : rowSortable.listeners)}
     >
       <DragIcon width="18" height="18" />
     </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>拖动排序</p>
+</TooltipContent>
+</Tooltip>
   );
 }
 
@@ -200,8 +217,10 @@ function MobileEditBatchHeader({
           marginLeft: '5px'
         }}
       >
-        <label
-          title={checked ? '取消全选' : '全选'}
+        <Tooltip>
+<TooltipTrigger asChild>
+<label
+          
           onClick={(e) => e.stopPropagation?.()}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0 }}
         >
@@ -218,6 +237,11 @@ function MobileEditBatchHeader({
             已选 {selectedCount}/{totalCount}
           </span>
         </label>
+</TooltipTrigger>
+<TooltipContent>
+<p>{checked ? '取消全选' : '全选'}</p>
+</TooltipContent>
+</Tooltip>
       </div>
 
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -229,7 +253,6 @@ function MobileEditBatchHeader({
               e.stopPropagation?.();
               onMove?.();
             }}
-            title="移动分组"
             disabled={!!actionsDisabled}
             style={{
               display: 'inline-flex',
@@ -256,7 +279,6 @@ function MobileEditBatchHeader({
             e.stopPropagation?.();
             onRemove?.();
           }}
-          title="批量删除"
           disabled={!!actionsDisabled}
           style={{
             display: 'inline-flex',
@@ -275,14 +297,16 @@ function MobileEditBatchHeader({
         >
           <TrashIcon width="17" height="17" />
         </button>
-        <button
+        <Tooltip>
+<TooltipTrigger asChild>
+<button
           type="button"
           className="icon-button"
           onClick={(e) => {
             e.stopPropagation?.();
             onClose?.();
           }}
-          title="完成"
+          
           aria-label="退出编辑"
           style={{
             border: 'none',
@@ -300,6 +324,11 @@ function MobileEditBatchHeader({
         >
           <CloseIcon width="18" height="18" />
         </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>完成</p>
+</TooltipContent>
+</Tooltip>
       </div>
     </div>
   );
@@ -740,9 +769,9 @@ export default function MobileFundTable({
     onMobileSettingModalOpenChange?.(settingModalOpen);
   }, [settingModalOpen, onMobileSettingModalOpenChange]);
 
-  useEffect(() => {
-    if (sortBy !== 'default') exitEditMode();
-  }, [sortBy, exitEditMode]);
+  // useEffect(() => {
+  //   if (sortBy !== 'default') exitEditMode();
+  // }, [sortBy, exitEditMode]);
 
   const [cardSheetRow, setCardSheetRow] = useState(null);
 
@@ -816,8 +845,8 @@ export default function MobileFundTable({
 
       const tableEl = tableContainerRef.current;
       const tableRect = tableEl?.getBoundingClientRect();
-      if (!tableRect) {
-        setShowPortalHeader(window.scrollY >= nextStickyTop);
+      if (!tableRect || (tableRect.width === 0 && tableRect.height === 0)) {
+        setShowPortalHeader(false);
         return;
       }
 
@@ -834,9 +863,17 @@ export default function MobileFundTable({
     updateVerticalState();
     window.addEventListener('scroll', throttledVerticalUpdate, { passive: true });
     window.addEventListener('resize', throttledVerticalUpdate, { passive: true });
+
+    let ro = null;
+    if (tableContainerRef.current) {
+      ro = new ResizeObserver(() => throttledVerticalUpdate());
+      ro.observe(tableContainerRef.current);
+    }
+
     return () => {
       window.removeEventListener('scroll', throttledVerticalUpdate);
       window.removeEventListener('resize', throttledVerticalUpdate);
+      if (ro) ro.disconnect();
       throttledVerticalUpdate.cancel();
     };
   }, [stickyTop]);
@@ -1203,7 +1240,6 @@ export default function MobileFundTable({
       return (
         <div className="name-cell-content" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label
-            title={holdingLocked ? '关联持仓不可批量选择' : '选择用于批量操作'}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1240,30 +1276,41 @@ export default function MobileFundTable({
             />
           </label>
           <div className="title-text">
-            <span
+            <Tooltip>
+<TooltipTrigger asChild>
+<span
               className={`name-text ${showFullFundName ? 'show-full' : ''}`}
-              title={isUpdated ? '今日净值已更新' : undefined}
             >
               {holdingLocked ? (
-                <span
-                  title="持仓来自自定义分组汇总"
-                  aria-label="已关联持仓"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    marginRight: 6,
-                    color: 'var(--primary)',
-                    verticalAlign: 'middle',
-                    marginBottom: 2,
-                    position: 'relative',
-                  }}
-                >
-                  <LinkIcon width="14" height="14" />
-                </span>
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <span
+                      aria-label="已关联持仓"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        marginRight: 6,
+                        color: 'var(--primary)',
+                        verticalAlign: 'middle',
+                        marginBottom: 2,
+                        position: 'relative',
+                        cursor: 'default',
+                      }}
+                    >
+                      <LinkIcon width="14" height="14" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>持仓来自自定义分组汇总</TooltipContent>
+                </Tooltip>
               ) : null}
               <ConsecutiveTrendBadge trend={fundExtraDataByCode?.[code]?.consecutiveTrend} />
               {info.getValue() ?? '—'}
             </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>{isUpdated ? '今日净值已更新' : undefined}</p>
+</TooltipContent>
+</Tooltip>
             {holdingAmountDisplay ? (
               <span className="muted code-text">
                 {masked ? <span className="mask-text">******</span> : holdingAmountDisplay}
@@ -1286,14 +1333,16 @@ export default function MobileFundTable({
       <div className="name-cell-content" style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: isCustomGroupTab? 0 : -4 }}>
         {isGroupTab ? (
           showGroupDeleteButton ? (
-            <button
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               type="button"
               className="icon-button"
               onClick={(e) => {
                 e.stopPropagation?.();
                 onRemoveFundRef.current?.(original);
               }}
-              title="删除"
+              
               style={{
                 backgroundColor: 'transparent',
                 flexShrink: 0,
@@ -1307,24 +1356,37 @@ export default function MobileFundTable({
             >
               <TrashIcon width="18" height="18" />
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>删除</p>
+</TooltipContent>
+</Tooltip>
           ) : null
         ) : (
-          <button
+          <Tooltip>
+<TooltipTrigger asChild>
+<button
             className={`icon-button fav-button ${isFavorites ? 'active' : ''}`}
             onClick={(e) => {
               e.stopPropagation?.();
               onToggleFavoriteRef.current?.(original);
             }}
-            title={isFavorites ? '取消自选' : '添加自选'}
+            
             style={{ backgroundColor: 'transparent'}}
           >
             <StarIcon width="18" height="18" filled={isFavorites} />
           </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{isFavorites ? '取消自选' : '添加自选'}</p>
+</TooltipContent>
+</Tooltip>
         )}
         <div className="title-text">
-          <span
+          <Tooltip>
+<TooltipTrigger asChild>
+<span
             className={`name-text ${showFullFundName ? 'show-full' : ''}`}
-            title={isUpdated ? '今日净值已更新' : onOpenCardSheet ? '点击查看卡片' : ''}
             role={onOpenCardSheet ? 'button' : undefined}
             tabIndex={onOpenCardSheet ? 0 : undefined}
             style={onOpenCardSheet ? { cursor: 'pointer' } : undefined}
@@ -1342,31 +1404,43 @@ export default function MobileFundTable({
             }}
           >
             {holdingLocked ? (
-              <span
-                title="持仓来自自定义分组汇总"
-                aria-label="已关联持仓"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  marginRight: 6,
-                  color: 'var(--primary)',
-                  verticalAlign: 'middle',
-                  bottom: 2,
-                  position: 'relative',
-                }}
-              >
-                <LinkIcon width="14" height="14" />
-              </span>
+              <Tooltip delayDuration={150}>
+                <TooltipTrigger asChild>
+                  <span
+                    aria-label="已关联持仓"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginRight: 6,
+                      color: 'var(--primary)',
+                      verticalAlign: 'middle',
+                      bottom: 2,
+                      position: 'relative',
+                      cursor: 'default',
+                    }}
+                  >
+                    <LinkIcon width="14" height="14" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>持仓来自自定义分组汇总</TooltipContent>
+              </Tooltip>
             ) : null}
             <ConsecutiveTrendBadge trend={fundExtraDataByCode?.[code]?.consecutiveTrend} />
             {info.getValue() ?? '—'}
           </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>{isUpdated ? '今日净值已更新' : onOpenCardSheet ? '点击查看卡片' : ''}</p>
+</TooltipContent>
+</Tooltip>
           {holdingAmountDisplay ? (
-            <span
+            <Tooltip>
+<TooltipTrigger asChild>
+<span
               className="muted code-text"
               role="button"
               tabIndex={0}
-              title={holdingLocked ? holdingLinkedTitle : '点击设置持仓'}
+              
               style={{ cursor: 'pointer' }}
               onClick={(e) => {
                 e.stopPropagation?.();
@@ -1383,12 +1457,19 @@ export default function MobileFundTable({
               {hasDca && <span className="dca-indicator">定</span>}
               {isUpdated && <span className="updated-indicator">✓</span>}
             </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
+</TooltipContent>
+</Tooltip>
           ) : code ? (
-            <span
+            <Tooltip>
+<TooltipTrigger asChild>
+<span
               className="muted code-text"
               role="button"
               tabIndex={0}
-              title={holdingLocked ? holdingLinkedTitle : '设置持仓'}
+              
               style={{ cursor: 'pointer' }}
               onClick={(e) => {
                 e.stopPropagation?.();
@@ -1405,6 +1486,11 @@ export default function MobileFundTable({
               {hasDca && <span className="dca-indicator">定</span>}
               {isUpdated && <span className="updated-indicator">✓</span>}
             </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
+</TooltipContent>
+</Tooltip>
           ) : null}
         </div>
       </div>
@@ -1445,14 +1531,16 @@ export default function MobileFundTable({
           }
           return (
             <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 6 }}>
-              <button
+              <Tooltip>
+<TooltipTrigger asChild>
+<button
                 type="button"
                 className="icon-button"
                 onClick={(e) => {
                   e.stopPropagation?.();
                   setSettingModalOpen(true);
                 }}
-                title="个性化设置"
+                
                 style={{
                   border: 'none',
                   width: '28px',
@@ -1468,8 +1556,15 @@ export default function MobileFundTable({
               >
                 <SettingsIcon width="18" height="18" />
               </button>
-              {sortBy === 'default' && (
-                <button
+</TooltipTrigger>
+<TooltipContent>
+<p>个性化设置</p>
+</TooltipContent>
+</Tooltip>
+              {true && (
+                <Tooltip>
+<TooltipTrigger asChild>
+<button
                   type="button"
                   className="icon-button"
                   onClick={(e) => {
@@ -1478,7 +1573,7 @@ export default function MobileFundTable({
                     setIsEditMode(true);
                     setEditSelectedCodes(new Set());
                   }}
-                  title="编辑"
+                  
                   aria-label="编辑"
                   style={{
                     border: 'none',
@@ -1497,6 +1592,11 @@ export default function MobileFundTable({
                 >
                   <PencilIcon width="18" height="18" />
                 </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>编辑</p>
+</TooltipContent>
+</Tooltip>
               )}
             </div>
           );
@@ -1519,11 +1619,13 @@ export default function MobileFundTable({
           const canMove = sortBy === 'default' && idx > 0 && onReorder;
           return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-              <button
+              <Tooltip>
+<TooltipTrigger asChild>
+<button
                 type="button"
                 className="link-button"
-                disabled={!canMove}
-                title={idx <= 0 ? '已在最前' : '移到最前'}
+                disabled={idx <= 0}
+                
                 aria-label={idx <= 0 ? '已在最前' : '移到最前'}
                 style={{
                   fontSize: 12,
@@ -1539,12 +1641,21 @@ export default function MobileFundTable({
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!canMove) return;
+                  if (sortBy !== 'default') {
+                    sonnerToast.info('拖拽基金顺序需要在默认排序下操作');
+                    return;
+                  }
+                  if (idx <= 0 || !onReorder) return;
                   onReorder(idx, 0);
                 }}
               >
                 <ArrowUpToLineIcon width={18} height={18} aria-hidden />
               </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{idx <= 0 ? '已在最前' : '移到最前'}</p>
+</TooltipContent>
+</Tooltip>
             </div>
           );
         },
@@ -1568,7 +1679,9 @@ export default function MobileFundTable({
           const list = Array.isArray(original.fundTags) ? original.fundTags : [];
           const hasTags = list.length > 0;
           return (
-            <button
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               type="button"
               onClick={(e) => {
                 e.stopPropagation?.();
@@ -1584,7 +1697,7 @@ export default function MobileFundTable({
                 textAlign: 'left',
               }}
               disabled={!onFundTagsClick}
-              title={onFundTagsClick ? '编辑标签' : undefined}
+              
             >
               {hasTags ? (
                 <div
@@ -1620,6 +1733,11 @@ export default function MobileFundTable({
                  <div className="muted" style={{ textAlign: 'right', fontSize: '12px' }}>—</div>
         )}
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{onFundTagsClick ? '编辑标签' : undefined}</p>
+</TooltipContent>
+</Tooltip>
           );
         },
         meta: { align: 'right', cellClassName: 'tags-cell', width: columnWidthMap.tags ?? 120 },
@@ -1662,7 +1780,6 @@ export default function MobileFundTable({
                 </FitText>
               ) : null}
               <span
-                title={firstLine !== '—' ? firstLine : undefined}
                 style={{
                   display: 'block',
                   width: '100%',
@@ -1939,9 +2056,16 @@ export default function MobileFundTable({
                 </FitText>
               </span>
               {hasText && displayDate ? (
-                <span className="muted" title={rawDate && rawDate !== displayDate ? rawDate : undefined} style={{ fontSize: '10px' }}>
+                <Tooltip>
+<TooltipTrigger asChild>
+<span className="muted"  style={{ fontSize: '10px' }}>
                   {displayDate}
                 </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>{rawDate && rawDate !== displayDate ? rawDate : undefined}</p>
+</TooltipContent>
+</Tooltip>
               ) : null}
             </div>
           );
@@ -2355,7 +2479,7 @@ export default function MobileFundTable({
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
       onPointerDown={(e) => {
-        if (sortBy !== 'default' || isEditMode) return;
+        if (isEditMode) return;
         if (e.button !== 0 && e.pointerType === 'mouse') return;
         const c = row.original?.code;
         if (!c) return;

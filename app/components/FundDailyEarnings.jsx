@@ -7,19 +7,21 @@ import {
   LinearScale,
   PointElement,
   LineElement,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Filler
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { isNumber } from 'lodash';
 import FundDailyEarningsDetailModal from './FundDailyEarningsDetailModal';
+import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  Tooltip,
+  ChartTooltip,
   Filler
 );
 
@@ -418,13 +420,20 @@ export default function FundDailyEarnings({ series = [], theme = 'dark', masked 
       </div>
 
       {detailOpen && (
-        <FundDailyEarningsDetailModal
+        <UITooltip>
+<TooltipTrigger asChild>
+<FundDailyEarningsDetailModal
           open={detailOpen}
           onOpenChange={setDetailOpen}
           series={filteredSeries}
           masked={masked}
-          title={`${rangeLabel}收益明细`}
+          
         />
+</TooltipTrigger>
+<TooltipContent>
+<p>{`${rangeLabel}收益明细`}</p>
+</TooltipContent>
+</UITooltip>
       )}
     </div>
   );

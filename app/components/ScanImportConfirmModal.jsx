@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { RefreshCw } from 'lucide-react';
 import { CloseIcon } from './Icons';
 import {
   Select,
@@ -18,6 +19,7 @@ export default function ScanImportConfirmModal({
   onClose,
   onToggle,
   onConfirm,
+  onRetryOcr,
   refreshing,
   groups = [],
   existingAllCodes = [],
@@ -60,8 +62,29 @@ export default function ScanImportConfirmModal({
         onClick={(e) => e.stopPropagation()}
         style={{ width: 480, maxWidth: '90vw' }}
       >
-        <div className="title" style={{ marginBottom: 12, justifyContent: 'space-between' }}>
-          <span>确认导入基金</span>
+        <div className="title" style={{ marginBottom: 12, justifyContent: 'space-between', display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span>确认导入基金</span>
+            {isOcrScan && (
+              <button
+                onClick={onRetryOcr}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+              >
+                <RefreshCw width="14" height="14" />
+                重新识别
+              </button>
+            )}
+          </div>
           <button className="icon-button" onClick={onClose} style={{ border: 'none', background: 'transparent' }}>
             <CloseIcon width="20" height="20" />
           </button>

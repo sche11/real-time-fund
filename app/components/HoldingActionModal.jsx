@@ -6,6 +6,8 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function HoldingActionModal({ fund, onClose, onAction, hasHistory, pendingCount, groupName }) {
   const handleOpenChange = (open) => {
@@ -27,7 +29,9 @@ export default function HoldingActionModal({ fund, onClose, onAction, hasHistory
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <SettingsIcon width="20" height="20" />
             <span>持仓操作</span>
-            <button
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               type="button"
               className="button secondary"
               onClick={() => onAction('history')}
@@ -41,7 +45,7 @@ export default function HoldingActionModal({ fund, onClose, onAction, hasHistory
                 gap: 4,
                 position: 'relative',
               }}
-              title="查看交易记录"
+              
             >
               <span>📜</span>
               <span>交易记录</span>
@@ -60,6 +64,11 @@ export default function HoldingActionModal({ fund, onClose, onAction, hasHistory
                 />
               )}
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>查看交易记录</p>
+</TooltipContent>
+</Tooltip>
           </div>
           <button className="icon-button" onClick={onClose} style={{ border: 'none', background: 'transparent' }}>
             <CloseIcon width="20" height="20" />
@@ -133,6 +142,18 @@ export default function HoldingActionModal({ fund, onClose, onAction, hasHistory
             }}
           >
             转换
+          </button>
+          <button
+            className="button col-12"
+            onClick={() => onAction('dividend')}
+            style={{
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.75)',
+              color: 'rgba(245, 158, 11, 0.85)',
+              fontSize: 14,
+            }}
+          >
+            分红方式
           </button>
           <button className="button col-12" onClick={() => onAction('edit')} style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text)' }}>
             编辑持仓

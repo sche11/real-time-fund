@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Info } from 'lucide-react';
 import { CloseIcon, PlusIcon } from './Icons';
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { getTagThemeBadgeProps } from './AddTagDialog';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function AddFundToGroupModal({ allFunds, currentGroupCodes, holdings = {}, fundTagListsByCode = {}, fundTagRecords = [], onClose, onAdd }) {
   const [selected, setSelected] = useState(new Set());
@@ -92,6 +93,13 @@ export default function AddFundToGroupModal({ allFunds, currentGroupCodes, holdi
             <CloseIcon width="20" height="20" />
           </button>
         </div>
+
+        <Alert style={{ marginBottom: 16 }}>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            在此添加的基金不会代入原有持仓金额。如需带金额迁移，请使用「分组迁移」功能。
+          </AlertDescription>
+        </Alert>
 
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <Search

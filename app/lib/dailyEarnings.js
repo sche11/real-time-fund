@@ -13,9 +13,9 @@
  */
 import { isPlainObject, isString, isNumber } from 'lodash';
 import { storageStore } from '@/app/stores';
+import { DAILY_EARNINGS_SCOPE_ALL } from '@/app/constants';
 
 const STORAGE_KEY = 'fundDailyEarnings';
-export const DAILY_EARNINGS_SCOPE_ALL = 'all';
 
 function normalizeItem(item) {
   if (!item || typeof item !== 'object') return null;

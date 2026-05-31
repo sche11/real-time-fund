@@ -1,6 +1,6 @@
 'use client';
 
-const SUMMARY_TAB_ID = '__portfolio_groups_summary__';
+import { SUMMARY_TAB_ID } from '@/app/constants';
 
 export default function EmptyStateCard({
   fundsLength = 0,

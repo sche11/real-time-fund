@@ -20,7 +20,10 @@ import {
 import ConfirmModal from './ConfirmModal';
 import { CloseIcon } from './Icons';
 import { cn } from '@/lib/utils';
-import AddTagDialog, { TAG_THEME_OPTIONS } from './AddTagDialog';
+import AddTagDialog from './AddTagDialog';
+import { TAG_THEME_OPTIONS } from '@/app/constants';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 const DEFAULT_TAG_THEME = 'default';
 const ALLOWED_THEMES = new Set(TAG_THEME_OPTIONS.map((x) => x.key));
@@ -330,11 +333,12 @@ export default function FundTagsEditDialog({open,
 
             if (optionalEditMode) {
               return (
-                <button
-                  key={poolTagId || `opt-${itemIndex}`}
+                <Tooltip key={poolTagId || `opt-${itemIndex}`}>
+<TooltipTrigger asChild>
+<button
                   type="button"
                   className="inline-flex"
-                  title="删除标签"
+                  
                   aria-label={`删除标签 ${label}`}
                   onClick={() => requestDeleteOptionalTag(poolTagId, label)}
                 >
@@ -349,6 +353,11 @@ export default function FundTagsEditDialog({open,
                     />
                   </Badge>
                 </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>删除标签</p>
+</TooltipContent>
+</Tooltip>
               );
             }
 
@@ -401,8 +410,10 @@ export default function FundTagsEditDialog({open,
   );
 
   const deleteConfirmModal = deleteConfirm ? (
-    <ConfirmModal
-      title="删除标签"
+    <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
+      
       confirmText="确定删除"
       confirmVariant="danger"
       onCancel={() => setDeleteConfirm(null)}
@@ -421,6 +432,11 @@ export default function FundTagsEditDialog({open,
         </div>
       }
     />
+</TooltipTrigger>
+<TooltipContent>
+<p>删除标签</p>
+</TooltipContent>
+</Tooltip>
   ) : null;
 
   if (isMobile) {
@@ -439,9 +455,16 @@ export default function FundTagsEditDialog({open,
           >
             <DrawerHeader className="flex flex-row items-center justify-between gap-2 border-b border-[var(--border)] py-4 text-left">
               <DrawerTitle className="text-base font-semibold">编辑标签</DrawerTitle>
-              <DrawerClose className="icon-button border-none bg-transparent p-1" title="关闭" style={{ border: 'none', background: 'transparent' }}>
+              <Tooltip>
+<TooltipTrigger asChild>
+<DrawerClose className="icon-button border-none bg-transparent p-1"  style={{ border: 'none', background: 'transparent' }}>
                 <CloseIcon width="20" height="20" />
               </DrawerClose>
+</TooltipTrigger>
+<TooltipContent>
+<p>关闭</p>
+</TooltipContent>
+</Tooltip>
             </DrawerHeader>
             <div className="scrollbar-y-styled flex-1 overflow-y-auto px-4 pb-6 pt-2">
               {body}
@@ -469,16 +492,23 @@ export default function FundTagsEditDialog({open,
                 <Tag width={20} height={20} aria-hidden className="shrink-0 text-[var(--foreground)]" />
                 <span className="text-[var(--foreground)]">编辑标签</span>
               </div>
-              <button
+              <Tooltip>
+<TooltipTrigger asChild>
+<button
                 type="button"
                 className="icon-button shrink-0"
-                title="关闭"
+                
                 aria-label="关闭"
                 onClick={() => onOpenChange(false)}
                 style={{ border: 'none', background: 'transparent' }}
               >
                 <CloseIcon width={20} height={20} />
               </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>关闭</p>
+</TooltipContent>
+</Tooltip>
             </div>
             <div className="scrollbar-y-styled min-h-0 flex-1 overflow-y-auto px-4 py-4">{body}</div>
           </div>

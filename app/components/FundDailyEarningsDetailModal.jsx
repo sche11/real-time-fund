@@ -16,6 +16,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 function buildTableRows(series) {
   if (!Array.isArray(series) || series.length === 0) return [];
@@ -160,7 +162,6 @@ export default function FundDailyEarningsDetailModal({
           style={{
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius)',
-            overflow: 'hidden',
             background: 'var(--card)',
           }}
         >
@@ -183,7 +184,7 @@ export default function FundDailyEarningsDetailModal({
                     boxShadow: '0 1px 0 0 var(--border)',
                   }}
                 >
-                  {hg.headers.map((h) => (
+                  {hg.headers.map((h, index) => (
                     <th
                       key={h.id}
                       style={{
@@ -195,6 +196,8 @@ export default function FundDailyEarningsDetailModal({
                         position: 'sticky',
                         top: 0,
                         zIndex: 1,
+                        borderTopLeftRadius: index === 0 ? 'var(--radius)' : undefined,
+                        borderTopRightRadius: index === hg.headers.length - 1 ? 'var(--radius)' : undefined,
                       }}
                     >
                       {flexRender(h.column.columnDef.header, h.getContext())}
@@ -253,9 +256,11 @@ export default function FundDailyEarningsDetailModal({
             <DrawerTitle className="flex items-center gap-2.5 text-left">
               <span>{title}</span>
             </DrawerTitle>
-            <DrawerClose
+            <Tooltip>
+<TooltipTrigger asChild>
+<DrawerClose
               className="icon-button border-none bg-transparent p-1"
-              title="关闭"
+              
               style={{
                 borderColor: 'transparent',
                 backgroundColor: 'transparent',
@@ -263,6 +268,11 @@ export default function FundDailyEarningsDetailModal({
             >
               <CloseIcon width="20" height="20" />
             </DrawerClose>
+</TooltipTrigger>
+<TooltipContent>
+<p>关闭</p>
+</TooltipContent>
+</Tooltip>
           </DrawerHeader>
           <div className="flex-1 px-4 pb-4">
             {body}

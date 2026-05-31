@@ -5,6 +5,8 @@ import { AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle } from '../../components/ui/dialog';
 import ConfirmModal from './ConfirmModal';
 import { DragIcon, PlusIcon, SettingsIcon, TrashIcon } from './Icons';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 function GroupManageReorderItem({
   item,
@@ -62,14 +64,21 @@ function GroupManageReorderItem({
           border: !item.name.trim() ? '1px solid var(--danger)' : 'none'
         }}
       />
-      <button
+      <Tooltip>
+<TooltipTrigger asChild>
+<button
         className="icon-button danger"
         onClick={() => onDeleteClick(item.id, item.name)}
-        title="删除分组"
+        
         style={{ width: '36px', height: '36px', flexShrink: 0 }}
       >
         <TrashIcon width="16" height="16" />
       </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>删除分组</p>
+</TooltipContent>
+</Tooltip>
     </Reorder.Item>
   );
 }
@@ -221,12 +230,19 @@ export default function GroupManageModal({ groups, onClose, onSave }) {
       <AnimatePresence>
         {deleteConfirm && (
           <div onPointerDown={(e) => e.stopPropagation()}>
-            <ConfirmModal
-              title="删除确认"
+            <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
+              
               message={`确定要删除分组 "${deleteConfirm.name}" 吗？分组内的基金数据会被删除。`}
               onConfirm={handleConfirmDelete}
               onCancel={() => setDeleteConfirm(null)}
             />
+</TooltipTrigger>
+<TooltipContent>
+<p>删除确认</p>
+</TooltipContent>
+</Tooltip>
           </div>
         )}
       </AnimatePresence>

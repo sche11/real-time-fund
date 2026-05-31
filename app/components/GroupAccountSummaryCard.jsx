@@ -1,5 +1,7 @@
 'use client';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 /**
  * 分组账户汇总卡片（只读展示，不包含任何持仓编辑/交易入口）
@@ -183,14 +185,28 @@ export default function GroupAccountSummaryCard({/** 与首页 `` 一致：true 
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
-          <span className="up" title="估算上涨">
+          <Tooltip>
+<TooltipTrigger asChild>
+<span className="up" >
             {upCount}
             <span style={{ marginLeft: 2 }}>▲</span>
           </span>
-          <span className="down" title="估算下跌">
+</TooltipTrigger>
+<TooltipContent>
+<p>估算上涨</p>
+</TooltipContent>
+</Tooltip>
+          <Tooltip>
+<TooltipTrigger asChild>
+<span className="down" >
             {downCount}
             <span style={{ marginLeft: 2 }}>▼</span>
           </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>估算下跌</p>
+</TooltipContent>
+</Tooltip>
         </div>
       </div>
 

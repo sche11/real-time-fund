@@ -51,6 +51,7 @@ export function useScanImport({
   const [scanImportProgress, setScanImportProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 });
   const [scanProgress, setScanProgress] = useState({ stage: 'ocr', current: 0, total: 0 });
   const [isOcrScan, setIsOcrScan] = useState(false);
+  const [lastOcrTexts, setLastOcrTexts] = useState([]);
 
   const abortScanRef = useRef(false);
   const fileInputRef = useRef(null);
@@ -69,6 +70,147 @@ export function useScanImport({
   const handleScanPick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
+    }
+  };
+
+  const processTextsInternal = async (texts) => {
+    const searchFundsWithTimeout = async (val, ms) => {
+      let timer = null;
+      const timeout = new Promise((resolve) => {
+        timer = setTimeout(() => resolve([]), ms);
+      });
+      try {
+        return await Promise.race([searchFunds(val), timeout]);
+      } catch (e) {
+        return [];
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+
+    const allFundsData = [];
+    const addedFundCodes = new Set();
+
+    for (let i = 0; i < texts.length; i++) {
+      if (abortScanRef.current) break;
+
+      const text = texts[i];
+      if (!text) continue;
+
+      setScanProgress(prev => ({ ...prev, current: i + 1 }));
+
+      const fundsResString = await parseFundTextWithLLM(text);
+      let fundsRes = null;
+      try {
+        fundsRes = JSON.parse(fundsResString);
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (Array.isArray(fundsRes) && fundsRes.length > 0) {
+        fundsRes.forEach((fund) => {
+          const code = fund.fundCode || '';
+          const name = (fund.fundName || '').trim();
+          if (code && !addedFundCodes.has(code)) {
+            addedFundCodes.add(code);
+            allFundsData.push({ fundCode: code, fundName: name, holdAmounts: fund.holdAmounts || '', holdGains: fund.holdGains || '' });
+          } else if (!code && name) {
+            allFundsData.push({ fundCode: '', fundName: name, holdAmounts: fund.holdAmounts || '', holdGains: fund.holdGains || '' });
+          }
+        });
+      }
+    }
+
+    if (abortScanRef.current) return;
+
+    // 处理没有基金代码但有名称的情况，通过名称搜索基金代码
+    const fundsWithoutCode = allFundsData.filter(f => !f.fundCode && f.fundName);
+    if (fundsWithoutCode.length > 0) {
+      setScanProgress({ stage: 'verify', current: 0, total: fundsWithoutCode.length });
+      for (let i = 0; i < fundsWithoutCode.length; i++) {
+        if (abortScanRef.current) break;
+        const fundItem = fundsWithoutCode[i];
+        setScanProgress(prev => ({ ...prev, current: i + 1 }));
+        try {
+          const list = await searchFundsWithTimeout(fundItem.fundName, 8000);
+          if (Array.isArray(list) && list.length === 1) {
+            const found = list[0];
+            if (found && found.CODE && !addedFundCodes.has(found.CODE)) {
+              addedFundCodes.add(found.CODE);
+              fundItem.fundCode = found.CODE;
+            }
+          } else {
+            try {
+              const fuzzyCode = await resolveFundCodeByFuzzy(fundItem.fundName);
+              if (fuzzyCode && !addedFundCodes.has(fuzzyCode)) {
+                addedFundCodes.add(fuzzyCode);
+                fundItem.fundCode = fuzzyCode;
+              }
+            } catch (e) {}
+          }
+        } catch (e) {}
+      }
+    }
+
+    const validFunds = allFundsData.filter(f => f.fundCode);
+    const codes = validFunds.map(f => f.fundCode).sort();
+    setScanProgress({ stage: 'verify', current: 0, total: codes.length });
+
+    const existingCodes = new Set(funds.map(f => f.code));
+    const results = [];
+    for (let i = 0; i < codes.length; i++) {
+      if (abortScanRef.current) break;
+      const code = codes[i];
+      const fundInfo = validFunds.find(f => f.fundCode === code);
+      setScanProgress(prev => ({ ...prev, current: i + 1 }));
+
+      let found = null;
+      try {
+        const list = await searchFundsWithTimeout(code, 8000);
+        found = Array.isArray(list) ? list.find(d => d.CODE === code) : null;
+      } catch (e) {
+        found = null;
+      }
+
+      const alreadyAdded = existingCodes.has(code);
+      const ok = !!found && !alreadyAdded;
+      results.push({
+        code,
+        name: found ? (found.NAME || found.SHORTNAME || '') : (fundInfo?.fundName || ''),
+        status: alreadyAdded ? 'added' : (ok ? 'ok' : 'invalid'),
+        holdAmounts: fundInfo?.holdAmounts || '',
+        holdGains: fundInfo?.holdGains || '',
+      });
+    }
+
+    if (abortScanRef.current) return;
+
+    setScannedFunds(results);
+    setSelectedScannedCodes(new Set(results.filter(r => r.status === 'ok').map(r => r.code)));
+    setIsOcrScan(true);
+    setScanConfirmModalOpen(true);
+  };
+
+  const handleRetryOcr = async () => {
+    if (!lastOcrTexts || lastOcrTexts.length === 0) {
+      showToast('没有可重试的识别内容', 'error');
+      return;
+    }
+    setScanConfirmModalOpen(false);
+    setIsScanning(true);
+    abortScanRef.current = false;
+    setScanProgress({ stage: 'ocr', current: 0, total: lastOcrTexts.length });
+    
+    try {
+      await processTextsInternal(lastOcrTexts);
+    } catch (err) {
+      if (!abortScanRef.current) {
+        console.error('OCR Retry Error:', err);
+        showToast('重新识别失败，请重试', 'error');
+      }
+    } finally {
+      setIsScanning(false);
+      setScanProgress({ stage: 'ocr', current: 0, total: 0 });
     }
   };
 
@@ -111,23 +253,7 @@ export function useScanImport({
         }
       };
 
-      const searchFundsWithTimeout = async (val, ms) => {
-        let timer = null;
-        const timeout = new Promise((resolve) => {
-          timer = setTimeout(() => resolve([]), ms);
-        });
-        try {
-          return await Promise.race([searchFunds(val), timeout]);
-        } catch (e) {
-          return [];
-        } finally {
-          if (timer) clearTimeout(timer);
-        }
-      };
-
-      const allFundsData = [];
-      const addedFundCodes = new Set();
-
+      const extractedTexts = [];
       for (let i = 0; i < files.length; i++) {
         if (abortScanRef.current) break;
 
@@ -149,97 +275,24 @@ export function useScanImport({
           }
           text = '';
         }
-
-        const fundsResString = await parseFundTextWithLLM(text);
-        let fundsRes = null;
-        try {
-          fundsRes = JSON.parse(fundsResString);
-        } catch (e) {
-          console.error(e);
-        }
-
-        if (Array.isArray(fundsRes) && fundsRes.length > 0) {
-          fundsRes.forEach((fund) => {
-            const code = fund.fundCode || '';
-            const name = (fund.fundName || '').trim();
-            if (code && !addedFundCodes.has(code)) {
-              addedFundCodes.add(code);
-              allFundsData.push({ fundCode: code, fundName: name, holdAmounts: fund.holdAmounts || '', holdGains: fund.holdGains || '' });
-            } else if (!code && name) {
-              allFundsData.push({ fundCode: '', fundName: name, holdAmounts: fund.holdAmounts || '', holdGains: fund.holdGains || '' });
-            }
-          });
+        if (text) {
+          extractedTexts.push(text);
         }
       }
 
       if (abortScanRef.current) return;
 
-      // 处理没有基金代码但有名称的情况，通过名称搜索基金代码
-      const fundsWithoutCode = allFundsData.filter(f => !f.fundCode && f.fundName);
-      if (fundsWithoutCode.length > 0) {
-        setScanProgress({ stage: 'verify', current: 0, total: fundsWithoutCode.length });
-        for (let i = 0; i < fundsWithoutCode.length; i++) {
-          if (abortScanRef.current) break;
-          const fundItem = fundsWithoutCode[i];
-          setScanProgress(prev => ({ ...prev, current: i + 1 }));
-          try {
-            const list = await searchFundsWithTimeout(fundItem.fundName, 8000);
-            if (Array.isArray(list) && list.length === 1) {
-              const found = list[0];
-              if (found && found.CODE && !addedFundCodes.has(found.CODE)) {
-                addedFundCodes.add(found.CODE);
-                fundItem.fundCode = found.CODE;
-              }
-            } else {
-              try {
-                const fuzzyCode = await resolveFundCodeByFuzzy(fundItem.fundName);
-                if (fuzzyCode && !addedFundCodes.has(fuzzyCode)) {
-                  addedFundCodes.add(fuzzyCode);
-                  fundItem.fundCode = fuzzyCode;
-                }
-              } catch (e) {}
-            }
-          } catch (e) {}
-        }
+      setLastOcrTexts(extractedTexts);
+      
+      if (extractedTexts.length > 0) {
+        setScanProgress({ stage: 'ocr', current: 0, total: extractedTexts.length });
+        await processTextsInternal(extractedTexts);
+      } else {
+        setScannedFunds([]);
+        setSelectedScannedCodes(new Set());
+        setIsOcrScan(true);
+        setScanConfirmModalOpen(true);
       }
-
-      const validFunds = allFundsData.filter(f => f.fundCode);
-      const codes = validFunds.map(f => f.fundCode).sort();
-      setScanProgress({ stage: 'verify', current: 0, total: codes.length });
-
-      const existingCodes = new Set(funds.map(f => f.code));
-      const results = [];
-      for (let i = 0; i < codes.length; i++) {
-        if (abortScanRef.current) break;
-        const code = codes[i];
-        const fundInfo = validFunds.find(f => f.fundCode === code);
-        setScanProgress(prev => ({ ...prev, current: i + 1 }));
-
-        let found = null;
-        try {
-          const list = await searchFundsWithTimeout(code, 8000);
-          found = Array.isArray(list) ? list.find(d => d.CODE === code) : null;
-        } catch (e) {
-          found = null;
-        }
-
-        const alreadyAdded = existingCodes.has(code);
-        const ok = !!found && !alreadyAdded;
-        results.push({
-          code,
-          name: found ? (found.NAME || found.SHORTNAME || '') : (fundInfo?.fundName || ''),
-          status: alreadyAdded ? 'added' : (ok ? 'ok' : 'invalid'),
-          holdAmounts: fundInfo?.holdAmounts || '',
-          holdGains: fundInfo?.holdGains || '',
-        });
-      }
-
-      if (abortScanRef.current) return;
-
-      setScannedFunds(results);
-      setSelectedScannedCodes(new Set(results.filter(r => r.status === 'ok').map(r => r.code)));
-      setIsOcrScan(true);
-      setScanConfirmModalOpen(true);
     } catch (err) {
       if (!abortScanRef.current) {
         console.error('OCR Error:', err);
@@ -431,6 +484,7 @@ export function useScanImport({
     // 操作
     handleScanClick,
     handleScanPick,
+    handleRetryOcr,
     cancelScan,
     handleFilesUpload,
     handleFilesDrop,

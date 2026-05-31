@@ -11,6 +11,8 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -319,7 +321,9 @@ export default function HoldingEditModal({ fund, holding, nav, onClose, onSave, 
               <span className="muted" style={{ fontSize: '14px' }}>
                 {dateMode === 'date' ? '首次买入日期' : '持有天数'}
               </span>
-              <button
+              <Tooltip>
+<TooltipTrigger asChild>
+<button
                 type="button"
                 onClick={handleDateModeToggle}
                 style={{
@@ -334,11 +338,16 @@ export default function HoldingEditModal({ fund, holding, nav, onClose, onSave, 
                   color: 'var(--primary)',
                   cursor: 'pointer',
                 }}
-                title={dateMode === 'date' ? '切换到持有天数' : '切换到日期'}
+                
               >
                 <SwitchIcon />
                 {dateMode === 'date' ? '按天数' : '按日期'}
               </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{dateMode === 'date' ? '切换到持有天数' : '切换到日期'}</p>
+</TooltipContent>
+</Tooltip>
             </div>
             {dateMode === 'date' ? (
               <DatePicker value={firstPurchaseDate} onChange={handleFirstPurchaseDateChange} position="top" />

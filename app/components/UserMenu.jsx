@@ -8,6 +8,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import ConfirmModal from './ConfirmModal';
 import { HelpCircle } from 'lucide-react';
 import { CalendarIcon, LoginIcon, LogoutIcon, SettingsIcon, UserIcon, ListIcon } from './Icons';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function UserMenu({user,
   userAvatar,
@@ -50,11 +52,13 @@ export default function UserMenu({user,
   return (
     <>
       <div className="user-menu-container" ref={userMenuRef}>
-        <button
+        <Tooltip>
+<TooltipTrigger asChild>
+<button
           className={`icon-button user-menu-trigger ${user ? 'logged-in' : ''}`}
           aria-label={user ? '用户菜单' : '登录'}
           onClick={() => setUserMenuOpen(!userMenuOpen)}
-          title={user ? (user.email || '用户') : '用户菜单'}
+          
         >
           {user ? (
             <div className="user-avatar-small">
@@ -75,6 +79,11 @@ export default function UserMenu({user,
             <UserIcon width="18" height="18" />
           )}
         </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{user ? (user.email || '用户') : '用户菜单'}</p>
+</TooltipContent>
+</Tooltip>
 
         <AnimatePresence>
           {userMenuOpen && (
@@ -148,14 +157,16 @@ export default function UserMenu({user,
                     </button>
                     </>
                   )}
-                  <button
+                  <Tooltip>
+<TooltipTrigger asChild>
+<button
                     className="user-menu-item"
                     disabled={isSyncing}
                     onClick={async () => {
                       setUserMenuOpen(false);
                       await onSync?.();
                     }}
-                    title="手动同步配置到云端"
+                    
                   >
                     {isSyncing ? (
                       <span className="loading-spinner" style={{ width: 16, height: 16, border: '2px solid var(--muted)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
@@ -168,6 +179,11 @@ export default function UserMenu({user,
                     )}
                     <span>{isSyncing ? '同步中...' : '同步'}</span>
                   </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>手动同步配置到云端</p>
+</TooltipContent>
+</Tooltip>
                   <button
                     className="user-menu-item"
                     onClick={() => {
@@ -254,8 +270,10 @@ export default function UserMenu({user,
 
       <AnimatePresence>
         {logoutConfirmOpen && (
-          <ConfirmModal
-            title="确认登出"
+          <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
+            
             message="确定要退出当前账号吗？"
             icon={<LogoutIcon width="20" height="20" className="shrink-0 text-[var(--danger)]" />}
             confirmText="确认登出"
@@ -265,6 +283,11 @@ export default function UserMenu({user,
             }}
             onCancel={() => setLogoutConfirmOpen(false)}
           />
+</TooltipTrigger>
+<TooltipContent>
+<p>确认登出</p>
+</TooltipContent>
+</Tooltip>
         )}
       </AnimatePresence>
     </>

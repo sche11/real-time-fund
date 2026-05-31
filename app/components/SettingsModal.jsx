@@ -7,6 +7,8 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import ConfirmModal from './ConfirmModal';
 import { ResetIcon, SettingsIcon } from './Icons';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function SettingsModal({onClose,
   tempSeconds,
@@ -148,11 +150,13 @@ export default function SettingsModal({onClose,
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <div className="muted" style={{ fontSize: '0.8rem' }}>页面宽度</div>
                 {onResetContainerWidth && (
-                  <button
+                  <Tooltip>
+<TooltipTrigger asChild>
+<button
                     type="button"
                     className="icon-button"
                     onClick={() => setResetWidthConfirmOpen(true)}
-                    title="重置页面宽度"
+                    
                     style={{
                       border: 'none',
                       width: '24px',
@@ -164,6 +168,11 @@ export default function SettingsModal({onClose,
                   >
                     <ResetIcon width="14" height="14" />
                   </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>重置页面宽度</p>
+</TooltipContent>
+</Tooltip>
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -287,8 +296,10 @@ export default function SettingsModal({onClose,
         </div>
       </DialogContent>
       {resetWidthConfirmOpen && onResetContainerWidth && (
-        <ConfirmModal
-          title="重置页面宽度"
+        <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
+          
           message="是否重置页面宽度为默认值 1200px？"
           icon={<ResetIcon width="20" height="20" className="shrink-0 text-[var(--primary)]" />}
           confirmVariant="primary"
@@ -299,6 +310,11 @@ export default function SettingsModal({onClose,
           onCancel={() => setResetWidthConfirmOpen(false)}
           confirmText="重置"
         />
+</TooltipTrigger>
+<TooltipContent>
+<p>重置页面宽度</p>
+</TooltipContent>
+</Tooltip>
       )}
     </Dialog>
   );

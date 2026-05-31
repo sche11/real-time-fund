@@ -5,6 +5,8 @@ import { X, Search } from "lucide-react"
 
 import { Field, FieldContent } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function SearchFund({
   value,
@@ -65,11 +67,13 @@ export default function SearchFund({
             }}
           />
           {showClear && (
-            <button
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               type="button"
               className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               aria-label="清空搜索"
-              title="清空"
+              
               onMouseDown={(e) => {
                 // 避免点击导致 input 失焦
                 e.preventDefault()
@@ -81,6 +85,11 @@ export default function SearchFund({
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>清空</p>
+</TooltipContent>
+</Tooltip>
           )}
         </FieldContent>
       </Field>

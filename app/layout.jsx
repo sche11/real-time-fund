@@ -5,6 +5,7 @@ import KeepScreenAwake from './components/KeepScreenAwake';
 import PwaRegister from './components/PwaRegister';
 import ThemeColorSync from './components/ThemeColorSync';
 import { QueryClientProviderWrapper } from './providers/query-client-provider';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import packageJson from '../package.json';
 
 export const metadata = {
@@ -39,7 +40,11 @@ export default function RootLayout({ children }) {
       <KeepScreenAwake />
       <PwaRegister />
       <AnalyticsGate GA_ID={GA_ID} />
-      <QueryClientProviderWrapper>{children}</QueryClientProviderWrapper>
+      <QueryClientProviderWrapper>
+        <TooltipProvider>
+          {children}
+        </TooltipProvider>
+      </QueryClientProviderWrapper>
       <Toaster />
     </body>
     </html>

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import ConfirmModal from './ConfirmModal';
 import { CloseIcon, CloudIcon } from './Icons';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function CloudConfigModal({ onConfirm, onCancel, type = 'empty' }) {
   const [pendingAction, setPendingAction] = useState(null); // 'local' | 'cloud' | null
@@ -93,8 +95,10 @@ export default function CloudConfigModal({ onConfirm, onCancel, type = 'empty' }
         </div>
       </motion.div>
       {pendingAction && (
-        <ConfirmModal
-          title={confirmTitle}
+        <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
+          
           message={confirmMessage}
           onConfirm={handleConfirmModalConfirm}
           onCancel={handleConfirmModalCancel}
@@ -102,6 +106,11 @@ export default function CloudConfigModal({ onConfirm, onCancel, type = 'empty' }
           icon={<CloudIcon width="20" height="20" />}
           confirmVariant="danger"
         />
+</TooltipTrigger>
+<TooltipContent>
+<p>{confirmTitle}</p>
+</TooltipContent>
+</Tooltip>
       )}
     </motion.div>
   );

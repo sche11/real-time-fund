@@ -9,10 +9,11 @@ import * as qk from '../lib/query-keys';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { isTradingDay } from '../lib/tradingCalendar';
 
+import { DEFAULT_TZ, ONE_DAY_MS } from '@/app/constants';
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const DEFAULT_TZ = 'Asia/Shanghai';
 const getBrowserTimeZone = () => {
   if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -24,8 +25,6 @@ const TZ = getBrowserTimeZone();
 dayjs.tz.setDefault(TZ);
 const nowInTz = () => dayjs().tz(TZ);
 const toTz = (input) => (input ? dayjs.tz(input, TZ) : nowInTz());
-
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * 获取单位净值的缓存时长（单位：毫秒）
@@ -103,7 +102,7 @@ const processRelatedSectorsQueue = async () => {
       for (const code of missingCodes) {
         const value = foundMap.get(code) || '';
         qc.setQueryData(qk.relatedSectors(code, seg), value, { staleTime: ONE_DAY_MS });
-        
+
         const key = `${code}|${seg}`;
         const resolver = relatedSectorsInflight.get(key);
         if (resolver) {
@@ -561,7 +560,15 @@ const parseNetValuesFromLsjzContent = (content) => {
         break;
       }
     }
-    results.push({ date: dateStr, nav, growth });
+
+    let dividend = null;
+    const divText = getText(cells[6] || '');
+    const divMatch = divText.match(/派现金(\d+(?:\.\d+)?)/);
+    if (divMatch) {
+      dividend = parseFloat(divMatch[1]);
+    }
+
+    results.push({ date: dateStr, nav, growth, dividend });
   }
   // 返回按日期升序排列的结果（API返回的是倒序，需要反转）
   return results.reverse();
@@ -603,6 +610,22 @@ export const fetchFundNetValueRange = async (code, sdate, edate) => {
     }
   }
   return Array.from(merged.values()).sort((a, b) => a.date.localeCompare(b.date));
+};
+
+/**
+ * 拉取基金历史分红数据。
+ * @param {string} code 基金代码
+ * @param {string} sdate 开始 YYYY-MM-DD
+ * @returns {Promise<Array<{ date: string, dividend: number, nav: number }>>} 按日期升序
+ */
+export const fetchFundDividends = async (code, sdate) => {
+  const edate = dayjs().format('YYYY-MM-DD');
+  const rows = await fetchFundNetValueRange(code, sdate, edate);
+  return rows.filter(r => r.dividend !== undefined && r.dividend !== null).map(r => ({
+    date: r.date,
+    dividend: r.dividend,
+    nav: r.nav
+  }));
 };
 
 /**
@@ -1152,7 +1175,7 @@ export async function fetchFundValuationBySource(code, dataSource = 1) {
   });
 }
 
-export const fetchFundData = async (c) => {
+export const fetchFundData = async (c, overrideDataSource) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     throw new Error('无浏览器环境');
   }
@@ -1160,14 +1183,20 @@ export const fetchFundData = async (c) => {
   const code = c != null ? String(c).trim() : '';
   if (!code) return fetchFundDataFallback(c);
 
-  let dataSource = 1;
-  try {
-    const arr = storageStore.getItem('funds', []);
-    if (Array.isArray(arr)) {
-      const f = arr.find(x => x.code === code);
-      if (f && f.dataSource) dataSource = f.dataSource;
-    }
-  } catch (e) {}
+  let dataSource = overrideDataSource || 1;
+  let storedName = null;
+  if (!overrideDataSource) {
+    try {
+      const arr = storageStore.getItem('funds', []);
+      if (Array.isArray(arr)) {
+        const f = arr.find(x => x.code === code);
+        if (f) {
+          if (f.dataSource) dataSource = f.dataSource;
+          if (f.name) storedName = f.name;
+        }
+      }
+    } catch (e) {}
+  }
 
   // 1. 发起并发的历史净值和重仓请求
   const lsjzPromise = new Promise((resolveT) => {
@@ -1245,11 +1274,16 @@ export const fetchFundData = async (c) => {
     }
 
     if (!baseData.name) {
-      try {
-        const results = await searchFunds(code);
-        const found = results.find((item) => item.CODE === code);
-        if (found) baseData.name = found.NAME || found.SHORTNAME;
-      } catch (e) {}
+      // 优先使用 localStorage 中已存储的基金名称，避免不必要的 searchFunds 网络请求
+      if (storedName) {
+        baseData.name = storedName;
+      } else {
+        try {
+          const results = await searchFunds(code);
+          const found = results.find((item) => item.CODE === code);
+          if (found) baseData.name = found.NAME || found.SHORTNAME;
+        } catch (e) {}
+      }
     }
 
     resolve({
@@ -2041,3 +2075,27 @@ export const parseFundTextWithLLM = async (text) => {
     return null;
   }
 };
+
+/**
+ * 通过 Supabase Edge Function 获取天天基金估值排行
+ * @param {string|number} sort 排序字段 (3:估值涨幅, 4:成交热度, 5:实际涨幅)
+ * @param {string} order 排序方向 (desc | asc)
+ * @param {number} page 页码
+ * @param {number} pageSize 每页条数
+ * @returns {Promise<{Data: {list: Array, allRecords: number}} | null>}
+ */
+export const fetchFundValuationRanking = async (sort = 3, order = 'desc', page = 1, pageSize = 20) => {
+  if (!isSupabaseConfigured) return null;
+  if (!supabase?.functions?.invoke) return null;
+
+  const { data, error } = await withRetry(() => supabase.functions.invoke('fund-valuation-ranking', {
+    body: { sort, order, page, pageSize }
+  }));
+
+  if (error) throw new Error(error.message || '加载估值排行失败');
+  if (!data || data.success !== true) throw new Error(data?.error || '加载估值排行失败');
+
+  // 保持与原 JSONP 返回结构一致：{ Data: { list: [...], ... } }
+  return { Data: data.data };
+};
+

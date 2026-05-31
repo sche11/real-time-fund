@@ -14,11 +14,13 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const DEFAULT_TZ = 'Asia/Shanghai';
+import { DEFAULT_TZ } from '@/app/constants';
 const getBrowserTimeZone = () => {
   if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -206,8 +208,10 @@ export default function DcaModal({ fund, plan, onClose, onConfirm, onReset }) {
   return (
     <>
       {resetConfirmOpen && (
-        <ConfirmModal
-          title="重置定投数据"
+        <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
+          
           message={`是否重置「${fund?.name || fund?.code || '该基金'}」在当前分组下的定投数据？确认后将清除该基金在当前分组内的定投设置。`}
           icon={<RotateCcw width="20" height="20" className="shrink-0 text-[var(--primary)]" />}
           confirmText="确认重置"
@@ -219,6 +223,11 @@ export default function DcaModal({ fund, plan, onClose, onConfirm, onReset }) {
             onReset?.(fund?.code);
           }}
         />
+</TooltipTrigger>
+<TooltipContent>
+<p>重置定投数据</p>
+</TooltipContent>
+</Tooltip>
       )}
       <Dialog open onOpenChange={handleOpenChange}>
         <DialogContent
@@ -249,12 +258,14 @@ export default function DcaModal({ fund, plan, onClose, onConfirm, onReset }) {
                 <span>定投</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
+                <Tooltip>
+<TooltipTrigger asChild>
+<button
                   type="button"
                   className="icon-button"
                   onClick={() => setResetConfirmOpen(true)}
                   disabled={!plan}
-                  title={plan ? '重置当前分组定投数据' : '暂无定投数据可重置'}
+                  
                   style={{
                     border: 'none',
                     background: 'transparent',
@@ -265,6 +276,11 @@ export default function DcaModal({ fund, plan, onClose, onConfirm, onReset }) {
                 >
                   <RotateCcw width="18" height="18" />
                 </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{plan ? '重置当前分组定投数据' : '暂无定投数据可重置'}</p>
+</TooltipContent>
+</Tooltip>
                 <button className="icon-button" onClick={onClose} style={{ border: 'none', background: 'transparent' }}>
                   <CloseIcon width="20" height="20" />
                 </button>

@@ -294,6 +294,12 @@ export default function MarketIndexAccordion({navbarHeight = 0,
 
       // 同步到 customSettings，便于云端同步
       const parsed = storageStore.getItem('customSettings') || {};
+      
+      // Check if it actually changed to avoid unnecessary syncs on mount
+      if (JSON.stringify(parsed.marketIndexSelected) === JSON.stringify(selectedCodes)) {
+        return;
+      }
+      
       const next = parsed && typeof parsed === 'object' ? { ...parsed, marketIndexSelected: selectedCodes } : { marketIndexSelected: selectedCodes };
       storageStore.setItem('customSettings', JSON.stringify(next));
       onCustomSettingsChange?.();

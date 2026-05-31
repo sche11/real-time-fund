@@ -48,7 +48,6 @@ import githubImg from "./assets/github.svg";
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { recordValuation, setValuationSeries as persistValuationSeries, getAllValuationSeries, clearFund } from './lib/valuationTimeseries';
 import {
-  DAILY_EARNINGS_SCOPE_ALL,
   aggregatePortfolioDailyEarnings,
 } from './lib/dailyEarnings';
 import { loadHolidaysForYears, isTradingDay as isDateTradingDay } from './lib/tradingCalendar';
@@ -58,6 +57,8 @@ import PcFundTable from './components/PcFundTable';
 import MobileFundTable from './components/MobileFundTable';
 import MobileBottomNav from './components/MobileBottomNav';
 import MineTab from './components/MineTab';
+import MarketTab from './components/MarketTab';
+import PcSideNav from './components/PcSideNav';
 import SearchFund from './components/SearchFund';
 import { useTheme } from './hooks/useTheme';
 import { useTradingDay } from './hooks/useTradingDay';
@@ -66,8 +67,18 @@ import { useScanImport } from './hooks/useScanImport';
 import { useRefreshManager } from './hooks/useRefreshManager';
 import { useSyncManager, normalizeFundDailyEarningsScoped } from './hooks/useSyncManager';
 import { useIsMobile } from './hooks/useIsMobile';
-import {useUserStore, clearAuthUser, setAuthUser, useStorageStore, storageStore, getFundCodesSignature, DEFAULT_SORT_RULES, SORT_DISPLAY_MODES, useModalStore, useIsAnyModalOpen} from './stores';
+import {useUserStore, clearAuthUser, setAuthUser, useStorageStore, storageStore, getFundCodesSignature, useModalStore, useIsAnyModalOpen} from './stores';
 import ModalsLayer from './components/ModalsLayer';
+
+import {
+  DEFAULT_SORT_RULES,
+  SORT_DISPLAY_MODES,
+  DCA_SCOPE_GLOBAL,
+  SUMMARY_TAB_ID,
+  SUMMARY_SOURCE_GLOBAL,
+  DAILY_EARNINGS_SCOPE_ALL,
+  DEFAULT_FUND_TAG_THEME,
+} from '@/app/constants';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -79,11 +90,7 @@ import {
   nowInTz,
   toTz,
   formatDate,
-  DCA_SCOPE_GLOBAL,
-  SUMMARY_TAB_ID,
-  SUMMARY_SOURCE_GLOBAL,
   hasOwn,
-  DEFAULT_FUND_TAG_THEME,
   normalizeFundTagTheme,
   normalizeFundTagInstanceListFromInput,
   stripLegacyTagsFromFundObject,
@@ -97,8 +104,9 @@ import {
   migrateDcaPlansToScoped
 } from './lib/fundHelpers';
 
-import GlobalToast from './components/GlobalToast';
 import { dedupeByCode, normalizeCode, cleanCodeArray, normalizeNumber } from './lib/normalize';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function HomePage() {
   const {
@@ -122,6 +130,7 @@ export default function HomePage() {
     initPendingTrades, initTransactions,
     initDcaPlans, initCustomSettings,
     initFundDailyEarnings,
+    initFundDividends,
     sortBy, setSortBy,
     sortOrder, setSortOrder,
     pcSortDisplayMode, setPcSortDisplayMode,
@@ -305,6 +314,7 @@ export default function HomePage() {
   const setActionModal = (v) => _ms({ actionModal: typeof v === 'function' ? v(_gs().actionModal) : v });
   const setTradeModal = (v) => _ms({ tradeModal: typeof v === 'function' ? v(_gs().tradeModal) : v });
   const setConvertModal = (v) => _ms({ convertModal: typeof v === 'function' ? v(_gs().convertModal) : v });
+  const setDividendMethodModal = (v) => _ms({ dividendMethodModal: typeof v === 'function' ? v(_gs().dividendMethodModal) : v });
   const setSelectFundSingleModal = (v) => _ms({ selectFundSingleModal: typeof v === 'function' ? v(_gs().selectFundSingleModal) : v });
   const setSelectHoldingGroupModal = (v) => _ms({ selectHoldingGroupModal: typeof v === 'function' ? v(_gs().selectHoldingGroupModal) : v });
   const setDataSourceModal = (v) => _ms({ dataSourceModal: typeof v === 'function' ? v(_gs().dataSourceModal) : v });
@@ -340,7 +350,15 @@ export default function HomePage() {
     }
   }, [isMobile, dynamicStyleMobile, dynamicStylePc]);
 
-  const [mobileMainTab, setMobileMainTab] = useState('home');
+  const [mainTab, setMainTab] = useState('home');
+  const [hasVisitedMarketTab, setHasVisitedMarketTab] = useState(false);
+
+  useEffect(() => {
+    if (mainTab === 'market' && !hasVisitedMarketTab) {
+      setHasVisitedMarketTab(true);
+    }
+  }, [mainTab, hasVisitedMarketTab]);
+
   const [mobileBottomNavHidden, setMobileBottomNavHidden] = useState(false);
   const lastScrollYRef = useRef(0);
 
@@ -359,7 +377,7 @@ export default function HomePage() {
     setMobileTableSettingModalOpen(Boolean(open));
   }, []);
 
-  const shouldShowMarketIndex = isMobile ? showMarketIndexMobile : showMarketIndexPc;
+  const shouldShowMarketIndex = (isMobile ? showMarketIndexMobile : showMarketIndexPc) || mainTab === 'market';
   const shouldShowGroupFundSearch = isMobile ? showGroupFundSearchMobile : showGroupFundSearchPc;
 
 
@@ -385,19 +403,80 @@ export default function HomePage() {
     const hasTodayValuation = isString(fund.gztime) && fund.gztime.startsWith(todayStr);
     const canCalcTodayProfit = hasTodayData || hasTodayValuation;
 
+    // 分红计算逻辑
+    let dividendCash = 0;
+    let extraShares = 0;
+    let effectiveShare = holding.share;
+    const currentStore = useStorageStore.getState();
+    const cachedDivs = currentStore.fundDividends?.[fund.code]?.list;
+    const txs = currentStore.transactions?.[fund.code] || [];
+    
+    if (cachedDivs && Array.isArray(cachedDivs)) {
+      let earliestDate = holding.firstPurchaseDate;
+      if (!earliestDate) {
+         for (const tx of txs) {
+           if (tx.type !== 'buy' || !tx.date) continue;
+           const gid = tx.groupId || null;
+           if (txScope !== undefined ? (txScope ? gid !== txScope : gid) : (activeGroupId ? gid !== activeGroupId : gid)) continue;
+           if (!earliestDate || tx.date < earliestDate) earliestDate = tx.date;
+         }
+      }
+
+      if (earliestDate) {
+        const getShareAtDate = (date) => {
+          let s = 0;
+          let hasTx = false;
+          for (const tx of txs) {
+            const gid = tx.groupId || null;
+            if (txScope !== undefined ? (txScope ? gid !== txScope : gid) : (activeGroupId ? gid !== activeGroupId : gid)) continue;
+            if (tx.isHistoryOnly) continue;
+            if (tx.date <= date) {
+               hasTx = true;
+               if (tx.type === 'buy') s += Number(tx.share) || 0;
+               if (tx.type === 'sell') s -= Number(tx.share) || 0;
+            }
+          }
+          if (hasTx) return Math.max(0, s);
+          if (date >= earliestDate) return holding.share;
+          return 0;
+        };
+
+        const sortedDivs = [...cachedDivs].sort((a,b) => a.date.localeCompare(b.date));
+        for (const div of sortedDivs) {
+           if (div.date < earliestDate) continue;
+           if (div.date > todayStr) continue;
+           const baseShare = getShareAtDate(div.date);
+           if (baseShare > 0) {
+              const actualShare = baseShare + extraShares;
+              if (!holding.dividendMethod || holding.dividendMethod === 'reinvest') {
+                 if (div.nav > 0) {
+                    extraShares += (actualShare * div.dividend) / div.nav;
+                 }
+              } else { // 现金分红 (cash)
+                 dividendCash += actualShare * div.dividend;
+              }
+           }
+        }
+      }
+    }
+
+    if (!holding.dividendMethod || holding.dividendMethod === 'reinvest') {
+       effectiveShare += extraShares;
+    }
+
     // 如果是交易日且9点以后，且今日净值未出，则强制使用估值（隐藏涨跌幅列模式）
     const useValuation = isTradingDay && !hasTodayData;
 
     let currentNav;
     let profitToday;
-    let shareForTodayProfit = holding.share;
+    let shareForTodayProfit = effectiveShare; // 基于有效份额计算当日收益
 
     if (canCalcTodayProfit) {
       // 当日收益口径：按“昨日收盘时持有份额”计算，避免把当日买入份额算进当日收益。
       // 份额基数 = 当前份额 - 当日买入份额 + 当日卖出份额（卖出份额在开盘前仍持有，应计入当日涨跌）
       let buyToday = 0;
       let sellToday = 0;
-      const list = transactions && fund?.code ? (transactions[fund.code] || []) : [];
+      const list = txs;
       for (const tx of list) {
         if (!tx || tx.date !== todayStr) continue;
         const gid = tx.groupId || null;
@@ -412,7 +491,7 @@ export default function HomePage() {
         if (tx.type === 'buy') buyToday += s;
         else if (tx.type === 'sell') sellToday += s;
       }
-      shareForTodayProfit = Math.max(0, holding.share - buyToday + sellToday);
+      shareForTodayProfit = Math.max(0, effectiveShare - buyToday + sellToday);
     }
 
     if (!useValuation) {
@@ -467,11 +546,11 @@ export default function HomePage() {
 
     // 持仓金额强制使用确权净值
     const exactNav = Number(fund.dwjz) || currentNav;
-    const amount = holding.share * exactNav;
+    const amount = effectiveShare * exactNav;
 
-    // 总收益 = (确权净值 - 成本价) * 份额
+    // 总收益 = (确权净值 * 当前有效份额) - 成本总额 + 现金分红
     const profitTotal = isNumber(holding.cost)
-      ? (exactNav - holding.cost) * holding.share
+      ? (exactNav * effectiveShare) - (holding.cost * holding.share) + dividendCash
       : null;
 
     return {
@@ -1356,6 +1435,16 @@ export default function HomePage() {
           if (!hasB) return -1;
           return sortOrder === 'asc' ? valA - valB : valB - valA;
         }
+        if (sortBy === 'consecutiveTrend') {
+          const getTrendValue = (code) => {
+            const trend = fundExtraDataByCode[code]?.consecutiveTrend;
+            if (!trend || !Number.isFinite(trend.days)) return 0;
+            return trend.type === 'up' ? trend.days : -trend.days;
+          };
+          const valA = getTrendValue(a.code);
+          const valB = getTrendValue(b.code);
+          return sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
         if (['last1Week', 'last1Month', 'last3Months', 'last6Months', 'last1Year'].includes(sortBy)) {
           const keyMap = { last1Week: 'week', last1Month: 'month', last3Months: 'month3', last6Months: 'month6', last1Year: 'year1' };
           const key = keyMap[sortBy];
@@ -1759,6 +1848,8 @@ export default function HomePage() {
       setDcaModal({ open: true, fund, groupId });
     } else if (type === 'convert') {
       setConvertModal({ open: true, fund, groupId });
+    } else if (type === 'dividend') {
+      setDividendMethodModal({ open: true, fund, groupId });
     }
   };
 
@@ -2241,15 +2332,14 @@ export default function HomePage() {
   // 成功提示弹窗
   const successModal = useModalStore((s) => s.successModal);
   // 轻提示 (Toast)
-  const [toast, setToast] = useState({ show: false, message: '', type: 'info' }); // type: 'info' | 'success' | 'error'
-  const toastTimeoutRef = useRef(null);
-
   const showToast = (message, type = 'info') => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast({ show: true, message, type });
-    toastTimeoutRef.current = setTimeout(() => {
-      setToast((prev) => ({ ...prev, show: false }));
-    }, 3000);
+    if (type === 'success') {
+      sonnerToast.success(message);
+    } else if (type === 'error') {
+      sonnerToast.error(message);
+    } else {
+      sonnerToast.info(message);
+    }
   };
 
   // 定投计划自动生成买入队列的逻辑会在 storageHelper 定义之后实现
@@ -2273,6 +2363,7 @@ export default function HomePage() {
     fileInputRef,
     handleScanClick,
     handleScanPick,
+    handleRetryOcr,
     cancelScan,
     handleFilesUpload,
     handleFilesDrop,
@@ -3130,6 +3221,8 @@ export default function HomePage() {
       initDcaPlans();
       initCustomSettings();
       initFundDailyEarnings();
+      initFundDividends();
+      initSort();
       try {        // 已登录用户：不在此处调用 refreshAll，等 fetchCloudConfig 完成后由 applyCloudConfig 统一刷新
         let shouldRefreshFromLocal = true;
         if (isSupabaseConfigured) {
@@ -3870,6 +3963,19 @@ export default function HomePage() {
     setCurrentTab(targetId === 'all' ? 'all' : targetId);
     showToast('分组迁移完成', 'success');
     return { conflicts: [] };
+  };
+
+  const handleMarketTabAddFund = (fundInfo) => {
+    const { code, name } = fundInfo;
+    const fundsToConfirm = [{
+      code,
+      name,
+      status: 'pending'
+    }];
+    setScannedFunds(fundsToConfirm);
+    setSelectedScannedCodes(new Set([code]));
+    setIsOcrScan(false);
+    setScanConfirmModalOpen(true);
   };
 
   const addFund = async (e) => {
@@ -4645,7 +4751,7 @@ export default function HomePage() {
   }, [isAnyModalOpen]);
 
   useEffect(() => {
-    if (!isMobile || mobileMainTab !== 'home') return;
+    if (!isMobile || mainTab !== 'home') return;
 
     let ticking = false;
     const handleScroll = () => {
@@ -4675,13 +4781,13 @@ export default function HomePage() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile, mobileMainTab]); // isAnyModalOpen 已移至 ref，不再触发重注册
+  }, [isMobile, mainTab]); // isAnyModalOpen 已移至 ref，不再触发重注册
 
   useEffect(() => {
-    if (!isMobile || mobileMainTab !== 'home') {
+    if (!isMobile || mainTab !== 'home') {
       setMobileBottomNavHidden(false);
     }
-  }, [isMobile, mobileMainTab]);
+  }, [isMobile, mainTab]);
 
   const settingsOpenRef = useRef(false);
   useEffect(() => {
@@ -4702,14 +4808,14 @@ export default function HomePage() {
 
   const containerClassName = [
     'container',
-    isMobile && mobileMainTab === 'mine' ? 'mine-mobile-root' : 'content',
-    isMobile && mobileMainTab === 'home' ? 'content-with-mobile-tabbar' : '',
+    isMobile && mainTab === 'mine' ? 'mine-mobile-root' : 'content',
+    isMobile && mainTab === 'home' ? 'content-with-mobile-tabbar' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   /** 移动端底部 Tab 切换时保留首页 DOM，用显隐代替卸载 */
-  const mobileHomeTabVisible = !isMobile || mobileMainTab === 'home';
+  const mobileHomeTabVisible = mainTab === 'home' || mainTab === 'market';
 
   /** PC / 移动端行、FundCard 共用：统一 name / fundName 后走单删逻辑 */
   const handleRemoveFundEntry = useCallback((rowOrFund) => {
@@ -4811,6 +4917,16 @@ export default function HomePage() {
       }
       return next;
     });
+
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('rtf_unadded_ds') || '{}');
+        saved[fundCode] = sourceId;
+        localStorage.setItem('rtf_unadded_ds', JSON.stringify(saved));
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('rtf_unadded_datasource_change', { detail: { fundCode, sourceId } }));
+    }
+
     // Immediately fetch new data for this fund so the UI updates
     refreshAll([fundCode]);
     showToast('切换数据源成功', 'success');
@@ -4836,6 +4952,7 @@ export default function HomePage() {
     if (!fund) return {};
     return {
       fundCode: fund.code,
+      fallbackFund: fund,
       todayStr,
       currentTab,
       favorites,
@@ -4853,6 +4970,7 @@ export default function HomePage() {
       isTradingDay,
       getHoldingProfit: getHoldingProfitForTab,
       onToggleFavorite: toggleFavorite,
+      onAddFund: handleMarketTabAddFund,
       onRemoveFund: handleRemoveFundEntry,
       onHoldingClick: openHoldingModal,
       onActionClick: openActionModal,
@@ -4867,7 +4985,7 @@ export default function HomePage() {
       isHoldingLinked: !!row?.isHoldingLinked,
       fundTags: row?.fundTags || [],
       onFundTagsClick: openFundTagsEdit,
-      fundExtraData: fundExtraDataByCode[fund.code],
+      fundExtraData: fundExtraDataByCode[fund.code] || fund.fundExtraData,
       groupTotalHoldingAmount,
     };
   }, [
@@ -4935,6 +5053,7 @@ export default function HomePage() {
     showToast,
     cancelScan,
     handleScanPick: (e) => handleScanPick?.(e),
+    handleRetryOcr: () => handleRetryOcr?.(),
     handleFilesDrop: (e) => handleFilesDrop?.(e),
     toggleScannedCode: (code) => toggleScannedCode?.(code),
     confirmScanImport: (targetGroupId, expandAfterAdd) => confirmScanImport?.(targetGroupId, expandAfterAdd),
@@ -5001,7 +5120,9 @@ export default function HomePage() {
   };
 
   return (
-    <div ref={containerRef} className={containerClassName} style={{ width: isMobile ? '100%' : containerWidth }}>
+    <>
+      <PcSideNav value={mainTab} onChange={setMainTab} />
+      <div ref={containerRef} className={containerClassName} style={{ width: isMobile ? '100%' : containerWidth }}>
       <AnimatePresence>
         {showThemeTransition && (
           <motion.div
@@ -5030,7 +5151,9 @@ export default function HomePage() {
       <div className="navbar glass" ref={navbarRef}>
         {refreshing && <div className="loading-bar"></div>}
         <div className={`brand ${(isSearchFocused || selectedFunds.length > 0) ? 'search-focused-sibling' : ''}`}>
-          <div
+          <Tooltip>
+<TooltipTrigger asChild>
+<div
             style={{
               width: 24,
               height: 24,
@@ -5041,7 +5164,7 @@ export default function HomePage() {
               justifyContent: 'center',
               overflow: 'hidden',
             }}
-            title={isSyncing ? '正在同步到云端...' : undefined}
+            
           >
             {/* 同步中图标 */}
             <svg
@@ -5085,6 +5208,11 @@ export default function HomePage() {
               <path d="M5 14c2-4 7-6 14-5" stroke="var(--primary)" strokeWidth="2" />
             </svg>
           </div>
+</TooltipTrigger>
+<TooltipContent>
+<p>{isSyncing ? '正在同步到云端...' : undefined}</p>
+</TooltipContent>
+</Tooltip>
           <span>基估宝</span>
         </div>
         <div className={`glass add-fund-section navbar-add-fund ${(isSearchFocused || selectedFunds.length > 0) ? 'search-focused' : ''}`} role="region" aria-label="添加基金">
@@ -5196,17 +5324,24 @@ export default function HomePage() {
             <Image unoptimized alt="项目Github地址" src={githubImg} style={{ width: '30px', height: '30px', cursor: 'pointer' }} onClick={() => window.open("https://github.com/hzm0321/real-time-fund")} />
           </span>
           {isMobile && (
-            <button
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               className="icon-button mobile-search-btn"
               aria-label="筛选基金"
               onClick={handleMobileSearchClick}
-              title="筛选"
+              
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
                 <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>筛选</p>
+</TooltipContent>
+</Tooltip>
           )}
           <RefreshButton
             refreshMs={refreshMs}
@@ -5215,14 +5350,21 @@ export default function HomePage() {
             fundsLength={funds.length}
             refreshCycleStartRef={refreshCycleStartRef}
           />
-          <button
+          <Tooltip>
+<TooltipTrigger asChild>
+<button
             className="icon-button"
             aria-label={theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'}
             onClick={handleThemeToggle}
-            title={theme === 'dark' ? '亮色' : '暗色'}
+            
           >
             {theme === 'dark' ? <SunIcon width="18" height="18" /> : <MoonIcon width="18" height="18" />}
           </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{theme === 'dark' ? '亮色' : '暗色'}</p>
+</TooltipContent>
+</Tooltip>
           <UserMenu
             user={user}
             userAvatar={userAvatar}
@@ -5253,8 +5395,9 @@ export default function HomePage() {
           refreshing={refreshing}
         />
       )}
-      <div className="grid">
-        <div className="col-12">
+      <div style={{ display: mainTab === 'home' ? 'contents' : 'none' }}>
+        <div className="grid">
+          <div className="col-12">
           <div ref={filterBarRef} className="filter-bar" style={{ top: `calc(${navbarHeight}px + var(--market-index-height, 0px))`, marginTop: 0, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div className="tabs-container">
               <div
@@ -5329,21 +5472,35 @@ export default function HomePage() {
                 </div>
               </div>
               {groups.length > 0 && (
-                <button
+                <Tooltip>
+<TooltipTrigger asChild>
+<button
                   className="icon-button manage-groups-btn"
                   onClick={() => setGroupManageOpen(true)}
-                  title="管理分组"
+                  
                 >
                   <SortIcon width="16" height="16" />
                 </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>管理分组</p>
+</TooltipContent>
+</Tooltip>
               )}
-              <button
+              <Tooltip>
+<TooltipTrigger asChild>
+<button
                 className="icon-button add-group-btn"
                 onClick={() => setGroupModalOpen(true)}
-                title="新增分组"
+                
               >
                 <PlusIcon width="16" height="16" />
               </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>新增分组</p>
+</TooltipContent>
+</Tooltip>
             </div>
 
             <div
@@ -5355,28 +5512,44 @@ export default function HomePage() {
               }}
             >
               <div className="view-toggle" style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '2px' }}>
-                <button
+                <Tooltip>
+<TooltipTrigger asChild>
+<button
                   className={`icon-button ${viewMode === 'card' ? 'active' : ''}`}
                   onClick={() => { applyViewMode('card'); }}
                   style={{ border: 'none', width: '32px', height: '32px', background: viewMode === 'card' ? 'var(--primary)' : 'transparent', color: viewMode === 'card' ? '#05263b' : 'var(--muted)' }}
-                  title="卡片视图"
+                  
                 >
                   <GridIcon width="16" height="16" />
                 </button>
-                <button
+</TooltipTrigger>
+<TooltipContent>
+<p>卡片视图</p>
+</TooltipContent>
+</Tooltip>
+                <Tooltip>
+<TooltipTrigger asChild>
+<button
                   className={`icon-button ${viewMode === 'list' ? 'active' : ''}`}
                   onClick={() => { applyViewMode('list'); }}
                   style={{ border: 'none', width: '32px', height: '32px', background: viewMode === 'list' ? 'var(--primary)' : 'transparent', color: viewMode === 'list' ? '#05263b' : 'var(--muted)' }}
-                  title="表格视图"
+                  
                 >
                   <ListIcon width="16" height="16" />
                 </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>表格视图</p>
+</TooltipContent>
+</Tooltip>
               </div>
 
               <div className="divider" style={{ width: '1px', height: '20px', background: 'var(--border)' }} />
 
               <div className="sort-items" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
+                <Tooltip>
+<TooltipTrigger asChild>
+<button
                   type="button"
                   className="icon-button"
                   onClick={() => setSortSettingOpen(true)}
@@ -5392,11 +5565,16 @@ export default function HomePage() {
                     cursor: 'pointer',
                     width: '50px',
                   }}
-                  title="排序个性化设置"
+                  
                 >
                   <span className="muted">排序</span>
                   <SettingsIcon width="14" height="14" />
                 </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>排序个性化设置</p>
+</TooltipContent>
+</Tooltip>
                 { (isMobile ? mobileSortDisplayMode : pcSortDisplayMode) === 'dropdown' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Select
@@ -5836,11 +6014,17 @@ export default function HomePage() {
             </>
           )}
         </div>
+      </div>
+      {hasVisitedMarketTab && (
+        <div style={{ display: mainTab === 'market' ? 'contents' : 'none' }}>
+          <MarketTab onAddFund={handleMarketTabAddFund} getFundCardProps={getFundCardPropsForRow} />
+        </div>
+      )}
       </>
       </div>
       {isMobile && (
         <MineTab
-          visible={mobileMainTab === 'mine'}
+          visible={mainTab === 'mine'}
           user={user}
           userAvatar={userAvatar}
           lastSyncDisplay={lastSyncTime ? dayjs(lastSyncTime).format('MM-DD HH:mm') : null}
@@ -5866,14 +6050,13 @@ export default function HomePage() {
         />
       )}
       {isMobile && (
-        <MobileBottomNav value={mobileMainTab} onChange={setMobileMainTab} hidden={mobileBottomNavHidden && mobileMainTab === 'home'} />
+        <MobileBottomNav value={mainTab} onChange={setMainTab} hidden={mobileBottomNavHidden && mainTab === 'home'} />
       )}
 
       {/* 弹框渲染层 - 独立组件，订阅 useModalStore，不触发 page.jsx 重渲染 */}
       <ModalsLayer callbacksRef={modalCbRef} />
 
-      {/* 全局轻提示 Toast */}
-      <GlobalToast toast={toast} />
     </div>
+    </>
   );
 }

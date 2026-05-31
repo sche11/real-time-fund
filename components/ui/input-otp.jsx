@@ -46,7 +46,7 @@ function InputOTPSlot({
       data-active={isActive}
       className={cn(
         "relative flex h-12 w-10 items-center justify-center rounded-md border-2 bg-background text-lg font-semibold shadow-sm transition-all duration-200",
-        "border-input/60 dark:border-input/80",
+        "border-slate-200 dark:border-white/25",
         "text-foreground dark:text-foreground",
         "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
         "data-[active=true]:border-primary data-[active=true]:ring-2 data-[active=true]:ring-primary/30 dark:data-[active=true]:ring-primary/40",

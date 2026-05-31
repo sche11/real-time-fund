@@ -7,12 +7,19 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import { isNumber, isString } from 'lodash';
+import { PlusCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
-import { Stat, ConsecutiveTrendBadge } from './Common';
-import FundTrendChart from './FundTrendChart';
-import FundIntradayChart from './FundIntradayChart';
-import FundDailyEarnings from './FundDailyEarnings';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import { useStorageStore } from "@/app/stores";
+import { fetchFundHoldings, fetchFundData } from '@/app/api/fund';
+import { useIsMobile } from '@/app/hooks/useIsMobile';
+import { Stat, ConsecutiveTrendBadge } from '../Common';
+import FundTrendChart from '../FundTrendChart';
+import FundIntradayChart from '../FundIntradayChart';
+import FundDailyEarnings from '../FundDailyEarnings';
 import {
   ChevronIcon,
   SettingsIcon,
@@ -20,19 +27,14 @@ import {
   SwitchIcon,
   TrashIcon,
   LinkIcon,
-} from './Icons';
-import { Badge } from '@/components/ui/badge';
-import { getTagThemeBadgeProps } from './AddTagDialog';
-import { cn } from '@/lib/utils';
-import { useStorageStore } from "@/app/stores";
-import { fetchFundHoldings } from '@/app/api/fund';
-import { useIsMobile } from '@/app/hooks/useIsMobile';
+} from '../Icons';
+import { getTagThemeBadgeProps } from '../AddTagDialog';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(isSameOrAfter);
 
-const DEFAULT_TZ = 'Asia/Shanghai';
+import { DEFAULT_TZ } from '@/app/constants';
 const getBrowserTimeZone = () => {
   if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -63,7 +65,7 @@ const fmtPeriodReturn = (val) => {
   return `${val > 0 ? '+' : ''}${val.toFixed(2)}%`;
 };
 
-function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked, groupTotalHoldingAmount }) {
+function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked, groupTotalHoldingAmount, isAdded = true }) {
   const [expanded, setExpanded] = useState(false);
   const isMobile = useIsMobile();
 
@@ -98,9 +100,69 @@ function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked,
       ? `${(holdingRatioValue * 100).toFixed(2)}%`
       : '—';
 
+  const content = (
+    <>
+      {hasHoldingAmount && (
+        <div className="row" style={{ marginBottom: 10 }}>
+          <Stat
+            label="成本净值"
+            value={masked ? '******' : costNav}
+          />
+          <Stat
+            label="持仓成本"
+            value={masked ? '******' : holdingCost}
+          />
+          <Stat
+            label="持仓占比"
+            value={masked ? '******' : holdingRatio}
+          />
+        </div>
+      )}
+      {hasPeriodData && (
+        <div className="row" style={{ marginBottom: 10 }}>
+          <Stat
+            label="近1周"
+            value={fmtPeriodReturn(fundExtraData.week)}
+            delta={fundExtraData.week}
+          />
+          <Stat
+            label="近1月"
+            value={fmtPeriodReturn(fundExtraData.month)}
+            delta={fundExtraData.month}
+          />
+          <Stat
+            label="近3月"
+            value={fmtPeriodReturn(fundExtraData.month3)}
+            delta={fundExtraData.month3}
+          />
+          <Stat
+            label="近6月"
+            value={fmtPeriodReturn(fundExtraData.month6)}
+            delta={fundExtraData.month6}
+          />
+          {!isMobile && (
+            <Stat
+              label="近1年"
+              value={fmtPeriodReturn(fundExtraData.year1)}
+              delta={fundExtraData.year1}
+            />
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  if (!isAdded) {
+    return (
+      <div style={{ marginTop: 12 }}>
+        {content}
+      </div>
+    );
+  }
+
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', margin: '8px 0 4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', margin: '8px 0 12px' }}>
         <div style={{ flex: 1, height: '1px', background: 'var(--border, rgba(255,255,255,0.08))' }} />
         <button
           onClick={() => setExpanded((v) => !v)}
@@ -139,53 +201,7 @@ function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked,
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            {hasHoldingAmount && (
-              <div className="row" style={{ marginBottom: 10 }}>
-                <Stat
-                  label="成本净值"
-                  value={masked ? '******' : costNav}
-                />
-                <Stat
-                  label="持仓成本"
-                  value={masked ? '******' : holdingCost}
-                />
-                <Stat
-                  label="持仓占比"
-                  value={masked ? '******' : holdingRatio}
-                />
-              </div>
-            )}
-            {hasPeriodData && (
-              <div className="row" style={{ marginBottom: 10 }}>
-                <Stat
-                  label="近1周"
-                  value={fmtPeriodReturn(fundExtraData.week)}
-                  delta={fundExtraData.week}
-                />
-                <Stat
-                  label="近1月"
-                  value={fmtPeriodReturn(fundExtraData.month)}
-                  delta={fundExtraData.month}
-                />
-                <Stat
-                  label="近3月"
-                  value={fmtPeriodReturn(fundExtraData.month3)}
-                  delta={fundExtraData.month3}
-                />
-                <Stat
-                  label="近6月"
-                  value={fmtPeriodReturn(fundExtraData.month6)}
-                  delta={fundExtraData.month6}
-                />
-                {!isMobile && (
-                  <Stat
-                    label="近1年"
-                    value={fmtPeriodReturn(fundExtraData.year1)}
-                    delta={fundExtraData.year1}
-                  />
-                )}
-              </div>
-            )}
+            {content}
           </motion.div>
         )}
       </AnimatePresence>
@@ -193,7 +209,7 @@ function MoreSection({ holding, profit, hasHoldingAmount, fundExtraData, masked,
   );
 }
 
-export default function FundCard({
+export default function Index({
   fundCode,
   isHoldingLinked = false,
   todayStr,
@@ -228,14 +244,86 @@ export default function FundCard({
   fundExtraData,
   onDataSourceClick,
   groupTotalHoldingAmount = 0,
+  fallbackFund,
+  onAddFund,
 }) {
   const {
     funds,
     refreshMs,
   } = useStorageStore();
-  const f = useMemo(() => funds?.find((item) => item.code === fundCode), [funds, fundCode]);
+
+  const [fetchedValuation, setFetchedValuation] = useState(null);
+
+  const f = useMemo(() => {
+    const found = funds?.find((item) => item.code === fundCode);
+    if (found) return found;
+
+    let ds = fallbackFund?.dataSource || 1;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = JSON.parse(localStorage.getItem('rtf_unadded_ds') || '{}');
+        if (saved[fundCode]) {
+          ds = saved[fundCode];
+        }
+      } catch (e) {}
+    }
+
+    if (fetchedValuation) return { ...fallbackFund, dataSource: ds, ...fetchedValuation };
+    return { ...fallbackFund, dataSource: ds };
+  }, [funds, fundCode, fallbackFund, fetchedValuation]);
+
+  const isAdded = useMemo(() => funds?.some((item) => item.code === f?.code), [funds, f?.code]);
 
   const [topHoldings, setTopHoldings] = useState({ holdings: [], holdingsReportDate: null, holdingsIsLastQuarter: false });
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.fundCode === fundCode) {
+        const sourceId = e.detail.sourceId;
+        setFetchedValuation(prev => ({
+          ...(prev || {}),
+          dataSource: sourceId,
+          gsz: null,
+          gszzl: null,
+          gztime: null,
+          valuationSource: null,
+          noValuation: false
+        }));
+
+        // Fetch immediately using the new data source
+        fetchFundData(fundCode, sourceId).then(res => {
+          if (res) {
+            setFetchedValuation(prev => ({ ...prev, ...res, dataSource: sourceId }));
+          }
+        }).catch(err => {
+          console.error('fetchFundData error on ds change', err);
+        });
+      }
+    };
+    window.addEventListener('rtf_unadded_datasource_change', handler);
+    return () => window.removeEventListener('rtf_unadded_datasource_change', handler);
+  }, [fundCode]);
+
+  useEffect(() => {
+    if (!isAdded) {
+      let cancelled = false;
+      const fetchValuation = async () => {
+        try {
+          const res = await fetchFundData(fundCode, f?.dataSource);
+          if (!cancelled && res) {
+            setFetchedValuation(prev => ({ ...prev, ...res, dataSource: f?.dataSource || 1 }));
+          }
+        } catch (e) {
+          console.error('fetchFundData error', e);
+        }
+      };
+      fetchValuation();
+      return () => {
+        cancelled = true;
+      };
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdded, fundCode]);
 
   useEffect(() => {
     let timer;
@@ -330,43 +418,82 @@ export default function FundCard({
     >
       <div className="row" style={{ marginBottom: 10, alignItems: 'center', flexWrap: 'nowrap', alignContent: 'center' }}>
         <div className="title" style={{ flex: '1 1 auto', minWidth: 0 }}>
-          {showFavoriteButton ? (
-            <button
+          {!isAdded ? (
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
+              className="icon-button fav-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddFund?.({ code: f.code, name: f.name });
+              }}
+              
+              style={{ color: 'var(--muted-foreground)', opacity: 0.5, transition: 'all 0.2s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--primary)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = 'var(--muted-foreground)'; }}
+            >
+              <PlusCircle size={18} />
+            </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>添加到主页</p>
+</TooltipContent>
+</Tooltip>
+          ) : showFavoriteButton ? (
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               className={`icon-button fav-button ${favorites?.has(f.code) ? 'active' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleFavorite?.(f.code);
               }}
-              title={favorites?.has(f.code) ? '取消自选' : '添加自选'}
+              
             >
               <StarIcon width="18" height="18" filled={favorites?.has(f.code)} />
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{favorites?.has(f.code) ? '取消自选' : '添加自选'}</p>
+</TooltipContent>
+</Tooltip>
           ) : null}
           <div className="title-text" style={{ minWidth: 0 }}>
-            <span
+            <Tooltip>
+<TooltipTrigger asChild>
+<span
               className="name-text"
-              title={f.jzrq === todayStr ? '今日净值已更新' : ''}
+              
             >
               {isHoldingLinked ? (
-                <span
-                  title="持仓来自自定义分组汇总"
-                  aria-label="已关联持仓"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    marginRight: 6,
-                    color: 'var(--primary)',
-                    verticalAlign: 'middle',
-                    position: 'relative',
-                    bottom: 2,
-                  }}
-                >
-                  <LinkIcon width="14" height="14" />
-                </span>
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <span
+                      aria-label="已关联持仓"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        marginRight: 6,
+                        color: 'var(--primary)',
+                        verticalAlign: 'middle',
+                        position: 'relative',
+                        bottom: 2,
+                      }}
+                    >
+                      <LinkIcon width="14" height="14" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>持仓来自自定义分组汇总</TooltipContent>
+                </Tooltip>
               ) : null}
               <ConsecutiveTrendBadge trend={fundExtraData?.consecutiveTrend} />
               {f.name}
             </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>{f.jzrq === todayStr ? '今日净值已更新' : ''}</p>
+</TooltipContent>
+</Tooltip>
             <span className="muted">
               #{f.code}
               {dcaPlans?.[f.code]?.enabled === true && <span className="dca-indicator">定</span>}
@@ -415,15 +542,22 @@ export default function FundCard({
         </div>
 
         <div className="actions" style={{ flex: '0 0 auto', flexWrap: 'nowrap', alignSelf: 'center', marginLeft: 'auto' }}>
-          <div
+          <Tooltip>
+<TooltipTrigger asChild>
+<div
             className="badge-v"
             style={{ cursor: 'pointer', background: 'var(--primary-light, rgba(34, 211, 238, 0.1))', color: 'var(--primary)' }}
             onClick={() => onDataSourceClick?.(f)}
-            title="点击切换估值数据源"
+            
           >
             <span>数据源</span>
             <strong>{f.dataSource || 1}</strong>
           </div>
+</TooltipTrigger>
+<TooltipContent>
+<p>点击切换估值数据源</p>
+</TooltipContent>
+</Tooltip>
           <div className="badge-v">
             <span>{f.noValuation ? '净值日期' : '估值时间'}</span>
             <strong>
@@ -433,10 +567,12 @@ export default function FundCard({
             </strong>
           </div>
           <div className="row" style={{ gap: 4 }}>
-            <button
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               className="icon-button danger"
               onClick={() => onRemoveFund?.(f)}
-              title="删除"
+              
               style={{
                 width: '28px',
                 height: '28px',
@@ -446,6 +582,11 @@ export default function FundCard({
             >
               <TrashIcon width="14" height="14" />
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>删除</p>
+</TooltipContent>
+</Tooltip>
           </div>
         </div>
       </div>
@@ -504,7 +645,7 @@ export default function FundCard({
               );
             })()}
             <Stat
-              label="估值净值"
+              label="估算净值"
               value={
                 f.gsz != null && !isNaN(Number(f.gsz))
                   ? Number(f.gsz).toFixed(4)
@@ -529,9 +670,11 @@ export default function FundCard({
           {relatedSectorDisplay ? (
             <div className="stat" style={{ flexDirection: 'column', gap: 4, minWidth: 0 }}>
               <span className="label">关联板块</span>
-              <span
+              <Tooltip>
+<TooltipTrigger asChild>
+<span
                 className="value"
-                title={relatedSectorDisplay}
+                
                 style={{
                   fontSize: '15px',
                   lineHeight: 1.2,
@@ -543,6 +686,11 @@ export default function FundCard({
               >
                 {relatedSectorDisplay}
               </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>{relatedSectorDisplay}</p>
+</TooltipContent>
+</Tooltip>
             </div>
           ) : null}
           {hasRelatedSectorPct ? (
@@ -555,14 +703,17 @@ export default function FundCard({
         </div>
       )}
 
-      <div className="row" style={{ marginBottom: 12 }}>
-        {!profit ? (
+      {isAdded && (
+        <div className="row" style={{ marginBottom: 12 }}>
+          {!profit ? (
           <div
             className="stat"
             style={{ flexDirection: 'column', gap: 4 }}
           >
             <span className="label">持仓金额</span>
-            <div
+            <Tooltip>
+<TooltipTrigger asChild>
+<div
               className="value muted"
               style={{
                 fontSize: '14px',
@@ -571,24 +722,31 @@ export default function FundCard({
                 gap: 4,
                 cursor: 'pointer',
               }}
-              title={holdingLocked ? holdingLinkedTitle : '设置持仓'}
+              
               onClick={() => {
                 onHoldingClick?.(f);
               }}
             >
               未设置 <SettingsIcon width="12" height="12" />
             </div>
+</TooltipTrigger>
+<TooltipContent>
+<p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
+</TooltipContent>
+</Tooltip>
           </div>
         ) : (
           <>
-            <div
+            <Tooltip>
+<TooltipTrigger asChild>
+<div
               className="stat"
               style={{
                 cursor: 'pointer',
                 flexDirection: 'column',
                 gap: 4,
               }}
-              title={holdingLocked ? holdingLinkedTitle : '点击设置持仓'}
+              
               onClick={() => {
                 onActionClick?.(f);
               }}
@@ -603,6 +761,11 @@ export default function FundCard({
                 {masked ? '******' : `${Number(profit.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </span>
             </div>
+</TooltipTrigger>
+<TooltipContent>
+<p>{holdingLocked ? holdingLinkedTitle : '编辑持仓'}</p>
+</TooltipContent>
+</Tooltip>
             {holding?.firstPurchaseDate && !masked && (() => {
               const today = dayjs.tz(todayStr, TZ);
               const purchaseDate = dayjs.tz(holding.firstPurchaseDate, TZ);
@@ -630,7 +793,6 @@ export default function FundCard({
                 flexDirection: 'column',
                 gap: 4,
               }}
-              title={profit.profitToday != null ? '点击切换金额/百分比' : ''}
             >
               <span
                 className="label"
@@ -639,21 +801,22 @@ export default function FundCard({
                 当日收益{todayPercentModes?.[f.code] ? '(%)' : ''}
                 {profit.profitToday != null && <SwitchIcon />}
               </span>
-              <span
-                className={`value ${
-                  profit.profitToday != null
-                    ? masked
+              {profit.profitToday != null ? (
+                <Tooltip>
+<TooltipTrigger asChild>
+<span
+                  className={`value ${
+                    masked
                       ? ''
                       : profit.profitToday > 0
                         ? 'up'
                         : profit.profitToday < 0
                           ? 'down'
                           : ''
-                    : 'muted'
-                }`}
-              >
-                {profit.profitToday != null
-                  ? masked
+                  }`}
+                  style={{ display: 'inline-block' }}
+                >
+                  {masked
                     ? '******'
                     : <>
                         {profit.profitToday > 0 ? '+' : profit.profitToday < 0 ? '-' : ''}
@@ -664,9 +827,18 @@ export default function FundCard({
                                 : 0,
                             ).toFixed(2)}%`
                           : `${Math.abs(profit.profitToday).toFixed(2)}`}
-                      </>
-                  : '--'}
-              </span>
+                      </>}
+                </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>点击切换金额/百分比</p>
+</TooltipContent>
+</Tooltip>
+              ) : (
+                <span className="value muted" style={{ display: 'inline-block' }}>
+                  --
+                </span>
+              )}
             </div>
             {profit.profitTotal !== null && (
               <div
@@ -676,7 +848,6 @@ export default function FundCard({
                   onPercentModeToggle?.(f.code);
                 }}
                 style={{ cursor: 'pointer', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}
-                title="点击切换金额/百分比"
               >
                 <span
                   className="label"
@@ -685,10 +856,13 @@ export default function FundCard({
                   持有收益{percentModes?.[f.code] ? '(%)' : ''}
                   <SwitchIcon />
                 </span>
-                <span
+                <Tooltip>
+<TooltipTrigger asChild>
+<span
                   className={`value ${
                     masked ? '' : profit.profitTotal > 0 ? 'up' : profit.profitTotal < 0 ? 'down' : ''
                   }`}
+                  style={{ display: 'inline-block' }}
                 >
                   {masked
                     ? '******'
@@ -703,11 +877,17 @@ export default function FundCard({
                           : `${Math.abs(profit.profitTotal).toFixed(2)}`}
                       </>}
                 </span>
+</TooltipTrigger>
+<TooltipContent>
+<p>点击切换金额/百分比</p>
+</TooltipContent>
+</Tooltip>
               </div>
             )}
           </>
         )}
       </div>
+      )}
 
       {/* ── 更多信息展开区 ── */}
       <MoreSection
@@ -717,11 +897,13 @@ export default function FundCard({
         fundExtraData={fundExtraData}
         masked={masked}
         groupTotalHoldingAmount={groupTotalHoldingAmount}
+        isAdded={isAdded}
       />
 
       {(() => {
+        const currentSeries = f.fundValuationTimeseries?.[f.code] || valuationSeries?.[f.code];
         const showIntraday =
-          !f.noValuation && Array.isArray(valuationSeries?.[f.code]) && valuationSeries[f.code].length >= 1;
+          !f.noValuation && Array.isArray(currentSeries) && currentSeries.length >= 1;
         if (!showIntraday) return null;
 
         if (
@@ -744,7 +926,7 @@ export default function FundCard({
         return (
           <FundIntradayChart
             key={`${f.code}-intraday-${theme}`}
-            series={valuationSeries[f.code]}
+            series={currentSeries}
             referenceNav={dwjz != null && Number.isFinite(dwjz) ? dwjz : undefined}
             theme={theme}
             fundCode={f.code}
@@ -760,15 +942,7 @@ export default function FundCard({
           defaultValue={hasHoldings ? 'holdings' : 'trend'}
           className="w-full"
         >
-          <TabsList
-            className={`w-full ${
-              hasHoldings && hasHoldingAmount
-                ? 'grid grid-cols-3'
-                : hasHoldings || hasHoldingAmount
-                  ? 'grid grid-cols-2'
-                  : ''
-            }`}
-          >
+          <TabsList className="w-full flex">
             {hasHoldings && (
               <TabsTrigger value="holdings">前10重仓股票</TabsTrigger>
             )}

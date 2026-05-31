@@ -17,11 +17,13 @@ import {
 } from '@/components/ui/dialog';
 import PendingTradesModal from './PendingTradesModal';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const DEFAULT_TZ = 'Asia/Shanghai';
+import { DEFAULT_TZ } from '@/app/constants';
 const getBrowserTimeZone = () => {
   if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -662,9 +664,11 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
       </DialogContent>
       <AnimatePresence>
         {revokeTrade && (
-          <ConfirmModal
+          <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
             key="revoke-confirm"
-            title="撤销交易"
+            
             message={`确定要撤销这笔 ${revokeTrade.share ? `${revokeTrade.share}份` : `${revokeTrade.amount}`} 的${revokeTrade.type === 'buy' ? '买入' : '卖出'}申请吗？`}
             onConfirm={() => {
               onDeletePending?.(revokeTrade.id);
@@ -673,6 +677,11 @@ export default function TradeModal({ type, fund, holding, onClose, onConfirm, pe
             onCancel={() => setRevokeTrade(null)}
             confirmText="确认撤销"
           />
+</TooltipTrigger>
+<TooltipContent>
+<p>撤销交易</p>
+</TooltipContent>
+</Tooltip>
         )}
       </AnimatePresence>
       <PendingTradesModal

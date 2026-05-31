@@ -7,6 +7,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { CloseIcon, RefreshIcon } from './Icons';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function SyncPersonalSettingsModal({
   open,
@@ -65,14 +67,21 @@ export default function SyncPersonalSettingsModal({
             <RefreshIcon width="20" height="20" />
             <span>同步个性化设置</span>
           </div>
-          <button
+          <Tooltip>
+<TooltipTrigger asChild>
+<button
             className="icon-button"
             onClick={onClose}
             style={{ border: 'none', background: 'transparent' }}
-            title="关闭"
+            
           >
             <CloseIcon width="20" height="20" />
           </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>关闭</p>
+</TooltipContent>
+</Tooltip>
         </div>
 
         <p className="muted" style={{ fontSize: 13, margin: '0 0 14px' }}>

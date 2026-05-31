@@ -10,6 +10,8 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 export default function TransactionHistoryModal({
   fund,
@@ -221,25 +223,34 @@ export default function TransactionHistoryModal({
 
         <AnimatePresence>
           {deleteConfirm && (
-            <ConfirmModal
+            <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
               key="delete-confirm"
-              title={deleteConfirm.type === 'pending' ? '撤销交易' : '删除记录'}
+              
               message={deleteConfirm.type === 'pending'
                 ? '确定要撤销这笔待处理交易吗？'
-                : '确定要删除这条交易记录吗？\n注意：删除记录不会恢复已变更的持仓数据。'}
+                : '确定要删除这条交易记录吗？\\n注意：删除记录不会恢复已变更的持仓数据。'}
               onConfirm={handleConfirmDelete}
               onCancel={() => setDeleteConfirm(null)}
               confirmText="确认删除"
             />
+</TooltipTrigger>
+<TooltipContent>
+<p>{deleteConfirm.type === 'pending' ? '撤销交易' : '删除记录'}</p>
+</TooltipContent>
+</Tooltip>
           )}
         </AnimatePresence>
 
         <AnimatePresence>
           {mergeConfirmOpen && (
-            <ConfirmModal
+            <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
               key="merge-all-groups-confirm"
-              title="从全部分组合并"
-              message={'是否确认从全部分组复制合并该基金交易记录至当前分组？\n将同时复制「待处理队列」与「历史记录」，原分组数据不受影响。'}
+              
+              message={'是否确认从全部分组复制合并该基金交易记录至当前分组？\\n将同时复制「待处理队列」与「历史记录」，原分组数据不受影响。'}
               onConfirm={() => {
                 onMergeAllGroups?.();
                 setMergeConfirmOpen(false);
@@ -247,6 +258,11 @@ export default function TransactionHistoryModal({
               onCancel={() => setMergeConfirmOpen(false)}
               confirmText="确定"
             />
+</TooltipTrigger>
+<TooltipContent>
+<p>从全部分组合并</p>
+</TooltipContent>
+</Tooltip>
           )}
         </AnimatePresence>
       </DialogContent>

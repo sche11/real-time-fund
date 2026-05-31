@@ -15,6 +15,8 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CloseIcon, DragIcon, ResetIcon, SettingsIcon } from "./Icons";
 import ConfirmModal from "./ConfirmModal";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 function SortSettingReorderItem({
   item,
@@ -113,7 +115,9 @@ function SortSettingReorderItem({
           </div>
         ) : (
           <>
-            <button
+            <Tooltip>
+<TooltipTrigger asChild>
+<button
               type="button"
               onClick={() => startEditAlias(item)}
               style={{
@@ -126,10 +130,15 @@ function SortSettingReorderItem({
                 color: "inherit",
                 cursor: "pointer",
               }}
-              title="点击修改别名"
+              
             >
               {item.label}
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>点击修改别名</p>
+</TooltipContent>
+</Tooltip>
             {item.alias && (
               <span
                 className="muted"
@@ -145,14 +154,16 @@ function SortSettingReorderItem({
         )}
       </div>
       {item.id !== "default" && (
-        <button
+        <Tooltip>
+<TooltipTrigger asChild>
+<button
           type="button"
           className={isMobile ? "icon-button" : "icon-button pc-table-column-switch"}
           onClick={(e) => {
             e.stopPropagation();
             handleToggle(item.id);
           }}
-          title={item.enabled ? "关闭" : "开启"}
+          
           style={
             isMobile
               ? {
@@ -181,6 +192,11 @@ function SortSettingReorderItem({
             />
           </span>
         </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>{item.enabled ? "关闭" : "开启"}</p>
+</TooltipContent>
+</Tooltip>
       )}
     </Reorder.Item>
   );
@@ -370,11 +386,13 @@ export default function SortSettingModal({open,
           >
             排序规则
           </h3>
-          <button
+          <Tooltip>
+<TooltipTrigger asChild>
+<button
               type="button"
               className="icon-button"
               onClick={() => setResetConfirmOpen(true)}
-              title="重置排序规则"
+              
               style={{
                 border: "none",
                 width: 28,
@@ -389,6 +407,11 @@ export default function SortSettingModal({open,
             >
               <ResetIcon width="16" height="16" />
             </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>重置排序规则</p>
+</TooltipContent>
+</Tooltip>
         </div>
         <p
           className="muted"
@@ -485,9 +508,11 @@ export default function SortSettingModal({open,
   const resetConfirm = (
     <AnimatePresence>
       {resetConfirmOpen && (
-        <ConfirmModal
+        <Tooltip>
+<TooltipTrigger asChild>
+<ConfirmModal
           key="reset-sort-rules-confirm"
-          title="重置排序规则"
+          
           message="是否将排序规则恢复为默认配置？这会重置顺序、开关状态以及别名设置。"
           icon={
             <ResetIcon
@@ -506,6 +531,11 @@ export default function SortSettingModal({open,
           }}
           onCancel={() => setResetConfirmOpen(false)}
         />
+</TooltipTrigger>
+<TooltipContent>
+<p>重置排序规则</p>
+</TooltipContent>
+</Tooltip>
       )}
     </AnimatePresence>
   );
@@ -531,9 +561,11 @@ export default function SortSettingModal({open,
               <SettingsIcon width="20" height="20" />
               <span>排序个性化设置</span>
             </DrawerTitle>
-            <DrawerClose
+            <Tooltip>
+<TooltipTrigger asChild>
+<DrawerClose
               className="icon-button border-none bg-transparent p-1"
-              title="关闭"
+              
               style={{
                 borderColor: "transparent",
                 backgroundColor: "transparent",
@@ -541,6 +573,11 @@ export default function SortSettingModal({open,
             >
               <CloseIcon width="20" height="20" />
             </DrawerClose>
+</TooltipTrigger>
+<TooltipContent>
+<p>关闭</p>
+</TooltipContent>
+</Tooltip>
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto">{body}</div>
         </DrawerContent>
@@ -584,15 +621,22 @@ export default function SortSettingModal({open,
                 <SettingsIcon width="20" height="20" />
                 <span>排序个性化设置</span>
               </div>
-              <button
+              <Tooltip>
+<TooltipTrigger asChild>
+<button
                 type="button"
                 className="icon-button"
                 onClick={onClose}
-                title="关闭"
+                
                 style={{ border: "none", background: "transparent" }}
               >
                 <CloseIcon width="20" height="20" />
               </button>
+</TooltipTrigger>
+<TooltipContent>
+<p>关闭</p>
+</TooltipContent>
+</Tooltip>
             </div>
 
             {body}

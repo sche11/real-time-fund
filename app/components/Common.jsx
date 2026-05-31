@@ -11,11 +11,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import zhifubaoImg from "../assets/zhifubao.jpg";
 import weixinImg from "../assets/weixin.jpg";
 import { CalendarIcon, MinusIcon, PlusIcon, TrendUpIcon, TrendDownIcon } from './Icons';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
+import { DEFAULT_TZ } from '@/app/constants';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-const DEFAULT_TZ = 'Asia/Shanghai';
 const getBrowserTimeZone = () => {
   if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -38,25 +39,30 @@ export function ConsecutiveTrendBadge({ trend }) {
   const Icon = isUp ? TrendUpIcon : TrendDownIcon;
 
   return (
-    <span
-      className="consecutive-trend-badge"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '1px',
-        color: color,
-        fontSize: '11px',
-        fontWeight: 'bold',
-        marginRight: '4px',
-        verticalAlign: 'middle',
-        position: 'relative',
-        bottom: '1px',
-      }}
-      title={`连续${trend.days}天${isUp ? '上涨' : '下跌'}`}
-    >
-      <Icon width="12" height="12" />
-      <span style={{ lineHeight: 1 }}>{trend.days}</span>
-    </span>
+    <Tooltip delayDuration={150}>
+      <TooltipTrigger asChild>
+        <span
+          className="consecutive-trend-badge"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '1px',
+            color: color,
+            fontSize: '11px',
+            fontWeight: 'bold',
+            marginRight: '4px',
+            verticalAlign: 'middle',
+            position: 'relative',
+            bottom: '1px',
+            cursor: 'default',
+          }}
+        >
+          <Icon width="12" height="12" />
+          <span style={{ lineHeight: 1 }}>{trend.days}</span>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>连续{trend.days}天{isUp ? '上涨' : '下跌'}</TooltipContent>
+    </Tooltip>
   );
 }
 
