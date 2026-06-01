@@ -431,6 +431,16 @@ export default function ModalsLayer({ callbacksRef }) {
               cb.current.setDcaPlans?.((prev) => {
                 const scoped = migrateDcaPlansToScoped(prev);
                 const bucket = { ...(isPlainObject(scoped[scope]) ? scoped[scope] : {}) };
+                const existingPlan = bucket[code];
+                // 当定投周期/首扣日/扣款日等调度参数变化时，需重置 lastDate 以按新配置重新计算；
+                // 仅修改金额/费率/启停时保留 lastDate，防止重新生成已处理的历史交易
+                const scheduleChanged =
+                  !existingPlan ||
+                  existingPlan.cycle !== config.cycle ||
+                  existingPlan.firstDate !== config.firstDate ||
+                  ((config.cycle === 'weekly' || config.cycle === 'biweekly') &&
+                    existingPlan.weeklyDay !== (config.weeklyDay ?? null)) ||
+                  (config.cycle === 'monthly' && existingPlan.monthlyDay !== (config.monthlyDay ?? null));
                 bucket[code] = {
                   amount: config.amount,
                   feeRate: config.feeRate,
@@ -438,7 +448,8 @@ export default function ModalsLayer({ callbacksRef }) {
                   firstDate: config.firstDate,
                   weeklyDay: config.weeklyDay ?? null,
                   monthlyDay: config.monthlyDay ?? null,
-                  enabled: config.enabled !== false
+                  enabled: config.enabled !== false,
+                  ...(!scheduleChanged && existingPlan?.lastDate ? { lastDate: existingPlan.lastDate } : {})
                 };
                 const next = { ...scoped, [scope]: bucket };
                 return next;

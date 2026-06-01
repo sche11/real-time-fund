@@ -359,6 +359,7 @@ export default function HomePage() {
   const mobileBatchClearSelectionRef = useRef(null); // 由 MobileFundTable 注入，批量删除二次确认成功后退出编辑态
 
   const isSchedulingDcaRef = useRef(false);
+  const isProcessingPendingRef = useRef(false);
 
   const todayStr = formatDate();
 
@@ -1517,146 +1518,152 @@ export default function HomePage() {
   };
 
   const processPendingQueue = async () => {
-    const currentPending = useStorageStore.getState().pendingTrades;
-    if (currentPending.length === 0) return;
-
-    let stateChanged = false;
-    let tempHoldings = { ...useStorageStore.getState().holdings };
-    let tempGroupHoldings;
+    if (isProcessingPendingRef.current) return;
+    isProcessingPendingRef.current = true;
     try {
-      tempGroupHoldings = JSON.parse(JSON.stringify(useStorageStore.getState().groupHoldings || {}));
-    } catch {
-      tempGroupHoldings = { ...(useStorageStore.getState().groupHoldings || {}) };
-    }
-    const processedIds = new Set();
-    const newTransactions = [];
+      const currentPending = useStorageStore.getState().pendingTrades;
+      if (currentPending.length === 0) return;
 
-    const readCurrent = (fundCode, tradeGid) => {
-      if (!tradeGid) {
-        return tempHoldings[fundCode] || { share: 0, cost: 0 };
+      let stateChanged = false;
+      let tempHoldings = { ...useStorageStore.getState().holdings };
+      let tempGroupHoldings;
+      try {
+        tempGroupHoldings = JSON.parse(JSON.stringify(useStorageStore.getState().groupHoldings || {}));
+      } catch {
+        tempGroupHoldings = { ...(useStorageStore.getState().groupHoldings || {}) };
       }
-      if (!tempGroupHoldings[tradeGid]) tempGroupHoldings[tradeGid] = {};
-      return tempGroupHoldings[tradeGid][fundCode] || { share: 0, cost: 0 };
-    };
+      const processedIds = new Set();
+      const newTransactions = [];
 
-    const writeCurrent = (fundCode, tradeGid, share, cost, extra = {}) => {
-      if (!tradeGid) {
-        tempHoldings[fundCode] = { share, cost, ...extra };
-      } else {
+      const readCurrent = (fundCode, tradeGid) => {
+        if (!tradeGid) {
+          return tempHoldings[fundCode] || { share: 0, cost: 0 };
+        }
         if (!tempGroupHoldings[tradeGid]) tempGroupHoldings[tradeGid] = {};
-        tempGroupHoldings[tradeGid][fundCode] = { share, cost, ...extra };
-      }
-    };
+        return tempGroupHoldings[tradeGid][fundCode] || { share: 0, cost: 0 };
+      };
 
-    for (const trade of currentPending) {
-      const tradeGid = trade.groupId || null;
-      let queryDate = trade.date;
-      if (trade.isAfter3pm) {
-        queryDate = toTz(trade.date).add(1, 'day').format('YYYY-MM-DD');
-      }
-
-      // 尝试获取智能净值
-      const navOffsetDays = Number(trade.navOffsetDays);
-      if (Number.isFinite(navOffsetDays) && navOffsetDays) {
-        queryDate = toTz(queryDate).add(navOffsetDays, 'day').format('YYYY-MM-DD');
-      }
-      const result =
-        trade.netValueSearch === 'backward'
-          ? await fetchSmartFundNetValueBackward(trade.fundCode, queryDate)
-          : await fetchSmartFundNetValue(trade.fundCode, queryDate);
-
-      if (result && result.value > 0) {
-        // 成功获取，执行交易
-        const current = readCurrent(trade.fundCode, tradeGid);
-
-        let newShare, newCost;
-        let tradeShare = 0;
-        let tradeAmount = 0;
-
-        if (trade.type === 'buy') {
-          const feeRate = trade.feeRate || 0;
-          const netAmount = trade.amount / (1 + feeRate / 100);
-          const share = netAmount / result.value;
-          newShare = current.share + share;
-          newCost = (current.cost * current.share + trade.amount) / newShare;
-
-          tradeShare = share;
-          tradeAmount = trade.amount;
+      const writeCurrent = (fundCode, tradeGid, share, cost, extra = {}) => {
+        if (!tradeGid) {
+          tempHoldings[fundCode] = { share, cost, ...extra };
         } else {
-          const sellShare =
-            trade.share != null && Number.isFinite(Number(trade.share)) && Number(trade.share) > 0
-              ? Number(trade.share)
-              : trade.amount != null && Number.isFinite(Number(trade.amount)) && Number(trade.amount) > 0
-                ? Number(trade.amount) / result.value
-                : 0;
-          newShare = Math.max(0, current.share - sellShare);
-          newCost = current.cost;
-          if (newShare === 0) newCost = 0;
+          if (!tempGroupHoldings[tradeGid]) tempGroupHoldings[tradeGid] = {};
+          tempGroupHoldings[tradeGid][fundCode] = { share, cost, ...extra };
+        }
+      };
 
-          tradeShare = sellShare;
-          tradeAmount = sellShare * result.value;
+      for (const trade of currentPending) {
+        const tradeGid = trade.groupId || null;
+        let queryDate = trade.date;
+        if (trade.isAfter3pm) {
+          queryDate = toTz(trade.date).add(1, 'day').format('YYYY-MM-DD');
         }
 
-        writeCurrent(trade.fundCode, tradeGid, newShare, newCost, {
-          ...(current.firstPurchaseDate ? { firstPurchaseDate: current.firstPurchaseDate } : {}),
-          ...(trade.type === 'buy' && !current.firstPurchaseDate && result.date
-            ? { firstPurchaseDate: result.date }
-            : {})
-        });
-        stateChanged = true;
-        processedIds.add(trade.id);
+        // 尝试获取智能净值
+        const navOffsetDays = Number(trade.navOffsetDays);
+        if (Number.isFinite(navOffsetDays) && navOffsetDays) {
+          queryDate = toTz(queryDate).add(navOffsetDays, 'day').format('YYYY-MM-DD');
+        }
+        const result =
+          trade.netValueSearch === 'backward'
+            ? await fetchSmartFundNetValueBackward(trade.fundCode, queryDate)
+            : await fetchSmartFundNetValue(trade.fundCode, queryDate);
 
-        // 记录交易历史
-        newTransactions.push({
-          id: trade.id,
-          fundCode: trade.fundCode,
-          type: trade.type,
-          share: tradeShare,
-          amount: tradeAmount,
-          price: result.value,
-          date: result.date, // 使用获取到净值的日期
-          isAfter3pm: trade.isAfter3pm,
-          isDca: !!trade.isDca,
-          timestamp: Date.now(),
-          ...(tradeGid ? { groupId: tradeGid } : {})
-        });
-      }
-    }
+        if (result && result.value > 0) {
+          // 成功获取，执行交易
+          const current = readCurrent(trade.fundCode, tradeGid);
 
-    if (stateChanged) {
-      setHoldings(tempHoldings);
-      setGroupHoldings(tempGroupHoldings);
+          let newShare, newCost;
+          let tradeShare = 0;
+          let tradeAmount = 0;
 
-      setPendingTrades((prev) => {
-        const next = prev.filter((t) => !processedIds.has(t.id));
-        return next;
-      });
+          if (trade.type === 'buy') {
+            const feeRate = trade.feeRate || 0;
+            const netAmount = trade.amount / (1 + feeRate / 100);
+            const share = netAmount / result.value;
+            newShare = current.share + share;
+            newCost = (current.cost * current.share + trade.amount) / newShare;
 
-      setTransactions((prev) => {
-        const nextState = { ...prev };
-        newTransactions.forEach((tx) => {
-          const current = nextState[tx.fundCode] || [];
-          // 避免重复添加 (虽然 id 应该唯一)
-          if (!current.some((t) => t.id === tx.id)) {
-            const row = {
-              id: tx.id,
-              type: tx.type,
-              share: tx.share,
-              amount: tx.amount,
-              price: tx.price,
-              date: tx.date,
-              isAfter3pm: tx.isAfter3pm,
-              isDca: tx.isDca,
-              timestamp: tx.timestamp
-            };
-            if (tx.groupId) row.groupId = tx.groupId;
-            nextState[tx.fundCode] = [row, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            tradeShare = share;
+            tradeAmount = trade.amount;
+          } else {
+            const sellShare =
+              trade.share != null && Number.isFinite(Number(trade.share)) && Number(trade.share) > 0
+                ? Number(trade.share)
+                : trade.amount != null && Number.isFinite(Number(trade.amount)) && Number(trade.amount) > 0
+                  ? Number(trade.amount) / result.value
+                  : 0;
+            newShare = Math.max(0, current.share - sellShare);
+            newCost = current.cost;
+            if (newShare === 0) newCost = 0;
+
+            tradeShare = sellShare;
+            tradeAmount = sellShare * result.value;
           }
-        });
-        return nextState;
-      });
 
-      showToast(`已处理 ${processedIds.size} 笔待定交易`, 'success');
+          writeCurrent(trade.fundCode, tradeGid, newShare, newCost, {
+            ...(current.firstPurchaseDate ? { firstPurchaseDate: current.firstPurchaseDate } : {}),
+            ...(trade.type === 'buy' && !current.firstPurchaseDate && result.date
+              ? { firstPurchaseDate: result.date }
+              : {})
+          });
+          stateChanged = true;
+          processedIds.add(trade.id);
+
+          // 记录交易历史
+          newTransactions.push({
+            id: trade.id,
+            fundCode: trade.fundCode,
+            type: trade.type,
+            share: tradeShare,
+            amount: tradeAmount,
+            price: result.value,
+            date: result.date, // 使用获取到净值的日期
+            isAfter3pm: trade.isAfter3pm,
+            isDca: !!trade.isDca,
+            timestamp: Date.now(),
+            ...(tradeGid ? { groupId: tradeGid } : {})
+          });
+        }
+      }
+
+      if (stateChanged) {
+        setHoldings(tempHoldings);
+        setGroupHoldings(tempGroupHoldings);
+
+        setPendingTrades((prev) => {
+          const next = prev.filter((t) => !processedIds.has(t.id));
+          return next;
+        });
+
+        setTransactions((prev) => {
+          const nextState = { ...prev };
+          newTransactions.forEach((tx) => {
+            const current = nextState[tx.fundCode] || [];
+            // 避免重复添加 (虽然 id 应该唯一)
+            if (!current.some((t) => t.id === tx.id)) {
+              const row = {
+                id: tx.id,
+                type: tx.type,
+                share: tx.share,
+                amount: tx.amount,
+                price: tx.price,
+                date: tx.date,
+                isAfter3pm: tx.isAfter3pm,
+                isDca: tx.isDca,
+                timestamp: tx.timestamp
+              };
+              if (tx.groupId) row.groupId = tx.groupId;
+              nextState[tx.fundCode] = [row, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            }
+          });
+          return nextState;
+        });
+
+        showToast(`已处理 ${processedIds.size} 笔待定交易`, 'success');
+      }
+    } finally {
+      isProcessingPendingRef.current = false;
     }
   };
 

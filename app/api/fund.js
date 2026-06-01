@@ -1137,12 +1137,12 @@ export async function fetchFundValuationBySource(code, dataSource = 1) {
     };
 
     const onTimeout = () => {
-      fundDebugLog('fetchFundValuationBySource gz timeout', { code: c, timeoutMs: 10000 });
+      fundDebugLog('fetchFundValuationBySource gz timeout', { code: c, timeoutMs: 8000 });
       cleanupScript();
       trySupabaseFallback(new Error('gz timeout'));
     };
 
-    const timer = setTimeout(onTimeout, 10000);
+    const timer = setTimeout(onTimeout, 8000);
 
     let removePending = null;
     removePending = dispatcher.add(c, {
@@ -1192,6 +1192,7 @@ export const fetchFundData = async (c, overrideDataSource) => {
 
   let dataSource = overrideDataSource || 1;
   let storedName = null;
+  let storedValuationSource = null;
   if (!overrideDataSource) {
     try {
       const arr = storageStore.getItem('funds', []);
@@ -1200,6 +1201,7 @@ export const fetchFundData = async (c, overrideDataSource) => {
         if (f) {
           if (f.dataSource) dataSource = f.dataSource;
           if (f.name) storedName = f.name;
+          if (f.valuationSource) storedValuationSource = f.valuationSource;
         }
       }
     } catch (e) {}
@@ -1231,8 +1233,17 @@ export const fetchFundData = async (c, overrideDataSource) => {
       .catch(() => resolveT(null));
   });
 
-  // 2. 发起估值请求（各数据源统一走 fetchFundValuationBySource）
-  const gzPromise = fetchFundValuationBySource(code, dataSource);
+  // 2. 发起估值请求
+  // 对于已知 valuationSource 为 supabase_qdii 的基金（dataSource=1），直接走 Supabase 查询，
+  // 避免 fundgz JSONP 对 QDII 基金无响应导致等待超时
+  const gzPromise =
+    storedValuationSource === 'supabase_qdii' && normalizeValuationDataSource(dataSource) === 1
+      ? fetchQdiiValuationFromSupabase(code).then((qdii) => {
+          if (qdii) return { code, ...qdii, gsz: null };
+          // Supabase 无数据时回退到常规流程
+          return fetchFundValuationBySource(code, dataSource);
+        })
+      : fetchFundValuationBySource(code, dataSource);
 
   // 3. 编排并合并数据
   return new Promise(async (resolve, reject) => {
