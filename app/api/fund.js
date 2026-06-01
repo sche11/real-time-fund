@@ -1142,7 +1142,7 @@ export async function fetchFundValuationBySource(code, dataSource = 1) {
       trySupabaseFallback(new Error('gz timeout'));
     };
 
-    const timer = setTimeout(onTimeout, 8000);
+    const timer = setTimeout(onTimeout, 5000);
 
     let removePending = null;
     removePending = dispatcher.add(c, {
