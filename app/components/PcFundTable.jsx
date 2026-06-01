@@ -26,7 +26,17 @@ import PcTableSettingModal from './PcTableSettingModal';
 import FundCard from './FundCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { DragIcon, SettingsIcon, StarIcon, TrashIcon, ResetIcon, FolderPlusIcon, LinkIcon } from './Icons';
+import {
+  DragIcon,
+  SettingsIcon,
+  StarIcon,
+  TrashIcon,
+  ResetIcon,
+  FolderPlusIcon,
+  LinkIcon,
+  PencilIcon,
+  CloseIcon
+} from './Icons';
 import { ConsecutiveTrendBadge } from './Common';
 import {
   fetchFundPeriodReturns,
@@ -40,6 +50,8 @@ import MoveGroupModal from './MoveGroupModal';
 import { Badge } from '@/components/ui/badge';
 import { getTagThemeBadgeProps } from '@/app/components/AddTagDialog';
 import { cn } from '@/lib/utils';
+
+const EditModeContext = createContext({ isEditMode: false, selectedCodes: null, toggleSelected: null });
 
 const TAGS_COLUMN_ID = 'tags';
 
@@ -246,6 +258,206 @@ const MemoizedTableRow = memo(
 
 MemoizedTableRow.displayName = 'MemoizedTableRow';
 
+const FundNameCell = memo(
+  ({
+    info,
+    showFullFundName,
+    onOpenCardDialog,
+    favorites,
+    isGroupTab,
+    currentTab,
+    batchRemoveEnabled,
+    sortBy,
+    onToggleFavoriteRef,
+    fundExtraDataByCode
+  }) => {
+    const { isEditMode, selectedCodes, toggleSelected } = useContext(EditModeContext);
+    const original = info.row.original || {};
+    const code = original.code;
+    const isUpdated = original.isUpdated;
+    const hasDca = original.hasDca;
+    const isFavorites = favorites?.has?.(code);
+    const rowContext = useContext(SortableRowContext);
+    const showFavoriteButton = !isGroupTab && (currentTab === 'all' || currentTab === 'fav' || !currentTab);
+    const holdingLocked = (currentTab === 'all' || currentTab === 'fav') && !!original.isHoldingLinked;
+
+    return (
+      <div
+        className="name-cell-content"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8 }}
+      >
+        {batchRemoveEnabled && isEditMode && (
+          <label
+            onClick={(e) => e.stopPropagation?.()}
+            title={holdingLocked ? '关联持仓不可批量选择' : '选择用于移动分组/批量删除'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 18,
+              height: 18,
+              flexShrink: 0,
+              cursor: holdingLocked ? 'not-allowed' : 'pointer',
+              opacity: holdingLocked ? 0.45 : 1
+            }}
+          >
+            <input
+              type="checkbox"
+              disabled={holdingLocked}
+              checked={!holdingLocked && (selectedCodes?.has?.(code) || false)}
+              onChange={(e) => toggleSelected(code, e.target.checked)}
+              onClick={(e) => e.stopPropagation?.()}
+              style={{
+                width: 14,
+                height: 14,
+                accentColor: 'var(--primary)',
+                cursor: holdingLocked ? 'not-allowed' : 'pointer'
+              }}
+              aria-label="选择基金"
+            />
+          </label>
+        )}
+        {isEditMode &&
+          (sortBy === 'default' ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="icon-button drag-handle"
+                  ref={rowContext?.setActivatorNodeRef}
+                  {...rowContext?.activatorProps}
+                  {...rowContext?.listeners}
+                  style={{
+                    cursor: 'grab',
+                    width: 20,
+                    height: 20,
+                    padding: 2,
+                    margin: '0',
+                    flexShrink: 0,
+                    color: 'var(--muted)',
+                    background: 'transparent',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    touchAction: 'none'
+                  }}
+                  onClick={(e) => e.stopPropagation?.()}
+                >
+                  <DragIcon width="16" height="16" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>拖拽排序</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip delayDuration={150}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="icon-button drag-handle"
+                  style={{
+                    cursor: 'not-allowed',
+                    opacity: 0.45,
+                    width: 20,
+                    height: 20,
+                    padding: 2,
+                    margin: '0',
+                    flexShrink: 0,
+                    color: 'var(--muted)',
+                    background: 'transparent',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    touchAction: 'none'
+                  }}
+                  onClick={(e) => e.stopPropagation?.()}
+                >
+                  <DragIcon width="16" height="16" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>拖拽基金顺序需要在默认排序下操作</TooltipContent>
+            </Tooltip>
+          ))}
+        {showFavoriteButton ? (
+          <button
+            className={`icon-button fav-button ${isFavorites ? 'active' : ''}`}
+            title={isFavorites ? '取消自选' : '添加自选'}
+            onClick={(e) => {
+              e.stopPropagation?.();
+              onToggleFavoriteRef.current?.(original);
+            }}
+          >
+            <StarIcon width="18" height="18" filled={isFavorites} />
+          </button>
+        ) : null}
+        <div
+          className="title-text"
+          role={onOpenCardDialog ? 'button' : undefined}
+          tabIndex={onOpenCardDialog ? 0 : undefined}
+          title={onOpenCardDialog ? '查看基金详情' : original.isUpdated ? '今日净值已更新' : undefined}
+          onClick={
+            onOpenCardDialog
+              ? (e) => {
+                  e.stopPropagation?.();
+                  onOpenCardDialog(original);
+                }
+              : undefined
+          }
+          onKeyDown={
+            onOpenCardDialog
+              ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpenCardDialog(original);
+                  }
+                }
+              : undefined
+          }
+          style={onOpenCardDialog ? { cursor: 'pointer' } : undefined}
+        >
+          <span className={`name-text ${showFullFundName ? 'show-full' : ''}`}>
+            {holdingLocked ? (
+              <Tooltip delayDuration={150}>
+                <TooltipTrigger asChild>
+                  <span
+                    aria-label="已关联持仓"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginRight: 6,
+                      color: 'var(--primary)',
+                      verticalAlign: 'middle',
+                      position: 'relative',
+                      bottom: 2,
+                      cursor: 'default'
+                    }}
+                  >
+                    <LinkIcon width="14" height="14" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>持仓来自自定义分组汇总</TooltipContent>
+              </Tooltip>
+            ) : null}
+            <ConsecutiveTrendBadge trend={fundExtraDataByCode?.[code]?.consecutiveTrend} />
+            {info.getValue() ?? '—'}
+          </span>
+          {code ? (
+            <span className="muted code-text">
+              #{code}
+              {hasDca && <span className="dca-indicator">定</span>}
+              {isUpdated && <span className="updated-indicator">✓</span>}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+);
+FundNameCell.displayName = 'FundNameCell';
+
 /**
  * PC 端基金列表表格组件（基于 @tanstack/react-table）
  *
@@ -319,6 +531,7 @@ export default function PcFundTable({
   );
 
   const [activeId, setActiveId] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [cardDialogRow, setCardDialogRow] = useState(null);
   const handleOpenCardDialog = useCallback((row) => {
     setCardDialogRow(row);
@@ -409,6 +622,7 @@ export default function PcFundTable({
 
   useEffect(() => {
     setSelectedCodes(new Set());
+    setIsEditMode(false);
   }, [currentTab]);
 
   useEffect(() => {
@@ -447,7 +661,10 @@ export default function PcFundTable({
 
   useEffect(() => {
     if (!batchSelectionClearRef) return undefined;
-    batchSelectionClearRef.current = () => setSelectedCodes(new Set());
+    batchSelectionClearRef.current = () => {
+      setSelectedCodes(new Set());
+      setIsEditMode(false);
+    };
     return () => {
       batchSelectionClearRef.current = null;
     };
@@ -1081,219 +1298,77 @@ export default function PcFundTable({
     };
   }, [showPortalHeader]);
 
-  const FundNameCell = ({ info, showFullFundName, onOpenCardDialog }) => {
-    const original = info.row.original || {};
-    const code = original.code;
-    const isUpdated = original.isUpdated;
-    const hasDca = original.hasDca;
-    const isFavorites = favorites?.has?.(code);
-    const rowContext = useContext(SortableRowContext);
-    const showFavoriteButton = !isGroupTab && (currentTab === 'all' || currentTab === 'fav' || !currentTab);
-    const holdingLocked = (currentTab === 'all' || currentTab === 'fav') && !!original.isHoldingLinked;
-
-    return (
-      <div
-        className="name-cell-content"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8 }}
-      >
-        {batchRemoveEnabled && (
-          <label
-            onClick={(e) => e.stopPropagation?.()}
-            title={holdingLocked ? '关联持仓不可批量选择' : '选择用于移动分组/批量删除'}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 18,
-              height: 18,
-              flexShrink: 0,
-              cursor: holdingLocked ? 'not-allowed' : 'pointer',
-              opacity: holdingLocked ? 0.45 : 1
-            }}
-          >
-            <input
-              type="checkbox"
-              disabled={holdingLocked}
-              checked={!holdingLocked && (selectedCodes?.has?.(code) || false)}
-              onChange={(e) => toggleSelected(code, e.target.checked)}
-              onClick={(e) => e.stopPropagation?.()}
-              style={{
-                width: 14,
-                height: 14,
-                accentColor: 'var(--primary)',
-                cursor: holdingLocked ? 'not-allowed' : 'pointer'
-              }}
-              aria-label="选择基金"
-            />
-          </label>
-        )}
-        {sortBy === 'default' ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="icon-button drag-handle"
-                ref={rowContext?.setActivatorNodeRef}
-                {...rowContext?.activatorProps}
-                {...rowContext?.listeners}
-                style={{
-                  cursor: 'grab',
-                  width: 20,
-                  height: 20,
-                  padding: 2,
-                  margin: '0',
-                  flexShrink: 0,
-                  color: 'var(--muted)',
-                  background: 'transparent',
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  touchAction: 'none'
-                }}
-                onClick={(e) => e.stopPropagation?.()}
-              >
-                <DragIcon width="16" height="16" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>拖拽排序</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <Tooltip delayDuration={150}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="icon-button drag-handle"
-                style={{
-                  cursor: 'not-allowed',
-                  opacity: 0.45,
-                  width: 20,
-                  height: 20,
-                  padding: 2,
-                  margin: '0',
-                  flexShrink: 0,
-                  color: 'var(--muted)',
-                  background: 'transparent',
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  touchAction: 'none'
-                }}
-                onClick={(e) => e.stopPropagation?.()}
-              >
-                <DragIcon width="16" height="16" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>拖拽基金顺序需要在默认排序下操作</TooltipContent>
-          </Tooltip>
-        )}
-        {showFavoriteButton ? (
-          <button
-            className={`icon-button fav-button ${isFavorites ? 'active' : ''}`}
-            title={isFavorites ? '取消自选' : '添加自选'}
-            onClick={(e) => {
-              e.stopPropagation?.();
-              onToggleFavoriteRef.current?.(original);
-            }}
-          >
-            <StarIcon width="18" height="18" filled={isFavorites} />
-          </button>
-        ) : null}
-        <div
-          className="title-text"
-          role={onOpenCardDialog ? 'button' : undefined}
-          tabIndex={onOpenCardDialog ? 0 : undefined}
-          title={onOpenCardDialog ? '查看基金详情' : original.isUpdated ? '今日净值已更新' : undefined}
-          onClick={
-            onOpenCardDialog
-              ? (e) => {
-                  e.stopPropagation?.();
-                  onOpenCardDialog(original);
-                }
-              : undefined
-          }
-          onKeyDown={
-            onOpenCardDialog
-              ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onOpenCardDialog(original);
-                  }
-                }
-              : undefined
-          }
-          style={onOpenCardDialog ? { cursor: 'pointer' } : undefined}
-        >
-          <span className={`name-text ${showFullFundName ? 'show-full' : ''}`}>
-            {holdingLocked ? (
-              <Tooltip delayDuration={150}>
-                <TooltipTrigger asChild>
-                  <span
-                    aria-label="已关联持仓"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      marginRight: 6,
-                      color: 'var(--primary)',
-                      verticalAlign: 'middle',
-                      position: 'relative',
-                      bottom: 2,
-                      cursor: 'default'
-                    }}
-                  >
-                    <LinkIcon width="14" height="14" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>持仓来自自定义分组汇总</TooltipContent>
-              </Tooltip>
-            ) : null}
-            <ConsecutiveTrendBadge trend={fundExtraDataByCode?.[code]?.consecutiveTrend} />
-            {info.getValue() ?? '—'}
-          </span>
-          {code ? (
-            <span className="muted code-text">
-              #{code}
-              {hasDca && <span className="dca-indicator">定</span>}
-              {isUpdated && <span className="updated-indicator">✓</span>}
-            </span>
-          ) : null}
-        </div>
-      </div>
-    );
-  };
-
   const columns = useMemo(
     () => [
       {
         accessorKey: 'fundName',
         header: () => {
           if (!batchRemoveEnabled) return '基金名称';
-          const allCount = batchSelectableCount;
-          const checked = allCount > 0 && selectedCount === allCount;
-          const indeterminate = selectedCount > 0 && selectedCount < allCount;
+          if (isEditMode) {
+            const allCount = batchSelectableCount;
+            const checked = allCount > 0 && selectedCount === allCount;
+            const indeterminate = selectedCount > 0 && selectedCount < allCount;
+            return (
+              <BatchRemoveHeader
+                checked={checked}
+                indeterminate={indeterminate}
+                selectedCount={selectedCount}
+                totalCount={allCount}
+                onToggleAll={(nextChecked) => setAllSelected(nextChecked)}
+                onClear={() => setSelectedCodes(new Set())}
+                onRemove={() => {
+                  if (!onRemoveFunds || selectedCount === 0) return;
+                  const codes = Array.from(selectedCodes);
+                  const shouldClear = onRemoveFunds(codes);
+                  if (shouldClear !== false) {
+                    setSelectedCodes(new Set());
+                    setIsEditMode(false);
+                  }
+                }}
+                onMove={() => {
+                  if (!onMoveFunds || selectedCount === 0) return;
+                  setMoveGroupOpen(true);
+                }}
+                onClose={() => {
+                  setIsEditMode(false);
+                  setSelectedCodes(new Set());
+                }}
+                disabled={selectedCount === 0}
+              />
+            );
+          }
           return (
-            <BatchRemoveHeader
-              checked={checked}
-              indeterminate={indeterminate}
-              selectedCount={selectedCount}
-              totalCount={allCount}
-              onToggleAll={(nextChecked) => setAllSelected(nextChecked)}
-              onClear={() => setSelectedCodes(new Set())}
-              onRemove={() => {
-                if (!onRemoveFunds || selectedCount === 0) return;
-                const codes = Array.from(selectedCodes);
-                const shouldClear = onRemoveFunds(codes);
-                if (shouldClear !== false) setSelectedCodes(new Set());
-              }}
-              onMove={() => {
-                if (!onMoveFunds || selectedCount === 0) return;
-                setMoveGroupOpen(true);
-              }}
-              disabled={selectedCount === 0}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>基金名称</span>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={(e) => {
+                  e.stopPropagation?.();
+                  setIsEditMode(true);
+                }}
+                aria-label="编辑"
+                style={{
+                  border: 'none',
+                  width: '28px',
+                  height: '28px',
+                  minWidth: '28px',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text)',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  opacity: 0.6,
+                  transition: 'opacity 0.2s'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = 1)}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = 0.6)}
+              >
+                <PencilIcon width="14" height="14" />
+              </button>
+            </div>
           );
         },
         size: 300,
@@ -1304,6 +1379,13 @@ export default function PcFundTable({
             info={info}
             showFullFundName={showFullFundName}
             onOpenCardDialog={getFundCardProps ? handleOpenCardDialog : undefined}
+            favorites={favorites}
+            isGroupTab={isGroupTab}
+            currentTab={currentTab}
+            batchRemoveEnabled={batchRemoveEnabled}
+            sortBy={sortBy}
+            onToggleFavoriteRef={onToggleFavoriteRef}
+            fundExtraDataByCode={fundExtraDataByCode}
           />
         ),
         meta: {
@@ -2298,7 +2380,14 @@ export default function PcFundTable({
       onRemoveFunds,
       onMoveFunds,
       setAllSelected,
-      onFundTagsClick
+      onFundTagsClick,
+      isEditMode,
+      toggleSelected,
+      favorites,
+      sortBy,
+      onToggleFavoriteRef,
+      fundExtraDataByCode,
+      isGroupTab
     ]
   );
 
@@ -2516,9 +2605,10 @@ export default function PcFundTable({
   const totalHeaderWidth = headerGroup?.headers?.reduce((acc, h) => acc + h.column.getSize(), 0) ?? 0;
 
   return (
-    <>
-      <div className="pc-fund-table" ref={tableContainerRef}>
-        <style>{`
+    <EditModeContext.Provider value={{ isEditMode, selectedCodes, toggleSelected }}>
+      <>
+        <div className="pc-fund-table" ref={tableContainerRef}>
+          <style>{`
         .table-row-scroll {
           --row-bg: var(--bg);
           background-color: var(--row-bg) !important;
@@ -2625,288 +2715,291 @@ export default function PcFundTable({
           width: 100%;
         }
       `}</style>
-        {/* 表头 */}
-        {renderTableHeader(false)}
+          {/* 表头 */}
+          {renderTableHeader(false)}
 
-        {/* 表体 */}
-        {enableVirtualization ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-            dropAnimation={null}
-            autoScroll={false}
-          >
-            <SortableContext items={data.map((item) => item.code)} strategy={verticalListSortingStrategy}>
+          {/* 表体 */}
+          {enableVirtualization ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              dropAnimation={null}
+              autoScroll={false}
+            >
+              <SortableContext items={data.map((item) => item.code)} strategy={verticalListSortingStrategy}>
+                <div
+                  ref={virtualScrollAnchorRef}
+                  className="pc-fund-table-body-virtual"
+                  style={{ position: 'relative', width: '100%' }}
+                >
+                  <div
+                    style={{
+                      height: rowVirtualizer.getTotalSize(),
+                      position: 'relative',
+                      width: '100%'
+                    }}
+                  >
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const row = tableRows[virtualRow.index];
+                      if (!row) return null;
+                      return (
+                        <div
+                          key={row.original.code || row.id}
+                          data-index={virtualRow.index}
+                          ref={rowVirtualizer.measureElement}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                            zIndex: activeId === row.original.code ? 9999 : 1
+                          }}
+                        >
+                          <MemoizedTableRow
+                            row={row}
+                            index={virtualRow.index}
+                            sortBy={sortBy}
+                            enableAnimation={false}
+                            getCommonPinningStyles={getCommonPinningStyles}
+                            isFavorites={favorites?.has?.(row.original.code)}
+                            isSelected={selectedCodes?.has?.(row.original.code)}
+                            masked={masked}
+                            periodReturns={periodReturnsByCode[row.original.code]}
+                            relatedSector={relatedSectorByCode[row.original.code]}
+                            sectorQuote={
+                              relatedSectorByCode[row.original.code]
+                                ? sectorQuoteByLabel[String(relatedSectorByCode[row.original.code]).trim()]
+                                : null
+                            }
+                            fundExtraData={fundExtraDataByCode[row.original.code]}
+                            columnOrder={columnOrder}
+                            columnVisibility={columnVisibility}
+                            columnSizing={columnSizing}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              dropAnimation={null}
+              autoScroll={false}
+            >
+              <SortableContext items={data.map((item) => item.code)} strategy={verticalListSortingStrategy}>
+                {enableRowAnimation ? (
+                  <AnimatePresence mode="popLayout">
+                    {tableRows.map((row, index) => (
+                      <MemoizedTableRow
+                        key={row.original.code || row.id}
+                        row={row}
+                        index={index}
+                        sortBy={sortBy}
+                        enableAnimation
+                        getCommonPinningStyles={getCommonPinningStyles}
+                        isFavorites={favorites?.has?.(row.original.code)}
+                        isSelected={selectedCodes?.has?.(row.original.code)}
+                        masked={masked}
+                        periodReturns={periodReturnsByCode[row.original.code]}
+                        relatedSector={relatedSectorByCode[row.original.code]}
+                        sectorQuote={
+                          relatedSectorByCode[row.original.code]
+                            ? sectorQuoteByLabel[String(relatedSectorByCode[row.original.code]).trim()]
+                            : null
+                        }
+                        fundExtraData={fundExtraDataByCode[row.original.code]}
+                        columnOrder={columnOrder}
+                        columnVisibility={columnVisibility}
+                        columnSizing={columnSizing}
+                      />
+                    ))}
+                  </AnimatePresence>
+                ) : (
+                  <>
+                    {tableRows.map((row, index) => (
+                      <MemoizedTableRow
+                        key={row.original.code || row.id}
+                        row={row}
+                        index={index}
+                        sortBy={sortBy}
+                        enableAnimation={false}
+                        getCommonPinningStyles={getCommonPinningStyles}
+                        isFavorites={favorites?.has?.(row.original.code)}
+                        isSelected={selectedCodes?.has?.(row.original.code)}
+                        masked={masked}
+                        periodReturns={periodReturnsByCode[row.original.code]}
+                        relatedSector={relatedSectorByCode[row.original.code]}
+                        sectorQuote={
+                          relatedSectorByCode[row.original.code]
+                            ? sectorQuoteByLabel[String(relatedSectorByCode[row.original.code]).trim()]
+                            : null
+                        }
+                        fundExtraData={fundExtraDataByCode[row.original.code]}
+                        columnOrder={columnOrder}
+                        columnVisibility={columnVisibility}
+                        columnSizing={columnSizing}
+                      />
+                    ))}
+                  </>
+                )}
+              </SortableContext>
+            </DndContext>
+          )}
+
+          {table.getRowModel().rows.length === 0 && (
+            <div className="table-row empty-row">
+              <div className="table-cell" style={{ textAlign: 'center' }}>
+                <span className="muted">暂无数据</span>
+              </div>
+            </div>
+          )}
+          {resetConfirmOpen && (
+            <ConfirmModal
+              title="重置列宽"
+              message="是否重置表格列宽为默认值？"
+              icon={<ResetIcon width="20" height="20" className="shrink-0 text-[var(--primary)]" />}
+              confirmVariant="primary"
+              onConfirm={handleResetSizing}
+              onCancel={() => setResetConfirmOpen(false)}
+              confirmText="重置"
+            />
+          )}
+          {showPortalHeader &&
+            ReactDOM.createPortal(
               <div
-                ref={virtualScrollAnchorRef}
-                className="pc-fund-table-body-virtual"
-                style={{ position: 'relative', width: '100%' }}
+                className="pc-fund-table pc-fund-table-portal-header"
+                ref={portalHeaderRef}
+                style={{
+                  position: 'fixed',
+                  top: effectiveStickyTop,
+                  left: portalHorizontal.left,
+                  right: portalHorizontal.right,
+                  zIndex: 10,
+                  overflowX: 'auto',
+                  scrollbarWidth: 'none'
+                }}
               >
                 <div
-                  style={{
-                    height: rowVirtualizer.getTotalSize(),
-                    position: 'relative',
-                    width: '100%'
-                  }}
+                  className="table-header-row table-header-row-scroll"
+                  style={{ minWidth: totalHeaderWidth, width: 'fit-content' }}
                 >
-                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const row = tableRows[virtualRow.index];
-                    if (!row) return null;
+                  {headerGroup?.headers.map((header) => {
+                    const style = getCommonPinningStyles(header.column, true);
+                    const isNameColumn =
+                      header.column.id === 'fundName' || header.column.columnDef?.accessorKey === 'fundName';
+                    const isRightAligned = NON_FROZEN_COLUMN_IDS.includes(header.column.id);
+                    const align = isNameColumn ? '' : isRightAligned ? 'text-right' : 'text-center';
+                    const colId = header.column.id || header.column.columnDef?.accessorKey;
+                    const { sortKey, isSorted, isSortEnabled } = getSortHeaderMeta(colId);
                     return (
                       <div
-                        key={row.original.code || row.id}
-                        data-index={virtualRow.index}
-                        ref={rowVirtualizer.measureElement}
+                        key={header.id}
+                        className={`table-header-cell ${align} ${isSortEnabled ? 'sortable' : ''}`}
                         style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
-                          zIndex: activeId === row.original.code ? 9999 : 1
+                          ...style,
+                          cursor: isSortEnabled ? 'pointer' : 'default',
+                          userSelect: isSortEnabled ? 'none' : 'auto'
+                        }}
+                        onClick={() => {
+                          if (isSortEnabled && onSortChange) {
+                            onSortChange(sortKey);
+                          }
                         }}
                       >
-                        <MemoizedTableRow
-                          row={row}
-                          index={virtualRow.index}
-                          sortBy={sortBy}
-                          enableAnimation={false}
-                          getCommonPinningStyles={getCommonPinningStyles}
-                          isFavorites={favorites?.has?.(row.original.code)}
-                          isSelected={selectedCodes?.has?.(row.original.code)}
-                          masked={masked}
-                          periodReturns={periodReturnsByCode[row.original.code]}
-                          relatedSector={relatedSectorByCode[row.original.code]}
-                          sectorQuote={
-                            relatedSectorByCode[row.original.code]
-                              ? sectorQuoteByLabel[String(relatedSectorByCode[row.original.code]).trim()]
-                              : null
-                          }
-                          fundExtraData={fundExtraDataByCode[row.original.code]}
-                          columnOrder={columnOrder}
-                          columnVisibility={columnVisibility}
-                          columnSizing={columnSizing}
-                        />
+                        <div
+                          style={{
+                            paddingRight: isRightAligned ? '20px' : '0',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                          {isSortEnabled && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                flexDirection: 'column',
+                                lineHeight: 1,
+                                fontSize: '8px',
+                                opacity: isSorted ? 1 : 0.3
+                              }}
+                            >
+                              <span style={{ opacity: isSorted && sortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
+                              <span style={{ opacity: isSorted && sortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-            dropAnimation={null}
-            autoScroll={false}
-          >
-            <SortableContext items={data.map((item) => item.code)} strategy={verticalListSortingStrategy}>
-              {enableRowAnimation ? (
-                <AnimatePresence mode="popLayout">
-                  {tableRows.map((row, index) => (
-                    <MemoizedTableRow
-                      key={row.original.code || row.id}
-                      row={row}
-                      index={index}
-                      sortBy={sortBy}
-                      enableAnimation
-                      getCommonPinningStyles={getCommonPinningStyles}
-                      isFavorites={favorites?.has?.(row.original.code)}
-                      isSelected={selectedCodes?.has?.(row.original.code)}
-                      masked={masked}
-                      periodReturns={periodReturnsByCode[row.original.code]}
-                      relatedSector={relatedSectorByCode[row.original.code]}
-                      sectorQuote={
-                        relatedSectorByCode[row.original.code]
-                          ? sectorQuoteByLabel[String(relatedSectorByCode[row.original.code]).trim()]
-                          : null
-                      }
-                      fundExtraData={fundExtraDataByCode[row.original.code]}
-                      columnOrder={columnOrder}
-                      columnVisibility={columnVisibility}
-                      columnSizing={columnSizing}
-                    />
-                  ))}
-                </AnimatePresence>
-              ) : (
-                <>
-                  {tableRows.map((row, index) => (
-                    <MemoizedTableRow
-                      key={row.original.code || row.id}
-                      row={row}
-                      index={index}
-                      sortBy={sortBy}
-                      enableAnimation={false}
-                      getCommonPinningStyles={getCommonPinningStyles}
-                      isFavorites={favorites?.has?.(row.original.code)}
-                      isSelected={selectedCodes?.has?.(row.original.code)}
-                      masked={masked}
-                      periodReturns={periodReturnsByCode[row.original.code]}
-                      relatedSector={relatedSectorByCode[row.original.code]}
-                      sectorQuote={
-                        relatedSectorByCode[row.original.code]
-                          ? sectorQuoteByLabel[String(relatedSectorByCode[row.original.code]).trim()]
-                          : null
-                      }
-                      fundExtraData={fundExtraDataByCode[row.original.code]}
-                      columnOrder={columnOrder}
-                      columnVisibility={columnVisibility}
-                      columnSizing={columnSizing}
-                    />
-                  ))}
-                </>
-              )}
-            </SortableContext>
-          </DndContext>
-        )}
-
-        {table.getRowModel().rows.length === 0 && (
-          <div className="table-row empty-row">
-            <div className="table-cell" style={{ textAlign: 'center' }}>
-              <span className="muted">暂无数据</span>
-            </div>
-          </div>
-        )}
-        {resetConfirmOpen && (
-          <ConfirmModal
-            title="重置列宽"
-            message="是否重置表格列宽为默认值？"
-            icon={<ResetIcon width="20" height="20" className="shrink-0 text-[var(--primary)]" />}
-            confirmVariant="primary"
-            onConfirm={handleResetSizing}
-            onCancel={() => setResetConfirmOpen(false)}
-            confirmText="重置"
+              </div>,
+              document.body
+            )}
+        </div>
+        {!!(cardDialogRow && getFundCardProps) && (
+          <FundDetailDialog
+            blockDialogClose={blockDialogClose}
+            cardDialogRow={cardDialogRow}
+            getFundCardProps={getFundCardPropsWithRelatedSector}
+            setCardDialogRow={setCardDialogRow}
           />
         )}
-        {showPortalHeader &&
-          ReactDOM.createPortal(
-            <div
-              className="pc-fund-table pc-fund-table-portal-header"
-              ref={portalHeaderRef}
-              style={{
-                position: 'fixed',
-                top: effectiveStickyTop,
-                left: portalHorizontal.left,
-                right: portalHorizontal.right,
-                zIndex: 10,
-                overflowX: 'auto',
-                scrollbarWidth: 'none'
-              }}
-            >
-              <div
-                className="table-header-row table-header-row-scroll"
-                style={{ minWidth: totalHeaderWidth, width: 'fit-content' }}
-              >
-                {headerGroup?.headers.map((header) => {
-                  const style = getCommonPinningStyles(header.column, true);
-                  const isNameColumn =
-                    header.column.id === 'fundName' || header.column.columnDef?.accessorKey === 'fundName';
-                  const isRightAligned = NON_FROZEN_COLUMN_IDS.includes(header.column.id);
-                  const align = isNameColumn ? '' : isRightAligned ? 'text-right' : 'text-center';
-                  const colId = header.column.id || header.column.columnDef?.accessorKey;
-                  const { sortKey, isSorted, isSortEnabled } = getSortHeaderMeta(colId);
-                  return (
-                    <div
-                      key={header.id}
-                      className={`table-header-cell ${align} ${isSortEnabled ? 'sortable' : ''}`}
-                      style={{
-                        ...style,
-                        cursor: isSortEnabled ? 'pointer' : 'default',
-                        userSelect: isSortEnabled ? 'none' : 'auto'
-                      }}
-                      onClick={() => {
-                        if (isSortEnabled && onSortChange) {
-                          onSortChange(sortKey);
-                        }
-                      }}
-                    >
-                      <div
-                        style={{
-                          paddingRight: isRightAligned ? '20px' : '0',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4
-                        }}
-                      >
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                        {isSortEnabled && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              flexDirection: 'column',
-                              lineHeight: 1,
-                              fontSize: '8px',
-                              opacity: isSorted ? 1 : 0.3
-                            }}
-                          >
-                            <span style={{ opacity: isSorted && sortOrder === 'asc' ? 1 : 0.3 }}>▲</span>
-                            <span style={{ opacity: isSorted && sortOrder === 'desc' ? 1 : 0.3 }}>▼</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>,
-            document.body
-          )}
-      </div>
-      {!!(cardDialogRow && getFundCardProps) && (
-        <FundDetailDialog
-          blockDialogClose={blockDialogClose}
-          cardDialogRow={cardDialogRow}
-          getFundCardProps={getFundCardPropsWithRelatedSector}
-          setCardDialogRow={setCardDialogRow}
-        />
-      )}
-      <PcTableSettingModal
-        open={settingModalOpen}
-        onClose={() => setSettingModalOpen(false)}
-        columns={columnOrder.map((id) => ({ id, header: COLUMN_HEADERS[id] ?? id }))}
-        onColumnReorder={(newOrder) => {
-          setColumnOrder(newOrder);
-        }}
-        columnVisibility={columnVisibility}
-        pinnedColumns={currentGroupPc?.pcTableColumnPinned || []}
-        onToggleColumnVisibility={handleToggleColumnVisibility}
-        onTogglePinColumn={handleTogglePinColumn}
-        onResetColumnOrder={handleResetColumnOrder}
-        onResetColumnVisibility={handleResetColumnVisibility}
-        onResetSizing={() => setResetConfirmOpen(true)}
-        showFullFundName={showFullFundName}
-        onToggleShowFullFundName={handleToggleShowFullFundName}
-        syncOptions={settingSyncOptions}
-        currentGroupName={currentGroupName}
-        onSyncSettings={handleSyncPcSettings}
-      />
-      {moveGroupOpen && (
-        <MoveGroupModal
-          open={moveGroupOpen}
-          onClose={() => setMoveGroupOpen(false)}
-          fromTab={currentTab}
-          groups={groups}
-          selectedCodes={selectedCodesList}
-          disabled={selectedCount === 0}
-          onMoveFunds={async (payload) => {
-            const res = await onMoveFunds?.(payload);
-            if (payload?.dryRun) return res;
-            // 迁移成功后清空批量选中
-            setSelectedCodes(new Set());
-            return res;
+        <PcTableSettingModal
+          open={settingModalOpen}
+          onClose={() => setSettingModalOpen(false)}
+          columns={columnOrder.map((id) => ({ id, header: COLUMN_HEADERS[id] ?? id }))}
+          onColumnReorder={(newOrder) => {
+            setColumnOrder(newOrder);
           }}
+          columnVisibility={columnVisibility}
+          pinnedColumns={currentGroupPc?.pcTableColumnPinned || []}
+          onToggleColumnVisibility={handleToggleColumnVisibility}
+          onTogglePinColumn={handleTogglePinColumn}
+          onResetColumnOrder={handleResetColumnOrder}
+          onResetColumnVisibility={handleResetColumnVisibility}
+          onResetSizing={() => setResetConfirmOpen(true)}
+          showFullFundName={showFullFundName}
+          onToggleShowFullFundName={handleToggleShowFullFundName}
+          syncOptions={settingSyncOptions}
+          currentGroupName={currentGroupName}
+          onSyncSettings={handleSyncPcSettings}
         />
-      )}
-    </>
+        {moveGroupOpen && (
+          <MoveGroupModal
+            open={moveGroupOpen}
+            onClose={() => setMoveGroupOpen(false)}
+            fromTab={currentTab}
+            groups={groups}
+            selectedCodes={selectedCodesList}
+            disabled={selectedCount === 0}
+            onMoveFunds={async (payload) => {
+              const res = await onMoveFunds?.(payload);
+              if (payload?.dryRun) return res;
+              // 迁移成功后清空批量选中
+              setSelectedCodes(new Set());
+              return res;
+            }}
+          />
+        )}
+      </>
+    </EditModeContext.Provider>
   );
 }
 
@@ -2956,6 +3049,7 @@ function BatchRemoveHeader({
   onMove,
   onRemove,
   onClear,
+  onClose,
   disabled
 }) {
   const ref = useRef(null);
@@ -3052,6 +3146,32 @@ function BatchRemoveHeader({
           <TrashIcon width="14" height="14" />
           <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>批量删除</span>
         </button>
+        {onClose && (
+          <button
+            className="icon-button"
+            onClick={(e) => {
+              e.stopPropagation?.();
+              onClose?.();
+            }}
+            type="button"
+            aria-label="退出编辑"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 28,
+              height: 28,
+              padding: 0,
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: 'var(--text)',
+              cursor: 'pointer',
+              marginLeft: 4
+            }}
+          >
+            <CloseIcon width="16" height="16" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -171,7 +171,7 @@ function EditDragHandleCell({ disabled }) {
       onPointerDown={(e) => {
         if (disabled) {
           e.stopPropagation();
-          sonnerToast.info('拖拽基金顺序需要在默认排序下操作');
+          sonnerToast.warning('拖拽基金顺序需要在默认排序下操作');
         }
       }}
       {...(disabled ? {} : rowSortable.activatorProps)}
@@ -1716,7 +1716,7 @@ export default function MobileFundTable({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (sortBy !== 'default') {
-                    sonnerToast.info('拖拽基金顺序需要在默认排序下操作');
+                    sonnerToast.warning('拖拽基金顺序需要在默认排序下操作');
                     return;
                   }
                   if (idx <= 0 || !onReorder) return;

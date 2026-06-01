@@ -12,6 +12,7 @@ import { DAILY_EARNINGS_SCOPE_ALL } from '@/app/constants';
 import { asyncPool } from '../lib/asyncHelper';
 import { fetchFundData, fetchNetValueRangeFromTrend, fetchFundDividends } from '../api/fund';
 import { TZ } from '../lib/fundHelpers';
+import { getQueryClient } from '../lib/get-query-client';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -506,6 +507,14 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
           if (processPendingQueueRef.current) await processPendingQueueRef.current();
         } catch (e) {
           console.warn('待交易处理出错', e);
+        }
+
+        try {
+          const qc = getQueryClient();
+          qc.refetchQueries({ queryKey: ['hotSectors'], type: 'active', stale: true });
+          qc.refetchQueries({ queryKey: ['valuationRanking'], type: 'active', stale: true });
+        } catch (e) {
+          console.warn('刷新行情数据出错', e);
         }
       }
     },

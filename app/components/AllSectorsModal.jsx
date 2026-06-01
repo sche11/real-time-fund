@@ -38,7 +38,7 @@ export default function AllSectorsModal({ onClose }) {
         return [];
       }
     },
-    refetchInterval: 300000
+    staleTime: 120000
   });
 
   const filteredAndSortedSectors = useMemo(() => {

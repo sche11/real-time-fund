@@ -95,8 +95,8 @@ export default function MarketTab({ onAddFund, getFundCardProps, isActive }) {
         return [];
       }
     },
-    refetchInterval: 300000,
-    enabled: !!isActive
+    enabled: !!isActive,
+    staleTime: 120000
   });
 
   const filteredAndSortedSectors = useMemo(() => {
@@ -137,8 +137,8 @@ export default function MarketTab({ onAddFund, getFundCardProps, isActive }) {
       const res = await fetchFundValuationRanking(sort, order, 1, 20);
       return res?.Data?.list || [];
     },
-    refetchInterval: 300000,
-    enabled: !!isActive
+    enabled: !!isActive,
+    staleTime: 120000
   });
 
   const formatPercent = (val) => {
@@ -240,7 +240,7 @@ export default function MarketTab({ onAddFund, getFundCardProps, isActive }) {
     });
 
     return columns;
-  }, [funds, activeTab, onAddFund]);
+  }, [funds, onAddFund]);
 
   const rankingTable = useReactTable({
     data: rankingData || [],
@@ -296,7 +296,7 @@ export default function MarketTab({ onAddFund, getFundCardProps, isActive }) {
 
             <Button
               size="lg"
-              className="w-full relative z-10 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-primary/40 hover:-translate-y-0.5 rounded-xl h-12 text-base font-medium"
+              className="w-full relative z-10 shadow-lg shadow-primary/20 transition-all duration-300 hover:shadow-primary/40 hover:-translate-y-0.5 rounded-xl h-12 text-base font-medium cursor-pointer"
               onClick={() => useModalStore.setState({ loginModalOpen: true })}
             >
               <LogIn className="size-5 mr-2" />
