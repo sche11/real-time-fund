@@ -5057,6 +5057,23 @@ export default function HomePage() {
                       >
                         点此提交反馈
                       </button>
+                      ，或
+                      <button
+                        className="link-button"
+                        onClick={() => _ms({ weChatOpen: true })}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          cursor: 'pointer',
+                          padding: '0 4px',
+                          textDecoration: 'underline',
+                          fontSize: 'inherit',
+                          fontWeight: 600
+                        }}
+                      >
+                        加入微信用户交流群
+                      </button>
                     </p>
                     <button
                       onClick={() => setDonateOpen(true)}

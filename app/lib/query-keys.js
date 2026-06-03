@@ -26,3 +26,6 @@ export const eastmoneyFundcodeSearchList = () => ['eastmoneyFundcodeSearchList']
 
 /** @param {string} fundCode @param {string} dateStr */
 export const ocrFundChart = (fundCode, dateStr) => ['ocrFundChart', String(fundCode).trim(), dateStr];
+
+/** @param {string} userId */
+export const ocrDailyRemaining = (userId) => ['ocrDailyRemaining', String(userId || '').trim()];

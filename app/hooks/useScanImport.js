@@ -101,7 +101,14 @@ export function useScanImport({ setCurrentTab, setValuationSeries, showToast, no
 
       setScanProgress((prev) => ({ ...prev, current: i + 1 }));
 
-      const fundsResString = await parseFundTextWithLLM(text);
+      let fundsResString;
+      try {
+        fundsResString = await parseFundTextWithLLM(text);
+      } catch (e) {
+        // 限流错误直接向上传播，中止整个扫描流程
+        if (e?.code === 'DAILY_LIMIT_EXCEEDED') throw e;
+        fundsResString = null;
+      }
       let fundsRes = null;
       try {
         fundsRes = JSON.parse(fundsResString);
@@ -217,8 +224,12 @@ export function useScanImport({ setCurrentTab, setValuationSeries, showToast, no
       await processTextsInternal(lastOcrTexts);
     } catch (err) {
       if (!abortScanRef.current) {
-        console.error('OCR Retry Error:', err);
-        showToast('重新识别失败，请重试', 'error');
+        if (err?.code === 'DAILY_LIMIT_EXCEEDED') {
+          showToast(err.message || '今日 OCR 识别次数已达上限', 'error');
+        } else {
+          console.error('OCR Retry Error:', err);
+          showToast('重新识别失败，请重试', 'error');
+        }
       }
     } finally {
       setIsScanning(false);
@@ -307,8 +318,12 @@ export function useScanImport({ setCurrentTab, setValuationSeries, showToast, no
       }
     } catch (err) {
       if (!abortScanRef.current) {
-        console.error('OCR Error:', err);
-        showToast('图片识别失败，请重试或更换更清晰的截图', 'error');
+        if (err?.code === 'DAILY_LIMIT_EXCEEDED') {
+          showToast(err.message || '今日 OCR 识别次数已达上限', 'error');
+        } else {
+          console.error('OCR Error:', err);
+          showToast('图片识别失败，请重试或更换更清晰的截图', 'error');
+        }
       }
     } finally {
       setIsScanning(false);

@@ -2107,6 +2107,14 @@ export const parseFundTextWithLLM = async (text) => {
       })
     );
 
+    // 处理每日 OCR 用量限流
+    if (data?.error === 'DAILY_LIMIT_EXCEEDED') {
+      const err = new Error(data.message || '今日 OCR 识别次数已达上限');
+      err.code = 'DAILY_LIMIT_EXCEEDED';
+      err.remaining = 0;
+      throw err;
+    }
+
     if (error) return null;
     if (!data || data.success !== true) return null;
     if (!Array.isArray(data.data)) return null;
@@ -2114,6 +2122,8 @@ export const parseFundTextWithLLM = async (text) => {
     // 保持与旧实现兼容：返回 JSON 字符串，由调用方 JSON.parse
     return JSON.stringify(data.data);
   } catch (e) {
+    // 限流错误向上传播，让调用方捕获并展示提示
+    if (e?.code === 'DAILY_LIMIT_EXCEEDED') throw e;
     return null;
   }
 };
@@ -2141,4 +2151,30 @@ export const fetchFundValuationRanking = async (sort = 3, order = 'desc', page =
 
   // 保持与原 JSONP 返回结构一致：{ Data: { list: [...], ... } }
   return { Data: data.data };
+};
+
+/**
+ * 查询当前用户今日 OCR 剩余可用次数
+ * @param {string} userId 当前用户 ID
+ * @param {number} [maxLimit=10] 每日上限
+ * @returns {Promise<{ remaining: number, used: number, max: number }>}
+ */
+export const fetchOcrDailyRemaining = async (userId, maxLimit = 10) => {
+  if (!userId || !isSupabaseConfigured) return { remaining: maxLimit, used: 0, max: maxLimit };
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await supabase
+      .from('ocr_daily_usage')
+      .select('count')
+      .eq('user_id', userId)
+      .eq('usage_date', today)
+      .maybeSingle();
+
+    if (error) return { remaining: maxLimit, used: 0, max: maxLimit };
+    const used = data?.count || 0;
+    return { remaining: Math.max(0, maxLimit - used), used, max: maxLimit };
+  } catch {
+    return { remaining: maxLimit, used: 0, max: maxLimit };
+  }
 };

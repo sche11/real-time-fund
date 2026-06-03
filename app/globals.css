@@ -3510,6 +3510,53 @@ html::-webkit-scrollbar-thumb:active,
   background: rgba(8, 145, 178, 0.12);
 }
 
+/* OCR 剩余识别次数徽章 */
+.ocr-quota-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: var(--primary);
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.ocr-quota-badge.warning {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.ocr-quota-badge.exhausted {
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+[data-theme='light'] .ocr-quota-badge {
+  color: #0891b2;
+  background: rgba(8, 145, 178, 0.08);
+  border-color: rgba(8, 145, 178, 0.2);
+}
+
+[data-theme='light'] .ocr-quota-badge.warning {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.2);
+}
+
+[data-theme='light'] .ocr-quota-badge.exhausted {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
 /* TransactionHistoryModal 基础样式 */
 .tx-history-pending-item {
   background: rgba(230, 162, 60, 0.1);
