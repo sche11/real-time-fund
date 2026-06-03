@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { storageStore } from '../stores';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.0.0';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.0.1';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -109,15 +109,12 @@ export default function Announcement() {
                 paddingRight: '4px'
               }}
             >
-              <p>v2.0.0 大版本更新内容：</p>
-              <p>1. 新增行情页面，开放热门板块和估算涨幅相关表格内容展示。</p>
-              <p>2. 估算涨幅相关基金数据支持添加到首页。</p>
-              <p>3. 新增分红方式收益计算。</p>
-              <p>4. 新增连续涨跌天数排序。</p>
-              <p>5. 编辑模式允许在所有排序下进行。</p>
-              <p>6. 统一 toast 组件。</p>
-              <p>7. 优化拍照识别方案。</p>
-              <p>8. 资产总计金额支持单独隐藏。</p>
+              <p>v2.0.1 版本更新内容：</p>
+              <p>1. 优化刷新速度。</p>
+              <p>2. 修复移动端资产汇总数字显示问题。</p>
+              <p>3. 基金名称显示存在待处理队列的标签。</p>
+              <p>感谢上月以下用户对本项目赞助支持（排名不分先后）。</p>
+              <p>*式、大大方块先生、*女、*川、*z、*哒、k*n、*谜、C*r、帅金成、坏哥²⁰²⁶、**闻</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
