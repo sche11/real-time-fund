@@ -29,3 +29,6 @@ export const ocrFundChart = (fundCode, dateStr) => ['ocrFundChart', String(fundC
 
 /** @param {string} userId */
 export const ocrDailyRemaining = (userId) => ['ocrDailyRemaining', String(userId || '').trim()];
+
+/** @param {string} fundCode */
+export const fundConfirmDays = (fundCode) => ['fundConfirmDays', String(fundCode).trim()];
