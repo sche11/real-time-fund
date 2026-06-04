@@ -2156,10 +2156,10 @@ export const fetchFundValuationRanking = async (sort = 3, order = 'desc', page =
 /**
  * 查询当前用户今日 OCR 剩余可用次数
  * @param {string} userId 当前用户 ID
- * @param {number} [maxLimit=10] 每日上限
+ * @param {number} [maxLimit=5] 每日上限
  * @returns {Promise<{ remaining: number, used: number, max: number }>}
  */
-export const fetchOcrDailyRemaining = async (userId, maxLimit = 10) => {
+export const fetchOcrDailyRemaining = async (userId, maxLimit = 5) => {
   if (!userId || !isSupabaseConfigured) return { remaining: maxLimit, used: 0, max: maxLimit };
 
   try {

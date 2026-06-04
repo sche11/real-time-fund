@@ -10,7 +10,7 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // 每日 OCR 识别上限
-const MAX_DAILY_OCR = 10;
+const MAX_DAILY_OCR = 5;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

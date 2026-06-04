@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { storageStore } from '../stores';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.0.1';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.1.0';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -109,12 +109,11 @@ export default function Announcement() {
                 paddingRight: '4px'
               }}
             >
-              <p>v2.0.1 版本更新内容：</p>
-              <p>1. 优化刷新速度。</p>
-              <p>2. 修复移动端资产汇总数字显示问题。</p>
-              <p>3. 基金名称显示存在待处理队列的标签。</p>
-              <p>感谢上月以下用户对本项目赞助支持（排名不分先后）。</p>
-              <p>*式、大大方块先生、*女、*川、*z、*哒、k*n、*谜、C*r、帅金成、坏哥²⁰²⁶、**闻</p>
+              <p>v2.1.0 版本更新内容：</p>
+              <p>1. 普通用户 OCR 截图识别增加次数限制。</p>
+              <p>2. 修复PC端部分弹框无法关闭问题。</p>
+              <p>3. 行情数据支持分页。</p>
+              <p>4. 优化实时估值分时图 y 轴坐标颜色。</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
