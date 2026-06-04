@@ -75,7 +75,7 @@ export default function FeedbackModal({ onClose, user, onOpenWeChat }) {
               onClick={onOpenWeChat}
             >
               <QrCode size={14} />
-              加入微信用户交流群
+              加入微信用户支持群
             </a>
           </div>
           <button className="icon-button" onClick={onClose} style={{ border: 'none', background: 'transparent' }}>

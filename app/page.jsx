@@ -5072,7 +5072,7 @@ export default function HomePage() {
                           fontWeight: 600
                         }}
                       >
-                        加入微信用户交流群
+                        加入微信用户支持群
                       </button>
                     </p>
                     <button
@@ -5143,6 +5143,7 @@ export default function HomePage() {
             setFeedbackOpen(true);
           }}
           onSponsorSupport={() => setDonateOpen(true)}
+          onOpenWeChat={() => _ms({ weChatOpen: true })}
         />
       )}
       {/* 弹框渲染层 - 独立组件，订阅 useModalStore，不触发 page.jsx 重渲染 */}

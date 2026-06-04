@@ -11,7 +11,7 @@ export default function WeChatModal({ onClose }) {
       className="modal-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="微信用户交流群"
+      aria-label="微信用户支持群"
       onClick={onClose}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -28,7 +28,7 @@ export default function WeChatModal({ onClose }) {
       >
         <div className="title" style={{ marginBottom: 20, justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>💬 微信用户交流群</span>
+            <span>💬 微信用户支持群</span>
           </div>
           <button className="icon-button" onClick={onClose} style={{ border: 'none', background: 'transparent' }}>
             <CloseIcon width="20" height="20" />
