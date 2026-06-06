@@ -4632,6 +4632,16 @@ export default function HomePage() {
                             </motion.button>
                           ))}
                         </AnimatePresence>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="icon-button add-group-btn" onClick={() => setGroupModalOpen(true)}>
+                              <PlusIcon width="16" height="16" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>新增分组</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                     {groups.length > 0 && (
@@ -4646,16 +4656,6 @@ export default function HomePage() {
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="icon-button add-group-btn" onClick={() => setGroupModalOpen(true)}>
-                          <PlusIcon width="16" height="16" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>新增分组</p>
-                      </TooltipContent>
-                    </Tooltip>
                   </div>
 
                   <div
