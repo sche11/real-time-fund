@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { storageStore } from '../stores';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.1.0';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.1.1';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -109,11 +109,13 @@ export default function Announcement() {
                 paddingRight: '4px'
               }}
             >
-              <p>v2.1.0 版本更新内容：</p>
-              <p>1. 普通用户 OCR 截图识别增加次数限制。</p>
-              <p>2. 修复PC端部分弹框无法关闭问题。</p>
-              <p>3. 行情数据支持分页。</p>
+              <p>v2.1.1 版本更新内容：</p>
+              <p>1. 基金标签支持二次编辑。</p>
+              <p>2. 修复 qdii 收益计算偏差问题。</p>
+              <p>3. 前10重仓股票新增股票占比。</p>
               <p>4. 优化实时估值分时图 y 轴坐标颜色。</p>
+              <p>5. 筛选基金支持按标签。</p>
+              <p>6. 调整添加分组按钮至最后一个分组右侧。</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
