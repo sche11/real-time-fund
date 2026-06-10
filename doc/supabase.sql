@@ -15,9 +15,12 @@ CREATE TABLE public.user_configs (
   updated_at timestamp with time zone null,
   user_id uuid not null,
   last_device_id text null, -- 1.3.5 新增
+  ytd_return_rate numeric null, -- 2.2.0 新增
   CONSTRAINT user_configs_pkey PRIMARY KEY (id),
   CONSTRAINT user_configs_user_id_key UNIQUE (user_id)
 ) TABLESPACE pg_default;
+
+CREATE INDEX idx_user_configs_ytd_return_rate ON public.user_configs (ytd_return_rate);
 
 -- 启用行级安全（RLS）
 ALTER TABLE public.user_configs ENABLE ROW LEVEL SECURITY;
@@ -54,6 +57,7 @@ AS
 $$
 declare
   current_device_id text;
+  v_ytd_rate numeric := null;
 begin
   select last_device_id into current_device_id from public.user_configs where user_id = auth.uid();
 
@@ -61,12 +65,17 @@ begin
     raise exception 'DEVICE_CONFLICT: Logged in on another device';
   end if;
 
-  insert into public.user_configs (user_id, data, updated_at, last_device_id)
-  values (auth.uid(), payload::json, now(), p_last_device_id)
+  if payload ? 'ytdReturnRate' then
+    v_ytd_rate := (payload->>'ytdReturnRate')::numeric;
+  end if;
+
+  insert into public.user_configs (user_id, data, updated_at, last_device_id, ytd_return_rate)
+  values (auth.uid(), payload::json, now(), p_last_device_id, v_ytd_rate)
   on conflict (user_id) do update
   set data = excluded.data,
       updated_at = excluded.updated_at,
-      last_device_id = coalesce(excluded.last_device_id, public.user_configs.last_device_id);
+      last_device_id = coalesce(excluded.last_device_id, public.user_configs.last_device_id),
+      ytd_return_rate = coalesce(v_ytd_rate, public.user_configs.ytd_return_rate);
 end;
 $$;
 
@@ -85,6 +94,7 @@ AS
 $$
 declare
   current_device_id text;
+  v_ytd_rate numeric := null;
 begin
   select last_device_id into current_device_id from public.user_configs where user_id = auth.uid();
 
@@ -92,13 +102,44 @@ begin
     raise exception 'DEVICE_CONFLICT: Logged in on another device';
   end if;
 
+  if payload ? 'ytdReturnRate' then
+    v_ytd_rate := (payload->>'ytdReturnRate')::numeric;
+  end if;
+
   update public.user_configs
   set data = ((coalesce(data::jsonb, '{}'::jsonb) || payload)::json),
       updated_at = now(),
-      last_device_id = coalesce(p_last_device_id, last_device_id)
+      last_device_id = coalesce(p_last_device_id, last_device_id),
+      ytd_return_rate = coalesce(v_ytd_rate, ytd_return_rate)
   where user_id = auth.uid();
 end;
 $$;
+
+-- --------------------------------------------------------
+-- 获取 YTD 击败用户比例 (get_ytd_percentile)
+-- --------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_ytd_percentile(p_ytd_rate numeric)
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  total_count int;
+  beat_count int;
+BEGIN
+  SELECT count(*) INTO total_count FROM public.user_configs WHERE user_id <> auth.uid() AND ytd_return_rate IS NOT NULL;
+  IF total_count < 10 THEN
+    RETURN -1; -- Returns -1 to indicate insufficient data
+  END IF;
+  SELECT count(*) INTO beat_count
+  FROM public.user_configs
+  WHERE user_id <> auth.uid() AND ytd_return_rate IS NOT NULL AND ytd_return_rate < p_ytd_rate;
+  RETURN round((beat_count::numeric / total_count::numeric) * 100, 2);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_ytd_percentile(numeric) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_ytd_percentile(numeric) TO service_role;
 
 GRANT EXECUTE ON FUNCTION public.update_user_config_partial(jsonb, text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.update_user_config_partial(jsonb, text, boolean) TO service_role;
@@ -168,10 +209,10 @@ CREATE TABLE public.fund_topic (
 
 ALTER TABLE public.fund_topic ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "允许已登录用户读取基金主题数据" 
-ON public.fund_topic 
-FOR SELECT 
-TO authenticated 
+CREATE POLICY "允许已登录用户读取基金主题数据"
+ON public.fund_topic
+FOR SELECT
+TO authenticated
 USING (true);
 
 
