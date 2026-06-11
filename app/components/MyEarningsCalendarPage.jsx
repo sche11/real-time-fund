@@ -16,7 +16,7 @@ import FitText from './FitText';
 import { cn, formatMoney } from '@/lib/utils';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
 import { calculateYtdReturnRate, getAllDailyEarnings } from '@/app/lib/dailyEarnings';
-import { storageStore } from '@/app/stores';
+import { storageStore, useUserStore } from '@/app/stores';
 
 dayjs.locale('zh-cn');
 
@@ -176,6 +176,7 @@ function EarningsRankIllustration() {
 export default function MyEarningsCalendarPage({ open, onOpenChange, series = [], masked, onGoHome }) {
   const isMobile = useIsMobile();
   const reduceMotion = useReducedMotion();
+  const user = useUserStore((state) => state.user);
 
   const hasData = isArray(series) && series.length > 0;
 
@@ -214,7 +215,7 @@ export default function MyEarningsCalendarPage({ open, onOpenChange, series = []
         setYtdRate(rate);
         setPercentile(null);
 
-        if (!isSupabaseConfigured) return;
+        if (!isSupabaseConfigured || !user) return;
 
         const { data, error } = await supabase.rpc('get_ytd_percentile', { p_ytd_rate: rate });
         const nextPercentile = Number(data);
@@ -230,7 +231,7 @@ export default function MyEarningsCalendarPage({ open, onOpenChange, series = []
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, user]);
 
   const earningsByDate = useMemo(() => {
     const map = new Map();

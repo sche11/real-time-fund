@@ -717,7 +717,7 @@ export default function MarketTab({ onAddFund, getFundCardProps, isActive }) {
               <div className="py-5 flex justify-end border-t border-[var(--border)] pr-4">
                 <Pagination className="justify-end w-auto mx-0">
                   <PaginationContent>
-                    {[1, 2, 3].map((p) => (
+                    {[1, 2, 3, 4, 5].map((p) => (
                       <PaginationItem key={p}>
                         <PaginationLink
                           onClick={(e) => {
