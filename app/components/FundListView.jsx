@@ -53,6 +53,7 @@ const FundListView = React.memo(function FundListView({
   valuationSeries,
   collapsedCodes,
   collapsedTrends,
+  collapsedValuationTrends,
   collapsedEarnings,
   transactionsForTab,
   theme,
@@ -66,6 +67,7 @@ const FundListView = React.memo(function FundListView({
   toggleTodayPercentMode,
   toggleCollapse,
   toggleTrendCollapse,
+  toggleValuationTrendCollapse,
   toggleEarningsCollapse,
   fundTagListsByCode,
   groupTotalHoldingAmount
@@ -123,7 +125,7 @@ const FundListView = React.memo(function FundListView({
                     masked={maskAmounts}
                     getFundCardProps={getFundCardPropsForRow}
                     onFundTagsClick={openFundTagsEdit}
-                    fundExtraDataByCode={fundExtraDataByCode}
+                    fundExtraData={fundExtraDataByCode}
                   />
                 </div>
               </div>
@@ -167,7 +169,7 @@ const FundListView = React.memo(function FundListView({
               getFundCardProps={getFundCardPropsForRow}
               masked={maskAmounts}
               onFundTagsClick={openFundTagsEdit}
-              fundExtraDataByCode={fundExtraDataByCode}
+              fundExtraData={fundExtraDataByCode}
             />
           )}
 
@@ -201,6 +203,7 @@ const FundListView = React.memo(function FundListView({
                     valuationSeries={valuationSeries}
                     collapsedCodes={collapsedCodes}
                     collapsedTrends={collapsedTrends}
+                    collapsedValuationTrends={collapsedValuationTrends}
                     collapsedEarnings={collapsedEarnings}
                     transactions={transactionsForTab}
                     theme={theme}
@@ -215,6 +218,7 @@ const FundListView = React.memo(function FundListView({
                     onTodayPercentModeToggle={toggleTodayPercentMode}
                     onToggleCollapse={toggleCollapse}
                     onToggleTrendCollapse={toggleTrendCollapse}
+                    onToggleValuationTrendCollapse={toggleValuationTrendCollapse}
                     onToggleEarningsCollapse={toggleEarningsCollapse}
                     masked={maskAmounts}
                     fundTags={isArray(fundTagListsByCode[f.code]) ? fundTagListsByCode[f.code] : []}
@@ -222,6 +226,7 @@ const FundListView = React.memo(function FundListView({
                     fundExtraData={fundExtraDataByCode[f.code]}
                     groupTotalHoldingAmount={groupTotalHoldingAmount}
                     hasPending={f.hasPending}
+                    userId={userId}
                   />
                 </motion.div>
               ))}

@@ -151,6 +151,12 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
         ).sort()
       : [];
 
+    const collapsedValuationTrends = isArray(payload.collapsedValuationTrends)
+      ? Array.from(
+          new Set(payload.collapsedValuationTrends.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))
+        ).sort()
+      : [];
+
     const collapsedEarnings = isArray(payload.collapsedEarnings)
       ? Array.from(
           new Set(payload.collapsedEarnings.map(normalizeCode).filter((code) => uniqueFundCodes.includes(code)))
@@ -373,6 +379,7 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
       groups,
       collapsedCodes,
       collapsedTrends,
+      collapsedValuationTrends,
       refreshMs: Number.isFinite(payload.refreshMs) ? payload.refreshMs : 30000,
       holdings,
       groupHoldings: groupHoldingsNorm,
@@ -405,6 +412,9 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
       }
       if (!keys || keys.has('collapsedTrends')) {
         all.collapsedTrends = storageStore.getItem('collapsedTrends', []);
+      }
+      if (!keys || keys.has('collapsedValuationTrends')) {
+        all.collapsedValuationTrends = storageStore.getItem('collapsedValuationTrends', []);
       }
       if (!keys || keys.has('collapsedEarnings')) {
         all.collapsedEarnings = storageStore.getItem('collapsedEarnings', []);
@@ -468,6 +478,9 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
           : [];
         const cleanedCollapsedTrends = isArray(all.collapsedTrends)
           ? all.collapsedTrends.filter((code) => fundCodes.has(code))
+          : [];
+        const cleanedCollapsedValuationTrends = isArray(all.collapsedValuationTrends)
+          ? all.collapsedValuationTrends.filter((code) => fundCodes.has(code))
           : [];
         const cleanedCollapsedEarnings = isArray(all.collapsedEarnings)
           ? all.collapsedEarnings.filter((code) => fundCodes.has(code))
@@ -590,6 +603,7 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
           groups: cleanedGroups,
           collapsedCodes: cleanedCollapsed,
           collapsedTrends: cleanedCollapsedTrends,
+          collapsedValuationTrends: cleanedCollapsedValuationTrends,
           collapsedEarnings: cleanedCollapsedEarnings,
           refreshMs: all.refreshMs,
           holdings: cleanedHoldings,
@@ -625,6 +639,7 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
         groups: [],
         collapsedCodes: [],
         collapsedTrends: [],
+        collapsedValuationTrends: [],
         collapsedEarnings: [],
         refreshMs: 30000,
         holdings: {},
@@ -849,6 +864,7 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
       'groups',
       'collapsedCodes',
       'collapsedTrends',
+      'collapsedValuationTrends',
       'collapsedEarnings',
       'refreshMs',
       'holdings',
@@ -986,6 +1002,9 @@ export function useSyncManager({ showToast, refreshAllRef, setTempSeconds, setFu
 
         if (isArray(cloudData.collapsedTrends)) {
           useStorageStore.getState().setCollapsedTrends(new Set(cloudData.collapsedTrends));
+        }
+        if (isArray(cloudData.collapsedValuationTrends)) {
+          useStorageStore.getState().setCollapsedValuationTrends(new Set(cloudData.collapsedValuationTrends));
         }
         if (isArray(cloudData.collapsedEarnings)) {
           useStorageStore.getState().setCollapsedEarnings(new Set(cloudData.collapsedEarnings));

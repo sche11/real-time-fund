@@ -18,6 +18,7 @@ import { fetchFundHoldings, fetchFundData } from '@/app/api/fund';
 import { useIsMobile } from '@/app/hooks/useIsMobile';
 import { Stat, ConsecutiveTrendBadge } from '../Common';
 import FundTrendChart from '../FundTrendChart';
+import FundValuationTrendChart from '../FundValuationTrendChart';
 import FundIntradayChart from '../FundIntradayChart';
 import FundDailyEarnings from '../FundDailyEarnings';
 import { ChevronIcon, SettingsIcon, StarIcon, SwitchIcon, TrashIcon, LinkIcon } from '../Icons';
@@ -66,7 +67,8 @@ function MoreSection({
   fundExtraData,
   masked,
   groupTotalHoldingAmount,
-  isAdded = true
+  isAdded = true,
+  userId
 }) {
   const [expanded, setExpanded] = useState(false);
   const isMobile = useIsMobile();
@@ -185,6 +187,7 @@ export default function Index({
   valuationSeries,
   collapsedCodes,
   collapsedTrends,
+  collapsedValuationTrends,
   collapsedEarnings,
   transactions,
   theme,
@@ -198,6 +201,7 @@ export default function Index({
   onTodayPercentModeToggle,
   onToggleCollapse,
   onToggleTrendCollapse,
+  onToggleValuationTrendCollapse,
   onToggleEarningsCollapse,
   layoutMode = 'card', // 'card' | 'drawer'，drawer 时前10重仓与业绩走势以 Tabs 展示
   masked = false,
@@ -208,7 +212,8 @@ export default function Index({
   groupTotalHoldingAmount = 0,
   fallbackFund,
   hasPending = false,
-  onAddFund
+  onAddFund,
+  userId
 }) {
   const { funds, refreshMs } = useStorageStore();
 
@@ -378,6 +383,10 @@ export default function Index({
           background: theme === 'light' ? 'rgb(250,250,250)' : 'none'
         }
       : {};
+
+  const isTrendExpanded = !collapsedTrends?.has(fundCode);
+  const isValuationTrendExpanded = !collapsedValuationTrends?.has(fundCode);
+  const isEarningsExpanded = !collapsedEarnings?.has(fundCode);
 
   return (
     <motion.div
@@ -835,6 +844,7 @@ export default function Index({
         masked={masked}
         groupTotalHoldingAmount={groupTotalHoldingAmount}
         isAdded={isAdded}
+        userId={userId}
       />
 
       {(() => {
@@ -871,6 +881,7 @@ export default function Index({
           <TabsList className="w-full flex">
             {hasHoldings && <TabsTrigger value="holdings">前10重仓股票</TabsTrigger>}
             <TabsTrigger value="trend">业绩走势</TabsTrigger>
+            <TabsTrigger value="valuation_trend">估值走势</TabsTrigger>
             {hasHoldingAmount && <TabsTrigger value="earnings">我的收益</TabsTrigger>}
           </TabsList>
           {hasHoldings && (
@@ -922,6 +933,21 @@ export default function Index({
               </div>
             </TabsContent>
           )}
+          <TabsContent value="trend" className="mt-3 outline-none">
+            <FundTrendChart
+              key={`${f.code}-${theme}`}
+              code={f.code}
+              isExpanded
+              onToggleExpand={() => onToggleTrendCollapse?.(f.code)}
+              // 未设置持仓金额时，不展示买入/卖出标记与标签
+              transactions={profit ? transactions?.[f.code] || [] : []}
+              theme={theme}
+              hideHeader
+            />
+          </TabsContent>
+          <TabsContent value="valuation_trend" className="mt-3 outline-none">
+            <FundValuationTrendChart code={f.code} isExpanded theme={theme} userId={userId} hideHeader />
+          </TabsContent>
           {hasHoldingAmount && (
             <TabsContent value="earnings" className="mt-3 outline-none">
               {displayDailyEarningsSeries.length > 0 ? (
@@ -936,18 +962,6 @@ export default function Index({
               )}
             </TabsContent>
           )}
-          <TabsContent value="trend" className="mt-3 outline-none">
-            <FundTrendChart
-              key={`${f.code}-${theme}`}
-              code={f.code}
-              isExpanded
-              onToggleExpand={() => onToggleTrendCollapse?.(f.code)}
-              // 未设置持仓金额时，不展示买入/卖出标记与标签
-              transactions={profit ? transactions?.[f.code] || [] : []}
-              theme={theme}
-              hideHeader
-            />
-          </TabsContent>
         </Tabs>
       ) : (
         <>
@@ -1035,11 +1049,18 @@ export default function Index({
           <FundTrendChart
             key={`${f.code}-${theme}`}
             code={f.code}
-            isExpanded={!collapsedTrends?.has(f.code)}
+            isExpanded={isTrendExpanded}
             onToggleExpand={() => onToggleTrendCollapse?.(f.code)}
             // 未设置持仓金额时，不展示买入/卖出标记与标签
             transactions={profit ? transactions?.[f.code] || [] : []}
             theme={theme}
+          />
+          <FundValuationTrendChart
+            code={f.code}
+            isExpanded={isValuationTrendExpanded}
+            onToggleExpand={() => onToggleValuationTrendCollapse?.(f.code)}
+            theme={theme}
+            userId={userId}
           />
           {hasHoldingAmount && (
             <>

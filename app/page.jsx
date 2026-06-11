@@ -122,6 +122,8 @@ export default function HomePage() {
     setCollapsedCodes,
     collapsedTrends,
     setCollapsedTrends,
+    collapsedValuationTrends,
+    setCollapsedValuationTrends,
     collapsedEarnings,
     setCollapsedEarnings,
     refreshMs,
@@ -1414,7 +1416,6 @@ export default function HomePage() {
     currentTab,
     summaryHoldingSourceGroupByCode,
     linkedHoldingsForAllFav,
-    // fundTagRecords 已移除：fundTagListsByCode 是其派生值，两者同时存在会导致标签变化时双重触发
     fundTagListsByCode,
     groupTotalHoldingAmount
   ]);
@@ -2082,6 +2083,21 @@ export default function HomePage() {
       });
     },
     [fundTagRecords]
+  );
+
+  const toggleValuationTrendCollapse = useCallback(
+    (code) => {
+      setCollapsedValuationTrends((prev) => {
+        const next = new Set(prev);
+        if (next.has(code)) {
+          next.delete(code);
+        } else {
+          next.add(code);
+        }
+        return next;
+      });
+    },
+    [setCollapsedValuationTrends]
   );
 
   const handleSaveFundTags = useCallback(
@@ -4220,6 +4236,7 @@ export default function HomePage() {
         valuationSeries,
         collapsedCodes,
         collapsedTrends,
+        collapsedValuationTrends,
         collapsedEarnings,
         transactions: transactionsForTab,
         theme,
@@ -4235,6 +4252,7 @@ export default function HomePage() {
         onTodayPercentModeToggle: toggleTodayPercentMode,
         onToggleCollapse: toggleCollapse,
         onToggleTrendCollapse: toggleTrendCollapse,
+        onToggleValuationTrendCollapse: toggleValuationTrendCollapse,
         onToggleEarningsCollapse: toggleEarningsCollapse,
         masked: maskAmounts,
         layoutMode: 'drawer',
@@ -4243,7 +4261,8 @@ export default function HomePage() {
         onFundTagsClick: openFundTagsEdit,
         fundExtraData: fundExtraDataByCode[fund.code] || fund.fundExtraData,
         groupTotalHoldingAmount,
-        hasPending: pendingCodesForTab.has(fund.code)
+        hasPending: pendingCodesForTab.has(fund.code),
+        userId: user?.id
       };
     },
     [
@@ -4258,6 +4277,7 @@ export default function HomePage() {
       valuationSeries,
       collapsedCodes,
       collapsedTrends,
+      collapsedValuationTrends,
       collapsedEarnings,
       transactionsForTab,
       theme,
@@ -4272,12 +4292,14 @@ export default function HomePage() {
       toggleTodayPercentMode,
       toggleCollapse,
       toggleTrendCollapse,
+      toggleValuationTrendCollapse,
       toggleEarningsCollapse,
       maskAmounts,
       openFundTagsEdit,
       fundExtraDataByCode,
       groupTotalHoldingAmount,
-      pendingCodesForTab
+      pendingCodesForTab,
+      user?.id
     ]
   );
 
@@ -5003,6 +5025,7 @@ export default function HomePage() {
                             valuationSeries={valuationSeries}
                             collapsedCodes={collapsedCodes}
                             collapsedTrends={collapsedTrends}
+                            collapsedValuationTrends={collapsedValuationTrends}
                             collapsedEarnings={collapsedEarnings}
                             transactionsForTab={transactionsForTab}
                             theme={theme}
@@ -5016,6 +5039,7 @@ export default function HomePage() {
                             toggleTodayPercentMode={toggleTodayPercentMode}
                             toggleCollapse={toggleCollapse}
                             toggleTrendCollapse={toggleTrendCollapse}
+                            toggleValuationTrendCollapse={toggleValuationTrendCollapse}
                             toggleEarningsCollapse={toggleEarningsCollapse}
                             fundTagListsByCode={fundTagListsByCode}
                             groupTotalHoldingAmount={groupTotalHoldingAmount}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { storageStore } from '../stores';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.2.0';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.2.1';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -109,10 +109,10 @@ export default function Announcement() {
                 paddingRight: '4px'
               }}
             >
-              <p>v2.2.0 版本更新内容：</p>
-              <p>1. 优化我的收益统计显示效果。</p>
-              <p>2. 我的收益展示年度收益率排名。</p>
-              <p>3. 修复 PC 端虚拟滚动引起的排序失效问题。</p>
+              <p>v2.2.1 版本更新内容：</p>
+              <p>1. 行情页面分页数量调整为 5 页。</p>
+              <p>2. 盘中支持显示昨日最准及昨日误差（限免）。</p>
+              <p>3. 新增估值走势（限免）。</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button

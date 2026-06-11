@@ -2139,8 +2139,9 @@ export const fetchFundHistory = async (code, range = '1m') => {
         .filter((d) => d.x >= effectiveStartMs && d.x <= endMs)
         .map((d) => {
           const value = Number(d.y);
+          const equityReturn = isNumber(d.equityReturn) ? Number(d.equityReturn) : null;
           const date = dayjs(d.x).tz(TZ).format('YYYY-MM-DD');
-          return { date, value };
+          return { date, value, equityReturn };
         });
 
       // 解析 Data_grandTotal 为多条对比曲线，使用同一有效起始日
@@ -2175,6 +2176,20 @@ export const fetchFundHistory = async (code, range = '1m') => {
     return [];
   }
   return [];
+};
+
+export const fetchFundValuationTrend = async (code, range = '3m') => {
+  if (!isSupabaseConfigured) return [];
+  if (!supabase?.functions?.invoke) return [];
+
+  const { data, error } = await withRetry(() =>
+    supabase.functions.invoke('get-fund-valuation-trend', {
+      body: { fund_code: code, range }
+    })
+  );
+
+  if (error || !data || data.error) return [];
+  return isArray(data.data) ? data.data : [];
 };
 
 export const parseFundTextWithLLM = async (text) => {

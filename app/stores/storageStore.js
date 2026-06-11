@@ -55,6 +55,7 @@ const SYNC_KEYS = new Set([
   'groups',
   'collapsedCodes',
   'collapsedTrends',
+  'collapsedValuationTrends',
   'collapsedEarnings',
   'refreshMs',
   'holdings',
@@ -84,6 +85,7 @@ export const useStorageStore = create((set, get) => ({
   favorites: new Set(),
   collapsedCodes: new Set(),
   collapsedTrends: new Set(),
+  collapsedValuationTrends: new Set(),
   collapsedEarnings: new Set(),
   refreshMs: 30000,
   holdings: {},
@@ -194,10 +196,12 @@ export const useStorageStore = create((set, get) => ({
     if (typeof window !== 'undefined') {
       const cc = get().getItem('collapsedCodes', []);
       const ct = get().getItem('collapsedTrends', []);
+      const cvt = get().getItem('collapsedValuationTrends', []);
       const ce = get().getItem('collapsedEarnings', []);
       set({
         collapsedCodes: new Set(isArray(cc) ? cc : []),
         collapsedTrends: new Set(isArray(ct) ? ct : []),
+        collapsedValuationTrends: new Set(isArray(cvt) ? cvt : []),
         collapsedEarnings: new Set(isArray(ce) ? ce : [])
       });
     }
@@ -300,6 +304,12 @@ export const useStorageStore = create((set, get) => ({
     const next = isFunction(nextVal) ? nextVal(get().collapsedTrends) : nextVal;
     set({ collapsedTrends: next });
     get().setItem('collapsedTrends', JSON.stringify(Array.from(next)));
+  },
+
+  setCollapsedValuationTrends: (nextVal) => {
+    const next = isFunction(nextVal) ? nextVal(get().collapsedValuationTrends) : nextVal;
+    set({ collapsedValuationTrends: next });
+    get().setItem('collapsedValuationTrends', JSON.stringify(Array.from(next)));
   },
 
   setCollapsedEarnings: (nextVal) => {
@@ -455,6 +465,7 @@ export const useStorageStore = create((set, get) => ({
       else if (key === 'favorites') set({ favorites: new Set(parsed) });
       else if (key === 'collapsedCodes') set({ collapsedCodes: new Set(parsed) });
       else if (key === 'collapsedTrends') set({ collapsedTrends: new Set(parsed) });
+      else if (key === 'collapsedValuationTrends') set({ collapsedValuationTrends: new Set(parsed) });
       else if (key === 'collapsedEarnings') set({ collapsedEarnings: new Set(parsed) });
       else if (key === 'refreshMs') set({ refreshMs: Number(parsed) });
       else if (key === 'holdings') set({ holdings: parsed });
