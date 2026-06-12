@@ -879,7 +879,7 @@ export default function Index({
       {layoutMode === 'drawer' ? (
         <Tabs defaultValue={hasHoldings ? 'holdings' : 'trend'} className="w-full">
           <TabsList className="w-full flex">
-            {hasHoldings && <TabsTrigger value="holdings">前10重仓股票</TabsTrigger>}
+            {hasHoldings && <TabsTrigger value="holdings">前10重仓</TabsTrigger>}
             <TabsTrigger value="trend">业绩走势</TabsTrigger>
             <TabsTrigger value="valuation_trend">估值走势</TabsTrigger>
             {hasHoldingAmount && <TabsTrigger value="earnings">我的收益</TabsTrigger>}
@@ -974,7 +974,7 @@ export default function Index({
               >
                 <div className="row" style={{ width: '100%', flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>前10重仓股票</span>
+                    <span>前10重仓</span>
                     <ChevronIcon
                       width="16"
                       height="16"
