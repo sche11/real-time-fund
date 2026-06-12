@@ -15,8 +15,8 @@ import { CloseIcon } from './Icons';
 import FitText from './FitText';
 import { cn, formatMoney } from '@/lib/utils';
 import { supabase, isSupabaseConfigured } from '@/app/lib/supabase';
-import { calculateYtdReturnRate, getAllDailyEarnings } from '@/app/lib/dailyEarnings';
-import { storageStore, useUserStore } from '@/app/stores';
+import { calculateYtdReturnRate, mergeAllScopedDailyEarnings, mergeAllHoldings } from '@/app/lib/dailyEarnings';
+import { storageStore, useUserStore, useStorageStore } from '@/app/stores';
 
 dayjs.locale('zh-cn');
 
@@ -177,6 +177,7 @@ export default function MyEarningsCalendarPage({ open, onOpenChange, series = []
   const isMobile = useIsMobile();
   const reduceMotion = useReducedMotion();
   const user = useUserStore((state) => state.user);
+  const fundDailyEarnings = useStorageStore((state) => state.fundDailyEarnings);
 
   const hasData = isArray(series) && series.length > 0;
 
@@ -199,9 +200,12 @@ export default function MyEarningsCalendarPage({ open, onOpenChange, series = []
     let cancelled = false;
     const computeAndFetchPercentile = async () => {
       try {
-        const earningsMap = getAllDailyEarnings('all');
-        const holdings = storageStore.getItem('holdings', {});
-        const rate = calculateYtdReturnRate(earningsMap, holdings);
+        const mergedEarningsMap = mergeAllScopedDailyEarnings(fundDailyEarnings);
+        const globalHoldings = storageStore.getItem('holdings', {});
+        const groupHoldings = storageStore.getItem('groupHoldings', {});
+        const mergedHoldings = mergeAllHoldings(globalHoldings, groupHoldings);
+
+        const rate = calculateYtdReturnRate(mergedEarningsMap, mergedHoldings);
 
         if (!isNumber(rate) || !Number.isFinite(rate)) {
           if (!cancelled) {
