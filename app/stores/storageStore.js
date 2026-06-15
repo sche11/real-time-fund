@@ -70,6 +70,34 @@ const SYNC_KEYS = new Set([
 
 export { SORT_DISPLAY_MODES, DEFAULT_SORT_RULES };
 
+export const normalizePendingTrades = (value) => {
+  if (!isArray(value)) return [];
+  const seenIds = new Set();
+  const next = [];
+
+  for (const trade of value) {
+    if (!trade || !isObject(trade)) continue;
+    const id = trade.id == null ? '' : String(trade.id);
+    if (id) {
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+    }
+    next.push(trade);
+  }
+
+  return next;
+};
+
+const normalizeStorageValue = (key, value) => {
+  if (key !== 'pendingTrades') return value;
+  try {
+    const parsed = isString(value) ? JSON.parse(value) : value;
+    return JSON.stringify(normalizePendingTrades(parsed));
+  } catch {
+    return value;
+  }
+};
+
 /**
  * 管理 localStorage 数据的 Zustand Store
  */
@@ -336,7 +364,9 @@ export const useStorageStore = create((set, get) => ({
   },
 
   setPendingTrades: (nextPendingTrades) => {
-    const next = isFunction(nextPendingTrades) ? nextPendingTrades(get().pendingTrades) : nextPendingTrades;
+    const next = normalizePendingTrades(
+      isFunction(nextPendingTrades) ? nextPendingTrades(get().pendingTrades) : nextPendingTrades
+    );
     set({ pendingTrades: next });
     get().setItem('pendingTrades', JSON.stringify(next));
   },
@@ -438,28 +468,30 @@ export const useStorageStore = create((set, get) => ({
    * @param {string} value JSON 字符串或普通字符串
    */
   setItem: (key, value) => {
+    const normalizedValue = normalizeStorageValue(key, value);
     const prevValue = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
+    let skipStorageWrite = false;
 
     // 检查内容是否真的发生了变化 (使用 lodash isEqual 进行深对比)
     if (prevValue !== null) {
       try {
-        const parsedNew = JSON.parse(value);
+        const parsedNew = JSON.parse(normalizedValue);
         const parsedOld = JSON.parse(prevValue);
-        if (isEqual(parsedNew, parsedOld)) return;
+        if (isEqual(parsedNew, parsedOld)) skipStorageWrite = true;
       } catch (e) {
         // 非 JSON 或解析失败时使用字符串直接对比
-        if (prevValue === value) return;
+        if (prevValue === normalizedValue) skipStorageWrite = true;
       }
     }
 
     // 更新本地存储
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(key, value);
+    if (!skipStorageWrite && typeof window !== 'undefined') {
+      window.localStorage.setItem(key, normalizedValue);
     }
 
     // 同步更新 Store 状态，确保 UI 响应
     try {
-      const parsed = JSON.parse(value);
+      const parsed = JSON.parse(normalizedValue);
       if (key === 'funds') set({ funds: parsed });
       else if (key === 'groups') set({ groups: parsed });
       else if (key === 'favorites') set({ favorites: new Set(parsed) });
@@ -480,10 +512,12 @@ export const useStorageStore = create((set, get) => ({
       else if (key === 'localSortOrder') set({ sortOrder: parsed });
     } catch (e) {
       // 如果不是 JSON，或者是 refreshMs 这种数字字符串
-      if (key === 'refreshMs') set({ refreshMs: Number(value) });
-      else if (key === 'localSortBy') set({ sortBy: value });
-      else if (key === 'localSortOrder') set({ sortOrder: value });
+      if (key === 'refreshMs') set({ refreshMs: Number(normalizedValue) });
+      else if (key === 'localSortBy') set({ sortBy: normalizedValue });
+      else if (key === 'localSortOrder') set({ sortOrder: normalizedValue });
     }
+
+    if (skipStorageWrite) return;
 
     // 触发同步逻辑
     const { onSync } = get();
@@ -492,17 +526,17 @@ export const useStorageStore = create((set, get) => ({
       // 注意：isEqual 已经过滤了完全一致的情况，这里依然保留签名判断
       // 是为了过滤“实质性”无变化的更新（如 jzrq, dwjz 没变，但其他非核心字段变了）
       if (key === 'funds') {
-        if (getFundCodesSignature(prevValue) === getFundCodesSignature(value)) {
+        if (getFundCodesSignature(prevValue) === getFundCodesSignature(normalizedValue)) {
           return;
         }
       }
       if (key === 'tags') {
-        if (getTagsStoreSignature(prevValue) === getTagsStoreSignature(value)) {
+        if (getTagsStoreSignature(prevValue) === getTagsStoreSignature(normalizedValue)) {
           return;
         }
       }
 
-      onSync(key, prevValue, value);
+      onSync(key, prevValue, normalizedValue);
     }
   },
 

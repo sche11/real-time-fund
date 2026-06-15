@@ -67,6 +67,7 @@ import {
   setAuthUser,
   useStorageStore,
   storageStore,
+  normalizePendingTrades,
   useModalStore,
   useSettingsStore
 } from './stores';
@@ -1577,7 +1578,10 @@ export default function HomePage() {
     if (isProcessingPendingRef.current) return;
     isProcessingPendingRef.current = true;
     try {
-      const currentPending = useStorageStore.getState().pendingTrades;
+      const currentPending = normalizePendingTrades(useStorageStore.getState().pendingTrades);
+      if (currentPending.length !== (useStorageStore.getState().pendingTrades || []).length) {
+        storageStore.setItem('pendingTrades', JSON.stringify(currentPending));
+      }
       if (currentPending.length === 0) return;
 
       let stateChanged = false;
@@ -1591,6 +1595,7 @@ export default function HomePage() {
       const processedIds = new Set();
       const newTransactions = [];
 
+      const handledIds = new Set();
       const readCurrent = (fundCode, tradeGid) => {
         if (!tradeGid) {
           return tempHoldings[fundCode] || { share: 0, cost: 0 };
@@ -1609,6 +1614,9 @@ export default function HomePage() {
       };
 
       for (const trade of currentPending) {
+        if (trade?.id && handledIds.has(trade.id)) continue;
+        if (trade?.id) handledIds.add(trade.id);
+
         const tradeGid = trade.groupId || null;
         let queryDate = trade.date;
         if (trade.isAfter3pm) {
@@ -1684,37 +1692,39 @@ export default function HomePage() {
       }
 
       if (stateChanged) {
-        setHoldings(tempHoldings);
-        setGroupHoldings(tempGroupHoldings);
-
-        setPendingTrades((prev) => {
-          const next = prev.filter((t) => !processedIds.has(t.id));
-          return next;
+        // 构建最终的 transactions 状态
+        const prevTransactions = useStorageStore.getState().transactions;
+        const nextTransactions = { ...prevTransactions };
+        newTransactions.forEach((tx) => {
+          const current = nextTransactions[tx.fundCode] || [];
+          // 避免重复添加 (虽然 id 应该唯一)
+          if (!current.some((t) => t.id === tx.id)) {
+            const row = {
+              id: tx.id,
+              type: tx.type,
+              share: tx.share,
+              amount: tx.amount,
+              price: tx.price,
+              date: tx.date,
+              isAfter3pm: tx.isAfter3pm,
+              isDca: tx.isDca,
+              timestamp: tx.timestamp
+            };
+            if (tx.groupId) row.groupId = tx.groupId;
+            nextTransactions[tx.fundCode] = [row, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          }
         });
 
-        setTransactions((prev) => {
-          const nextState = { ...prev };
-          newTransactions.forEach((tx) => {
-            const current = nextState[tx.fundCode] || [];
-            // 避免重复添加 (虽然 id 应该唯一)
-            if (!current.some((t) => t.id === tx.id)) {
-              const row = {
-                id: tx.id,
-                type: tx.type,
-                share: tx.share,
-                amount: tx.amount,
-                price: tx.price,
-                date: tx.date,
-                isAfter3pm: tx.isAfter3pm,
-                isDca: tx.isDca,
-                timestamp: tx.timestamp
-              };
-              if (tx.groupId) row.groupId = tx.groupId;
-              nextState[tx.fundCode] = [row, ...current].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-            }
-          });
-          return nextState;
-        });
+        // 构建最终的 pendingTrades 状态
+        const prevPending = normalizePendingTrades(useStorageStore.getState().pendingTrades);
+        const nextPending = prevPending.filter((t) => !processedIds.has(t.id));
+
+        // 通过 storageStore.setItem 更新（内部会同步更新 state + localStorage + 触发云端同步）
+        // 由于在同一同步代码块中，React 18 会自动批量处理，只触发一次 re-render
+        storageStore.setItem('holdings', JSON.stringify(tempHoldings));
+        storageStore.setItem('groupHoldings', JSON.stringify(tempGroupHoldings));
+        storageStore.setItem('pendingTrades', JSON.stringify(nextPending));
+        storageStore.setItem('transactions', JSON.stringify(nextTransactions));
 
         showToast(`已处理 ${processedIds.size} 笔待定交易`, 'success');
       }
@@ -1859,8 +1869,7 @@ export default function HomePage() {
         ...(tradeGid ? { groupId: tradeGid } : {})
       };
 
-      const next = [...pendingTrades, pending];
-      setPendingTrades(next);
+      setPendingTrades((prev) => [...(prev || []), pending]);
 
       // 如果该基金没有持仓数据，初始化持仓金额为 0
       const tabH = tradeGid ? groupHoldings[tradeGid] || {} : holdings;
@@ -2470,26 +2479,25 @@ export default function HomePage() {
         return;
       }
 
-      setDcaPlans(nextPlans);
+      // 计算去重后的新 pending 列表
+      const prevPending = normalizePendingTrades(useStorageStore.getState().pendingTrades);
+      const existingIds = new Set(prevPending.map((t) => t.id));
+      const unique = newPending.filter((t) => !existingIds.has(t.id));
 
-      const pendingSnapshot = useStorageStore.getState().pendingTrades;
-      const snapshotIds = new Set((isArray(pendingSnapshot) ? pendingSnapshot : []).map((t) => t.id));
-      const uniqueNewPending = newPending.filter((t) => !snapshotIds.has(t.id));
+      // 批量更新 dcaPlans 和 pendingTrades
+      // 通过 storageStore.setItem 更新（内部会同步更新 state + localStorage + 触发云端同步）
+      // 由于在同一同步代码块中，React 18 会自动批量处理，只触发一次 re-render
+      const nextPending = normalizePendingTrades(unique.length > 0 ? [...prevPending, ...unique] : prevPending);
+      storageStore.setItem('dcaPlans', JSON.stringify(nextPlans));
+      storageStore.setItem('pendingTrades', JSON.stringify(nextPending));
 
-      setPendingTrades((prev) => {
-        const existingIds = new Set((prev || []).map((t) => t.id));
-        const unique = newPending.filter((t) => !existingIds.has(t.id));
-        if (unique.length === 0) return prev;
-        return [...(prev || []), ...unique];
-      });
-
-      if (uniqueNewPending.length > 0) {
-        showToast(`已生成 ${uniqueNewPending.length} 笔定投买入`, 'success');
+      if (unique.length > 0) {
+        showToast(`已生成 ${unique.length} 笔定投买入`, 'success');
       }
     } finally {
       isSchedulingDcaRef.current = false;
     }
-  }, [isTradingDay, setDcaPlans, setPendingTrades]);
+  }, [isTradingDay, setDcaPlans]);
 
   const { refreshing, refreshCycleStartRef, manualRefresh, refreshAll } = useRefreshManager({
     scheduleDcaTrades,
