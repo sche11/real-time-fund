@@ -1,5 +1,5 @@
 'use client';
-import { isNumber } from 'lodash';
+import { isFunction, isNumber } from 'lodash';
 
 import * as React from 'react';
 import { Drawer as DrawerPrimitive } from 'vaul';
@@ -16,12 +16,38 @@ function useScrollLock(open) {
   return React.useMemo(() => (open ? { open } : null), [open]);
 }
 
+function getViewportHeight() {
+  if (typeof window === 'undefined') return null;
+  const visualHeight = window.visualViewport?.height;
+  if (Number.isFinite(visualHeight) && visualHeight > 0) return visualHeight;
+  const innerHeight = window.innerHeight;
+  return Number.isFinite(innerHeight) && innerHeight > 0 ? innerHeight : null;
+}
+
 function parseVhToPx(vhStr) {
-  if (isNumber(vhStr)) return vhStr;
+  if (isNumber(vhStr)) return Number.isFinite(vhStr) && vhStr >= 0 ? vhStr : null;
   const match = String(vhStr).match(/^([\d.]+)\s*vh$/);
   if (!match) return null;
-  if (typeof window === 'undefined') return null;
-  return (window.innerHeight * Number(match[1])) / 100;
+  const ratio = Number(match[1]);
+  const viewportHeight = getViewportHeight();
+  if (!Number.isFinite(ratio) || viewportHeight == null) return null;
+  return (viewportHeight * ratio) / 100;
+}
+
+function safePreventDefault(e) {
+  if (isFunction(e?.preventDefault) && e?.cancelable !== false) e.preventDefault();
+}
+
+function stopEvent(e) {
+  safePreventDefault(e);
+  if (isFunction(e?.stopPropagation)) e.stopPropagation();
+}
+
+function getEventClientY(e) {
+  const nativeEvent = e?.nativeEvent ?? e;
+  const touches = e?.touches ?? nativeEvent?.touches ?? nativeEvent?.changedTouches;
+  const clientY = e?.clientY ?? nativeEvent?.clientY ?? touches?.[0]?.clientY;
+  return Number.isFinite(clientY) ? clientY : null;
 }
 
 function Drawer({ open, ...props }) {
@@ -46,7 +72,7 @@ function DrawerClose({ ...props }) {
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
 }
 
-function DrawerOverlay({ className, ...props }) {
+function DrawerOverlay({ className, style, ...props }) {
   const ctx = React.useContext(DrawerScrollLockContext);
   const { open = false, ...scrollLockProps } = ctx || {};
 
@@ -56,17 +82,12 @@ function DrawerOverlay({ className, ...props }) {
     const el = overlayRef.current;
     if (!el || !open) return;
 
-    const preventScroll = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    el.addEventListener('touchmove', preventScroll, { passive: false });
-    el.addEventListener('wheel', preventScroll, { passive: false });
+    el.addEventListener('touchmove', stopEvent, { passive: false });
+    el.addEventListener('wheel', stopEvent, { passive: false });
 
     return () => {
-      el.removeEventListener('touchmove', preventScroll);
-      el.removeEventListener('wheel', preventScroll);
+      el.removeEventListener('touchmove', stopEvent);
+      el.removeEventListener('wheel', stopEvent);
     };
   }, [open]);
 
@@ -84,9 +105,9 @@ function DrawerOverlay({ className, ...props }) {
         'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0',
         className
       )}
-      style={{ touchAction: 'none' }}
       {...scrollLockProps}
       {...props}
+      style={{ touchAction: 'none', ...style }}
     />
   );
 }
@@ -110,30 +131,41 @@ function DrawerContent({
 
   React.useEffect(() => {
     const px = parseVhToPx(defaultHeight);
-    if (px != null) setHeightPx(px);
+    if (Number.isFinite(px)) setHeightPx(px);
   }, [defaultHeight]);
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
     const sync = () => {
       const max = parseVhToPx(maxHeight);
       const min = parseVhToPx(minHeight);
       setHeightPx((prev) => {
-        if (prev == null) return parseVhToPx(defaultHeight);
-        const clamped = Math.min(prev, max ?? prev);
-        return Math.max(clamped, min ?? clamped);
+        const fallback = parseVhToPx(defaultHeight);
+        if (!Number.isFinite(prev)) return Number.isFinite(fallback) ? fallback : prev;
+        const clampedMax = Number.isFinite(max) ? Math.min(prev, max) : prev;
+        const clampedMin = Number.isFinite(min) ? Math.max(clampedMax, min) : clampedMax;
+        return Number.isFinite(clampedMin) ? clampedMin : prev;
       });
     };
+    const visualViewport = window.visualViewport;
     window.addEventListener('resize', sync);
-    return () => window.removeEventListener('resize', sync);
+    if (isFunction(visualViewport?.addEventListener)) visualViewport.addEventListener('resize', sync);
+    return () => {
+      window.removeEventListener('resize', sync);
+      if (isFunction(visualViewport?.removeEventListener)) visualViewport.removeEventListener('resize', sync);
+    };
   }, [defaultHeight, minHeight, maxHeight]);
 
   const handlePointerDown = React.useCallback(
     (e) => {
-      e.preventDefault();
+      const startY = getEventClientY(e);
+      if (!Number.isFinite(startY)) return;
+      safePreventDefault(e);
       setIsDragging(true);
+      const fallbackHeight = parseVhToPx(defaultHeight);
       dragRef.current = {
-        startY: e.clientY ?? e.touches?.[0]?.clientY,
-        startHeight: heightPx ?? parseVhToPx(defaultHeight) ?? 0
+        startY,
+        startHeight: Number.isFinite(heightPx) ? heightPx : Number.isFinite(fallbackHeight) ? fallbackHeight : 0
       };
     },
     [heightPx, defaultHeight]
@@ -142,28 +174,33 @@ function DrawerContent({
   React.useEffect(() => {
     if (!isDragging) return;
     const move = (e) => {
-      const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+      const clientY = getEventClientY(e);
       const { startY, startHeight } = dragRef.current;
+      if (!Number.isFinite(clientY) || !Number.isFinite(startY) || !Number.isFinite(startHeight)) return;
       const delta = startY - clientY;
-      const next = Math.min(maxPx ?? Infinity, Math.max(minPx ?? 0, startHeight + delta));
-      setHeightPx(next);
+      const lower = Number.isFinite(minPx) ? minPx : 0;
+      const upper = Number.isFinite(maxPx) ? maxPx : Infinity;
+      const next = Math.min(upper, Math.max(lower, startHeight + delta));
+      if (Number.isFinite(next)) setHeightPx(next);
     };
     const up = () => setIsDragging(false);
     document.addEventListener('mousemove', move, { passive: true });
     document.addEventListener('mouseup', up);
     document.addEventListener('touchmove', move, { passive: true });
     document.addEventListener('touchend', up);
+    document.addEventListener('touchcancel', up);
     return () => {
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', up);
       document.removeEventListener('touchmove', move);
       document.removeEventListener('touchend', up);
+      document.removeEventListener('touchcancel', up);
     };
   }, [isDragging, minPx, maxPx]);
 
   const contentStyle = React.useMemo(() => {
-    if (heightPx == null) return undefined;
-    return { height: `${heightPx}px`, maxHeight: maxPx != null ? `${maxPx}px` : undefined };
+    if (!Number.isFinite(heightPx)) return undefined;
+    return { height: `${heightPx}px`, maxHeight: Number.isFinite(maxPx) ? `${maxPx}px` : undefined };
   }, [heightPx, maxPx]);
 
   return (
