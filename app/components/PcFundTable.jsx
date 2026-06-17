@@ -448,9 +448,30 @@ const FundNameCell = memo(
           {code ? (
             <span className="muted code-text">
               #{code}
-              {hasPending && <span className="pending-indicator">待</span>}
-              {hasDca && <span className="dca-indicator">定</span>}
-              {isUpdated && <span className="updated-indicator">✓</span>}
+              {hasPending && (
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <span className="pending-indicator">待</span>
+                  </TooltipTrigger>
+                  <TooltipContent>有进行中的交易</TooltipContent>
+                </Tooltip>
+              )}
+              {hasDca && (
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <span className="dca-indicator">定</span>
+                  </TooltipTrigger>
+                  <TooltipContent>定投中</TooltipContent>
+                </Tooltip>
+              )}
+              {isUpdated && (
+                <Tooltip delayDuration={150}>
+                  <TooltipTrigger asChild>
+                    <span className="updated-indicator">✓</span>
+                  </TooltipTrigger>
+                  <TooltipContent>今日净值已更新</TooltipContent>
+                </Tooltip>
+              )}
             </span>
           ) : null}
         </div>
