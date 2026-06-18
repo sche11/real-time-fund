@@ -3350,24 +3350,6 @@ export default function HomePage() {
       return next;
     });
 
-    // 同步删除该基金的每日收益数据
-    try {
-      setFundDailyEarnings((prev) => {
-        if (!isPlainObject(prev)) return prev;
-        let changed = false;
-        const next = { ...prev };
-        Object.keys(next).forEach((scopeKey) => {
-          const bucket = next[scopeKey];
-          if (!isPlainObject(bucket) || !(removeCode in bucket)) return;
-          const nb = { ...bucket };
-          delete nb[removeCode];
-          next[scopeKey] = nb;
-          changed = true;
-        });
-        return changed ? next : prev;
-      });
-    } catch {}
-
     // 同步删除该基金的定投计划（所有 scope）
     setDcaPlans((prev) => {
       const scoped = migrateDcaPlansToScoped(prev);
@@ -3622,7 +3604,8 @@ export default function HomePage() {
     showMarketIndexOverride,
     showGroupFundSearchOverride,
     isMobileOverride,
-    dynamicStyleOverride
+    dynamicStyleOverride,
+    containerWidthOverride
   ) => {
     e?.preventDefault?.();
     const seconds = secondsOverride ?? tempSeconds;
@@ -3656,7 +3639,7 @@ export default function HomePage() {
     else setDynamicStylePc(nextDynamicStyle);
 
     // 在移动端不裁剪也不修改 pcContainerWidth，直接保留原值
-    let w = Number(containerWidth) || 1200;
+    let w = Number(containerWidthOverride ?? containerWidth) || 1200;
     if (!targetIsMobile) {
       w = Math.min(window.innerWidth, Math.max(600, w));
       setContainerWidth(w);
