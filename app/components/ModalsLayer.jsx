@@ -345,7 +345,9 @@ function ModalsLayerContent({ callbacksRef }) {
           <FundDataSourceSelector
             fund={dataSourceModal.fund}
             onClose={() => setDataSourceModal({ open: false, fund: null })}
-            onSelect={(sourceId) => cb.current.handleDataSourceSelect(dataSourceModal.fund.code, sourceId)}
+            onSelect={(sourceId, autoSource) =>
+              cb.current.handleDataSourceSelect(dataSourceModal.fund.code, sourceId, autoSource)
+            }
           />
         )}
       </AnimatePresence>
