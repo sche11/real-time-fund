@@ -2037,7 +2037,8 @@ export default function HomePage() {
     setValuationSeries,
     showToast,
     normalizeCode,
-    dedupeByCode
+    dedupeByCode,
+    setFundTagRecords
   });
 
   const refreshAllRef = useRef(null);

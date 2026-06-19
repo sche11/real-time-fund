@@ -21,6 +21,7 @@ import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, close
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Plus } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import PcTableSettingModal from './PcTableSettingModal';
 import FundCard from './FundCard';
@@ -53,10 +54,7 @@ import { cn } from '@/lib/utils';
 
 const EditModeContext = createContext({ isEditMode: false, selectedCodes: null, toggleSelected: null });
 
-const TAGS_COLUMN_ID = 'tags';
-
 const NON_FROZEN_COLUMN_IDS = [
-  'tags',
   'relatedSector',
   'yesterdayChangePercent',
   'estimateChangePercent',
@@ -81,15 +79,11 @@ const NON_FROZEN_COLUMN_IDS = [
 
 /** 已保存列显示偏好时，新增列默认隐藏；未保存时随「全展示」 */
 const PC_COLUMNS_DEFAULT_HIDDEN_IF_PERSONALIZED = new Set([
-  'tags',
   'holdingCost',
   'costNav',
   'sinceAddedChangePercent',
   'holdingRatio'
 ]);
-
-/** 非冻结列中右对齐的（标签列左对齐） */
-const isPcDataColumnRightAligned = (id) => id !== TAGS_COLUMN_ID && NON_FROZEN_COLUMN_IDS.includes(id);
 
 const COLUMN_HEADERS = {
   relatedSector: '关联板块',
@@ -111,8 +105,7 @@ const COLUMN_HEADERS = {
   holdingDays: '持有天数',
   todayProfit: '当日收益',
   yesterdayProfit: '昨日收益',
-  holdingProfit: '持有收益',
-  tags: '基金标签'
+  holdingProfit: '持有收益'
 };
 
 const SortableRowContext = createContext({
@@ -249,6 +242,8 @@ const FundNameCell = memo(
     batchRemoveEnabled,
     sortBy,
     onToggleFavoriteRef,
+    onFundTagsClickRef,
+    canEditFundTags,
     fundExtraDataByCode
   }) => {
     const { isEditMode, selectedCodes, toggleSelected } = useContext(EditModeContext);
@@ -257,6 +252,7 @@ const FundNameCell = memo(
     const isUpdated = original.isUpdated;
     const hasDca = original.hasDca;
     const hasPending = original.hasPending;
+    const fundTags = isArray(original.fundTags) ? original.fundTags : [];
     const isFavorites = favorites?.has?.(code);
     const rowContext = useContext(SortableRowContext);
     const showFavoriteButton = !isGroupTab && (currentTab === 'all' || currentTab === 'fav' || !currentTab);
@@ -452,6 +448,53 @@ const FundNameCell = memo(
                   <TooltipContent>今日净值已更新</TooltipContent>
                 </Tooltip>
               )}
+              {fundTags.length > 0 ? (
+                <span className="pc-name-inline-tags">
+                  {fundTags.map((raw, idx) => {
+                    const item =
+                      raw && isObject(raw) && raw.name != null
+                        ? {
+                            name: String(raw.name).trim(),
+                            theme: String(raw.theme ?? 'default').trim() || 'default'
+                          }
+                        : { name: String(raw).trim(), theme: 'default' };
+                    if (!item.name) return null;
+                    const { variant, className: themeCls } = getTagThemeBadgeProps(item.theme);
+                    return (
+                      <Badge
+                        key={`${item.name}-${idx}`}
+                        variant={variant}
+                        className={cn('font-normal text-[11px]', themeCls)}
+                        title={canEditFundTags ? '编辑标签' : undefined}
+                        style={{ cursor: canEditFundTags ? 'pointer' : 'default' }}
+                        onClick={(e) => {
+                          if (onFundTagsClickRef.current) {
+                            e.stopPropagation?.();
+                            onFundTagsClickRef.current(original);
+                          }
+                        }}
+                      >
+                        {item.name}
+                      </Badge>
+                    );
+                  })}
+                </span>
+              ) : canEditFundTags ? (
+                <button
+                  type="button"
+                  className="pc-name-add-tag-button"
+                  title="添加标签"
+                  onClick={(e) => {
+                    e.stopPropagation?.();
+                    onFundTagsClickRef.current?.(original);
+                  }}
+                >
+                  <Badge variant="outline" className="font-normal text-[11px]">
+                    <Plus className="h-3 w-3" />
+                    添加标签
+                  </Badge>
+                </button>
+              ) : null}
             </span>
           ) : null}
         </div>
@@ -1431,79 +1474,14 @@ const PcFundTable = memo(function PcFundTable({
             batchRemoveEnabled={batchRemoveEnabled}
             sortBy={sortBy}
             onToggleFavoriteRef={onToggleFavoriteRef}
+            onFundTagsClickRef={onFundTagsClickRef}
+            canEditFundTags={!!onFundTagsClick}
             fundExtraDataByCode={fundExtraDataByCode}
           />
         ),
         meta: {
           align: 'left',
           cellClassName: 'name-cell'
-        }
-      },
-      {
-        id: 'tags',
-        header: '基金标签',
-        size: 168,
-        minSize: 96,
-        cell: (info) => {
-          const original = info.row.original || {};
-          const list = isArray(original.fundTags) ? original.fundTags : [];
-          const hasTags = list.length > 0;
-          return (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation?.();
-                onFundTagsClickRef.current?.(original);
-              }}
-              title={onFundTagsClick ? '编辑标签' : undefined}
-              style={{
-                width: '100%',
-                minWidth: 0,
-                border: 'none',
-                background: 'transparent',
-                padding: '4px 0',
-                cursor: onFundTagsClick ? 'pointer' : 'default',
-                textAlign: 'left'
-              }}
-              disabled={!onFundTagsClick}
-            >
-              {hasTags ? (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 4,
-                    justifyContent: 'flex-end'
-                  }}
-                >
-                  {list.map((raw, idx) => {
-                    const item =
-                      raw && isObject(raw) && raw.name != null
-                        ? {
-                            name: String(raw.name).trim(),
-                            theme: String(raw.theme ?? 'default').trim() || 'default'
-                          }
-                        : { name: String(raw).trim(), theme: 'default' };
-                    if (!item.name) return null;
-                    const { variant, className: themeCls } = getTagThemeBadgeProps(item.theme);
-                    return (
-                      <Badge key={`${item.name}-${idx}`} variant={variant} className={cn('font-normal', themeCls)}>
-                        {item.name}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="muted" style={{ textAlign: 'right', fontSize: '12px' }}>
-                  —
-                </div>
-              )}
-            </button>
-          );
-        },
-        meta: {
-          align: 'right',
-          cellClassName: 'tags-cell'
         }
       },
       {
