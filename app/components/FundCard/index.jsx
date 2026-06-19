@@ -387,6 +387,7 @@ export default function Index({
   const isTrendExpanded = !collapsedTrends?.has(fundCode);
   const isValuationTrendExpanded = !collapsedValuationTrends?.has(fundCode);
   const isEarningsExpanded = !collapsedEarnings?.has(fundCode);
+  const showValuationTrend = Boolean(userId);
 
   return (
     <motion.div
@@ -888,7 +889,7 @@ export default function Index({
           <TabsList className="w-full flex">
             {hasHoldings && <TabsTrigger value="holdings">前10重仓</TabsTrigger>}
             <TabsTrigger value="trend">业绩走势</TabsTrigger>
-            <TabsTrigger value="valuation_trend">估值走势</TabsTrigger>
+            {showValuationTrend && <TabsTrigger value="valuation_trend">估值走势</TabsTrigger>}
             {hasHoldingAmount && <TabsTrigger value="earnings">我的收益</TabsTrigger>}
           </TabsList>
           {hasHoldings && (
@@ -952,9 +953,11 @@ export default function Index({
               hideHeader
             />
           </TabsContent>
-          <TabsContent value="valuation_trend" className="mt-3 outline-none">
-            <FundValuationTrendChart code={f.code} isExpanded theme={theme} userId={userId} hideHeader />
-          </TabsContent>
+          {showValuationTrend && (
+            <TabsContent value="valuation_trend" className="mt-3 outline-none">
+              <FundValuationTrendChart code={f.code} isExpanded theme={theme} userId={userId} hideHeader />
+            </TabsContent>
+          )}
           {hasHoldingAmount && (
             <TabsContent value="earnings" className="mt-3 outline-none">
               {displayDailyEarningsSeries.length > 0 ? (
@@ -1062,13 +1065,15 @@ export default function Index({
             transactions={profit ? transactions?.[f.code] || [] : []}
             theme={theme}
           />
-          <FundValuationTrendChart
-            code={f.code}
-            isExpanded={isValuationTrendExpanded}
-            onToggleExpand={() => onToggleValuationTrendCollapse?.(f.code)}
-            theme={theme}
-            userId={userId}
-          />
+          {showValuationTrend && (
+            <FundValuationTrendChart
+              code={f.code}
+              isExpanded={isValuationTrendExpanded}
+              onToggleExpand={() => onToggleValuationTrendCollapse?.(f.code)}
+              theme={theme}
+              userId={userId}
+            />
+          )}
           {hasHoldingAmount && (
             <>
               <div
