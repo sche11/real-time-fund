@@ -356,7 +356,12 @@ export function useScanImport({
     });
   };
 
-  const confirmScanImport = async (targetGroupId = 'all', expandAfterAdd = true, autoDataSource = true) => {
+  const confirmScanImport = async (
+    targetGroupId = 'all',
+    expandAfterAdd = true,
+    autoDataSource = true,
+    autoImportTags = true
+  ) => {
     const parseAmount = (val) => {
       if (!val && val !== 0) return null;
       const num = parseFloat(String(val).replace(/,/g, ''));
@@ -459,7 +464,7 @@ export function useScanImport({
         if (Object.keys(nextSeries).length > 0) setValuationSeries((prev) => ({ ...prev, ...nextSeries }));
 
         // 自动查询并添加推荐标签
-        if (isSupabaseConfigured) {
+        if (isSupabaseConfigured && autoImportTags) {
           try {
             const currentTags = useStorageStore.getState().getItem('tags', []);
             let tagsModified = false;
@@ -469,10 +474,13 @@ export function useScanImport({
               try {
                 const { data, error } = await supabase.rpc('get_fund_recommended_tags', { p_fund_code: code });
                 if (!error && isArray(data) && data.length > 0) {
-                  data.forEach((row) => {
+                  let tagsAddedForThisFund = 0;
+                  for (const row of data) {
+                    if (tagsAddedForThisFund >= 2) break;
+
                     const topicStr = String(row?.topic ?? '').trim();
                     const sectorIdStr = String(row?.sector_id ?? '').trim();
-                    if (!topicStr || !sectorIdStr) return;
+                    if (!topicStr || !sectorIdStr) continue;
 
                     const topics = topicStr
                       .split(';')
@@ -484,9 +492,13 @@ export function useScanImport({
                       .filter(Boolean);
 
                     for (let i = 0; i < topics.length; i++) {
+                      if (tagsAddedForThisFund >= 2) break;
+
                       const topic = topics[i];
                       const sectorId = sectorIds[i];
                       if (!topic || !sectorId) continue;
+
+                      tagsAddedForThisFund++;
 
                       const targetId = `default_${sectorId}`;
                       const existingInPool = currentTags.find((t) => String(t.id).trim() === targetId);
@@ -513,7 +525,7 @@ export function useScanImport({
                         tagsModified = true;
                       }
                     }
-                  });
+                  }
                 }
               } catch (e) {
                 console.error('fetch recommended tags error:', e);
