@@ -921,6 +921,8 @@ function ModalsLayerContent({ callbacksRef }) {
             showGroupFundSearchMobile={cb.current.showGroupFundSearchMobile}
             dynamicStylePc={cb.current.dynamicStylePc}
             dynamicStyleMobile={cb.current.dynamicStyleMobile}
+            showGroupDropdownPc={cb.current.showGroupDropdownPc}
+            showGroupDropdownMobile={cb.current.showGroupDropdownMobile}
           />
         )}
       </AnimatePresence>
