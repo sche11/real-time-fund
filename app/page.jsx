@@ -4809,10 +4809,8 @@ export default function HomePage() {
                                   <SelectContent
                                     position="popper"
                                     align="start"
-                                    className="max-h-none"
                                     style={{
-                                      width: isMobile ? 230 : 300,
-                                      maxHeight: 'none'
+                                      width: isMobile ? 230 : 300
                                     }}
                                   >
                                     <SelectGroup>
