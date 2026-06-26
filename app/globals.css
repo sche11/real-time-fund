@@ -5240,3 +5240,15 @@ html::-webkit-scrollbar-thumb:active,
     display: none !important;
   }
 }
+
+@media (min-width: 641px) {
+  .trend-tooltip-desktop {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.75)) !important;
+    backdrop-filter: blur(8px) !important;
+  }
+
+  [data-theme='light'] .trend-tooltip-desktop {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.2)) !important;
+    backdrop-filter: blur(2px) !important;
+  }
+}
