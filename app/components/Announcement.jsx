@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { storageStore } from '../stores';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.3.2.1';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.3.3';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -109,8 +109,9 @@ export default function Announcement() {
                 paddingRight: '4px'
               }}
             >
-              <p>服务器升级通知：</p>
-              <p>服务器将于今晚11:00(北京时间)进行升级维护，届时将有1小时后端服务不可用。</p>
+              <p>v2.3.3 版本更新内容：</p>
+              <p>1. 优化净值更新判断。</p>
+              <p>2. 调整 T+2 类型基金当日收益计算方式。</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button

@@ -118,6 +118,7 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
           if (!Number.isFinite(earnings) || !Number.isFinite(baseCostAmount) || baseCostAmount <= 0) return null;
           return (earnings / baseCostAmount) * 100;
         };
+        const refreshDateStr = dayjs().tz(TZ).format('YYYY-MM-DD');
 
         const calcLatestDayFromFund = (u, share, baseCostAmount) => {
           const nav = Number(u?.dwjz);
@@ -276,6 +277,16 @@ export function useRefreshManager({ scheduleDcaTrades, processPendingQueue, devi
             data.gztime = oldData.gztime;
             if (oldData.valuationSource) data.valuationSource = oldData.valuationSource;
             data.noValuation = false;
+          }
+
+          const currentNavDate = isValidDateStr(data.jzrq) ? data.jzrq : null;
+          const previousNavDate = isValidDateStr(oldData?.jzrq) ? oldData.jzrq : null;
+          if (currentNavDate && previousNavDate && currentNavDate > previousNavDate) {
+            data.navUpdatedAt = refreshDateStr;
+          } else if (currentNavDate && previousNavDate === currentNavDate && oldData?.navUpdatedAt === refreshDateStr) {
+            data.navUpdatedAt = oldData.navUpdatedAt;
+          } else if (data.navUpdatedAt !== undefined) {
+            delete data.navUpdatedAt;
           }
 
           updated.push(data);
