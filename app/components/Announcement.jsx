@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { storageStore } from '../stores';
 
-const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.3.2';
+const ANNOUNCEMENT_KEY = 'hasClosedAnnouncement_v2.3.2.1';
 
 export default function Announcement() {
   const [isVisible, setIsVisible] = useState(false);
@@ -109,10 +109,8 @@ export default function Announcement() {
                 paddingRight: '4px'
               }}
             >
-              <p>v2.3.2 版本更新内容：</p>
-              <p>1. 新增数据源4（部分QDII）。</p>
-              <p>2. 新增表格分页。</p>
-              <p>3. 修复云端拉取排序个性化数据未生效问题。</p>
+              <p>服务器升级通知：</p>
+              <p>服务器将于今晚11:00(北京时间)进行升级维护，届时将有1小时后端服务不可用。</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
