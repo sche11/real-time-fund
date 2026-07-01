@@ -166,7 +166,7 @@ export function migrateDcaPlansToScoped(raw) {
  * - confirmDays <= 1（普通 A 股基金）：净值日期 >= 今天或之前最近的交易日
  *   即视为已更新。例如周六查看周五净值 → 已更新；国庆长假查看节前净值 → 已更新。
  * - confirmDays >= 2（QDII 等跨境基金）：净值日期与今天之间相隔的交易日数
- *   <= confirmDays 即视为已更新。使用交易日而非自然日，精确覆盖周末与长假。
+ *   < confirmDays 即视为已更新。使用交易日而非自然日，精确覆盖周末与长假。
  *
  * @param {string} jzrq - 基金净值日期，格式 YYYY-MM-DD
  * @param {string} todayStr - 今天日期，格式 YYYY-MM-DD
@@ -186,7 +186,7 @@ export function isNavUpdated(jzrq, todayStr, confirmDays) {
     return toTz(jzrq).startOf('day').isSameOrAfter(prevTD, 'day');
   }
 
-  // QDII 等延迟基金：净值日期与今天之间的交易日数 <= confirmDays
+  // QDII 等延迟基金：净值日期与今天之间的交易日数 < confirmDays
   const tradingDays = countTradingDaysBetween(jzrq, todayStr, toTz);
-  return tradingDays >= 0 && tradingDays <= days;
+  return tradingDays >= 0 && tradingDays < days;
 }

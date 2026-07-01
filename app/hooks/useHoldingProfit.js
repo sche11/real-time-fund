@@ -1,8 +1,8 @@
 import { useCallback, useRef } from 'react';
 import { isArray, isNumber, isString } from 'lodash';
 import { useStorageStore } from '../stores';
-import { useTradingDay } from './useTradingDay';
 import { formatDate, toTz, isNavUpdated } from '../lib/fundHelpers';
+import { countTradingDaysBetween } from '../lib/tradingCalendar';
 
 /**
  * 基金持仓与当日/累计收益计算逻辑自定义 Hook
@@ -10,7 +10,6 @@ import { formatDate, toTz, isNavUpdated } from '../lib/fundHelpers';
  * @param {string | null} deps.activeGroupId - 当前活跃分组 ID
  */
 export function useHoldingProfit({ activeGroupId } = {}) {
-  const { isTradingDay } = useTradingDay();
   const todayStr = formatDate();
   const cacheRef = useRef(new Map());
 
@@ -25,12 +24,15 @@ export function useHoldingProfit({ activeGroupId } = {}) {
       const hasExactTodayData = isString(fund.jzrq) && fund.jzrq === todayStr;
       const hasTodayData = isNavUpdated(fund.jzrq, todayStr, fund.confirmDays);
       const hasTodayValuation = isString(fund.gztime) && fund.gztime.startsWith(todayStr);
-      const navUpdatedAtToday = isString(fund.navUpdatedAt) && fund.navUpdatedAt === todayStr;
+      const navTradingDayLag =
+        isDelayedConfirmFund && isString(fund.jzrq) && fund.jzrq
+          ? countTradingDaysBetween(fund.jzrq, todayStr, toTz)
+          : null;
       const shouldUseConfirmedNav =
-        hasExactTodayData || (isDelayedConfirmFund ? hasTodayData && navUpdatedAtToday : hasTodayData);
-      // T+2 等延迟基金：白天净值未更新时用今日估值；晚间净值日期推进后，切回确权净值。
-      const useValuation = hasTodayValuation && !shouldUseConfirmedNav ? true : isTradingDay && !hasTodayData;
-      const canCalcTodayProfit = shouldUseConfirmedNav || hasTodayValuation;
+        hasExactTodayData || (isDelayedConfirmFund ? hasTodayData && navTradingDayLag === 1 : hasTodayData);
+      // T+2 等延迟基金：净值日期只落后 1 个交易日时用确权净值；否则仅在今日估值存在时用估值。
+      const useValuation = hasTodayValuation && !shouldUseConfirmedNav;
+      const canCalcTodayProfit = shouldUseConfirmedNav || useValuation;
       const profitBasisDate =
         canCalcTodayProfit && !useValuation && isString(fund.jzrq) && fund.jzrq ? fund.jzrq : todayStr;
 
@@ -242,7 +244,7 @@ export function useHoldingProfit({ activeGroupId } = {}) {
         principalToday: isNumber(holding.cost) ? holding.cost * shareForTodayProfit : 0
       };
     },
-    [isTradingDay, todayStr, activeGroupId]
+    [todayStr, activeGroupId]
   );
 
   return { getHoldingProfit };
