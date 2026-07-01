@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import UsageTipsCarousel from './UsageTipsCarousel';
 
 export default function SuccessModal({ message, onClose, overlayStyle, cardStyle }) {
   return (
@@ -28,7 +29,10 @@ export default function SuccessModal({ message, onClose, overlayStyle, cardStyle
         <div className="success-message" style={{ textAlign: 'center', padding: '20px 0' }}>
           <div style={{ fontSize: '48px', marginBottom: 16 }}>🎉</div>
           <h3 style={{ marginBottom: 8 }}>{message}</h3>
-          <p className="muted">操作已完成，您可以继续使用。</p>
+          <p className="muted" style={{ marginBottom: 20 }}>
+            操作已完成，您可以继续使用。
+          </p>
+          <UsageTipsCarousel style={{ marginBottom: 0 }} />
           <motion.button
             whileTap={{ scale: 0.96 }}
             whileHover={{ scale: 1.01 }}
@@ -39,7 +43,7 @@ export default function SuccessModal({ message, onClose, overlayStyle, cardStyle
               onClose();
             }}
             style={{
-              marginTop: 24,
+              marginTop: 20,
               width: '100%',
               pointerEvents: 'auto',
               display: 'flex',

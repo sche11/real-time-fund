@@ -55,11 +55,26 @@ export function useScanImport({
     useModalStore.setState({
       isScanImporting: isFunction(v) ? v(useModalStore.getState().isScanImporting) : v
     });
-  const [scannedFunds, setScannedFunds] = useState([]);
-  const [selectedScannedCodes, setSelectedScannedCodes] = useState(new Set());
-  const [scanImportProgress, setScanImportProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 });
-  const [scanProgress, setScanProgress] = useState({ stage: 'ocr', current: 0, total: 0 });
-  const [isOcrScan, setIsOcrScan] = useState(false);
+  const scannedFunds = useModalStore((s) => s.scannedFunds);
+  const selectedScannedCodes = useModalStore((s) => s.selectedScannedCodes);
+  const scanImportProgress = useModalStore((s) => s.scanImportProgress);
+  const scanProgress = useModalStore((s) => s.scanProgress);
+  const isOcrScan = useModalStore((s) => s.isOcrScan);
+
+  const setScannedFunds = (v) =>
+    useModalStore.setState({ scannedFunds: isFunction(v) ? v(useModalStore.getState().scannedFunds) : v });
+  const setSelectedScannedCodes = (v) =>
+    useModalStore.setState({
+      selectedScannedCodes: isFunction(v) ? v(useModalStore.getState().selectedScannedCodes) : v
+    });
+  const setScanImportProgress = (v) =>
+    useModalStore.setState({
+      scanImportProgress: isFunction(v) ? v(useModalStore.getState().scanImportProgress) : v
+    });
+  const setScanProgress = (v) =>
+    useModalStore.setState({ scanProgress: isFunction(v) ? v(useModalStore.getState().scanProgress) : v });
+  const setIsOcrScan = (v) =>
+    useModalStore.setState({ isOcrScan: isFunction(v) ? v(useModalStore.getState().isOcrScan) : v });
   const [lastOcrTexts, setLastOcrTexts] = useState([]);
 
   const abortScanRef = useRef(false);
@@ -212,7 +227,13 @@ export function useScanImport({
     if (abortScanRef.current) return;
 
     setScannedFunds(results);
-    setSelectedScannedCodes(new Set(results.filter((r) => r.status === 'ok').map((r) => r.code)));
+    setSelectedScannedCodes(
+      new Set(
+        results
+          .filter((r) => r.status === 'ok' || (r.status === 'added' && (r.holdAmounts !== '' || r.holdGains !== '')))
+          .map((r) => r.code)
+      )
+    );
     setIsOcrScan(true);
     setScanConfirmModalOpen(true);
   };

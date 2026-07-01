@@ -126,6 +126,11 @@ function ModalsLayerContent({ callbacksRef }) {
   const scanConfirmModalOpen = useModalStore((s) => s.scanConfirmModalOpen);
   const isScanning = useModalStore((s) => s.isScanning);
   const isScanImporting = useModalStore((s) => s.isScanImporting);
+  const scannedFunds = useModalStore((s) => s.scannedFunds);
+  const selectedScannedCodes = useModalStore((s) => s.selectedScannedCodes);
+  const scanProgress = useModalStore((s) => s.scanProgress);
+  const scanImportProgress = useModalStore((s) => s.scanImportProgress);
+  const isOcrScan = useModalStore((s) => s.isOcrScan);
 
   // ---- Modal setter 兼容层（直接操作 Zustand，不订阅）----
   const _ms = useModalStore.setState;
@@ -884,8 +889,8 @@ function ModalsLayerContent({ callbacksRef }) {
       <AnimatePresence>
         {scanConfirmModalOpen && (
           <ScanImportConfirmModal
-            scannedFunds={cb.current.scannedFunds}
-            selectedScannedCodes={cb.current.selectedScannedCodes}
+            scannedFunds={scannedFunds}
+            selectedScannedCodes={selectedScannedCodes}
             onClose={() => setScanConfirmModalOpen(false)}
             onToggle={cb.current.toggleScannedCode}
             onConfirm={cb.current.confirmScanImport}
@@ -894,7 +899,7 @@ function ModalsLayerContent({ callbacksRef }) {
             groups={cb.current.groups}
             existingAllCodes={(cb.current.funds || []).map((f) => f?.code).filter(Boolean)}
             existingFavCodes={Array.from(cb.current.favorites || new Set())}
-            isOcrScan={cb.current.isOcrScan}
+            isOcrScan={isOcrScan}
             currentGroup={cb.current.currentTab === 'summary' ? 'all' : cb.current.currentTab}
           />
         )}
@@ -929,12 +934,12 @@ function ModalsLayerContent({ callbacksRef }) {
 
       {/* ===== Modal: 扫描进度 ===== */}
       <AnimatePresence>
-        {isScanning && <ScanProgressModal scanProgress={cb.current.scanProgress} onCancel={cb.current.cancelScan} />}
+        {isScanning && <ScanProgressModal scanProgress={scanProgress} onCancel={cb.current.cancelScan} />}
       </AnimatePresence>
 
       {/* ===== Modal: 扫描导入进度 ===== */}
       <AnimatePresence>
-        {isScanImporting && <ScanImportProgressModal scanImportProgress={cb.current.scanImportProgress} />}
+        {isScanImporting && <ScanImportProgressModal scanImportProgress={scanImportProgress} />}
       </AnimatePresence>
 
       {/* ===== Modal: 登录 ===== */}

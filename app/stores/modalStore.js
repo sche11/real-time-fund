@@ -65,7 +65,12 @@ const getClosedModalState = () => ({
   scanModalOpen: false,
   scanConfirmModalOpen: false,
   isScanning: false,
-  isScanImporting: false
+  isScanImporting: false,
+  scannedFunds: [],
+  selectedScannedCodes: new Set(),
+  scanProgress: { stage: 'ocr', current: 0, total: 0 },
+  scanImportProgress: { current: 0, total: 0, success: 0, failed: 0 },
+  isOcrScan: false
 });
 
 export const useModalStore = create((set, get) => ({
@@ -125,6 +130,11 @@ export const useModalStore = create((set, get) => ({
   scanConfirmModalOpen: false,
   isScanning: false,
   isScanImporting: false,
+  scannedFunds: [],
+  selectedScannedCodes: new Set(),
+  scanProgress: { stage: 'ocr', current: 0, total: 0 },
+  scanImportProgress: { current: 0, total: 0, success: 0, failed: 0 },
+  isOcrScan: false,
   modalErrorResetKey: 0,
 
   // ---- Actions ----

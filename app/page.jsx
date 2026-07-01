@@ -1981,6 +1981,16 @@ export default function HomePage() {
     scrollAreaRef.current.scrollBy({ left: 200, behavior: 'smooth' });
   };
 
+  const scrollTabsToLeftEnd = () => {
+    if (!scrollAreaRef.current) return;
+    scrollAreaRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+  };
+
+  const scrollTabsToRightEnd = () => {
+    if (!scrollAreaRef.current) return;
+    scrollAreaRef.current.scrollTo({ left: scrollAreaRef.current.scrollWidth, behavior: 'smooth' });
+  };
+
   const handleTabClick = (tabId) => {
     if (dragStateRef.current.hasDragged) return;
     startTransition(() => setCurrentTab(tabId));
@@ -4689,7 +4699,9 @@ export default function HomePage() {
                               transition={{ duration: 0.15 }}
                               className={`tabs-scroll-btn left ${!canLeft ? 'opacity-30 cursor-not-allowed' : ''}`}
                               disabled={!canLeft}
+                              title="单击向左滚动，双击滚动到最左端"
                               onClick={scrollTabsLeftBtn}
+                              onDoubleClick={scrollTabsToLeftEnd}
                             >
                               <ChevronLeft size={16} />
                             </motion.button>
@@ -4702,7 +4714,9 @@ export default function HomePage() {
                               transition={{ duration: 0.15 }}
                               className={`tabs-scroll-btn right ${!canRight ? 'opacity-30 cursor-not-allowed' : ''}`}
                               disabled={!canRight}
+                              title="单击向右滚动，双击滚动到最右端"
                               onClick={scrollTabsRightBtn}
+                              onDoubleClick={scrollTabsToRightEnd}
                             >
                               <ChevronRight size={16} />
                             </motion.button>

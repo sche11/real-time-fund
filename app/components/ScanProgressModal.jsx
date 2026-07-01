@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import UsageTipsCarousel from './UsageTipsCarousel';
 
 export default function ScanProgressModal({ scanProgress, onCancel }) {
   return (
@@ -18,7 +19,7 @@ export default function ScanProgressModal({ scanProgress, onCancel }) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         className="glass card modal"
-        style={{ width: 320, maxWidth: '90vw', textAlign: 'center', padding: '24px' }}
+        style={{ width: 340, maxWidth: '90vw', textAlign: 'center', padding: '24px' }}
       >
         <div style={{ marginBottom: 16 }}>
           <div
@@ -44,6 +45,7 @@ export default function ScanProgressModal({ scanProgress, onCancel }) {
               : `已处理 ${scanProgress.current} / ${scanProgress.total} 张图片`}
           </div>
         )}
+        <UsageTipsCarousel />
         <button className="button danger" onClick={onCancel} style={{ width: '100%' }}>
           终止识别
         </button>
